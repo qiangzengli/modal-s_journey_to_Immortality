@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <title>凡人修仙传：七玄门</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <main id="game-shell">
+    <div id="scene"></div>
+    <div id="chapter-card" class="chapter-card">
+      <span>第一章</span><strong>七玄门与墨府</strong><small>凡人踏上修仙路的起点</small>
+    </div>
+
+    <header class="hud top-hud">
+      <div><span class="eyebrow">七玄门 · 第一章</span><h1>凡人修仙传</h1></div>
+      <div class="hud-actions"><span id="realm">凡人</span><button id="save" title="保存进度">保存</button></div>
+    </header>
+
+    <section class="quest-panel hud">
+      <div class="quest-heading"><span class="eyebrow">当前主线</span><span id="quest-count">1 / 12</span></div>
+      <strong id="quest">山门试炼</strong>
+      <p id="objective">前往山门，与七玄门执事交谈</p>
+      <small id="location">地点：七玄门山门</small>
+      <div class="quest-progress"><i id="quest-progress"></i></div>
+    </section>
+
+    <section id="party" class="party-panel hud"></section>
+    <div id="target-hint" class="target-hint"><span>◆</span><b id="target-name">七玄门执事</b><small id="target-distance">12 米</small></div>
+    <div id="toast" class="toast"></div>
+
+    <div id="dialog" class="dialog hidden">
+      <img id="dialog-portrait" alt="角色立绘">
+      <div class="dialog-copy"><div class="dialog-name" id="dialog-name"></div><div class="dialog-text" id="dialog-text"></div></div>
+      <button id="dialog-next">继续</button>
+    </div>
+
+    <div id="battle" class="battle-screen hidden">
+      <div class="battle-top"><div><span class="eyebrow">剧情战斗</span><h2 id="battle-title">墨大夫</h2></div><span id="turn-label">我方回合</span></div>
+      <div class="battle-stage">
+        <div class="fighter ally-fighter"><img src="./assets/generated/hanli.png" alt="韩立"><span>韩立</span></div>
+        <div class="turn-order"><b>行动顺序</b><i>韩</i><i>敌</i><i>韩</i></div>
+        <div class="fighter enemy-fighter"><img id="enemy-image" src="./assets/generated/modafu.png" alt="敌人"><span id="enemy-name">墨大夫</span></div>
+      </div>
+      <div class="battle-status"><div><span>韩立</span><i><b id="hero-hp"></b></i></div><div><span id="enemy-hp-name">墨大夫</span><i><b id="enemy-hp"></b></i></div></div>
+      <div id="battle-log" class="battle-log">灵力涌动，战斗开始。</div>
+      <div class="battle-actions"><button data-action="attack"><b>剑</b><span>普攻</span></button><button data-action="spell"><b>灵</b><span>长春功</span></button><button data-action="item"><b>丹</b><span>回灵丹</span></button><button data-action="guard"><b>御</b><span>防御</span></button></div>
+    </div>
+
+    <div id="joystick" class="joystick"><span></span></div>
+    <button id="interact" class="interact hidden"><span>◆</span><b id="interact-label">互动</b></button>
+    <nav class="bottom-bar"><button id="journal">任务</button><button id="bag">储物袋</button><button id="auto">自动：关</button></nav>
+  </main>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
