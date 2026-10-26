@@ -6,6 +6,39 @@ import { questSteps } from './content.js';
 function act(game, type, target) { return applyAction(game, { type, target }).game; }
 function next(game) { return advanceTurn(game).game; }
 
+test('新局和行动点耗尽的旧存档均可连续交谈、往返地图，无需推进时间', () => {
+  for (const source of [createGame(), { ...createGame(), ap: 0 }]) {
+    const snapshot = structuredClone(source);
+    let game = source;
+    for (let i = 0; i < 8; i++) {
+      game = act(game, 'ask', 'shen');
+      game = act(game, 'travel_woods');
+      game = act(game, 'travel_market');
+    }
+    assert.equal(game.turn, 1);
+    assert.equal(game.player.stones, 180);
+    assert.equal(getView(game).ap, null);
+    assert.equal(getView(source).actionOptions.travel_woods.available, true);
+    assert.deepEqual(source, snapshot);
+    game = next(game);
+    assert.equal(game.turn, 2);
+    assert.equal(game.flags.xuLoan, 50);
+    assert.equal(getView(game).ap, null);
+  }
+});
+
+test('不限行动次数仍按实际资源收费，资源不足的行动不会执行', () => {
+  let game = createGame();
+  for (let i = 0; i < 5; i++) game = act(game, 'buy_talisman');
+  assert.equal(game.turn, 1);
+  assert.equal(game.player.stones, 5);
+  assert.equal(game.player.talismans, 6);
+  const snapshot = structuredClone(game);
+  assert.throws(() => act(game, 'buy_talisman'), /灵石不足/);
+  assert.deepEqual(game, snapshot);
+  assert.equal(getView(game).actionOptions.buy_talisman.available, false);
+});
+
 test('跨路线获得丹药后，指引跳过无用前置但不误报已完成', () => {
   let game = act(createGame(), 'investigate_route');
   game = act(game, 'report');
@@ -26,7 +59,7 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   game = act(game, 'inspect_pill');
   game = act(game, 'partner');
   game = act(game, 'sell_herbs');
-  assert.equal(game.ap, 0);
+  assert.equal(game.ap, null);
   game = next(game);
   assert.equal(game.pill.owner, 'shen');
   assert.ok(game.events.some(e => e.actor === '白芷' && /炼好续命药/.test(e.text)));
@@ -169,7 +202,7 @@ test('调息按实际缺损恢复，满血不扣费；天雷符交易守恒', ()
   const rested = applyAction(game, { type: 'rest' }).game;
   assert.equal(rested.player.hp, 100);
   assert.equal(rested.player.stones, 170);
-  assert.equal(rested.ap, 2);
+  assert.equal(rested.ap, null);
   assert.throws(() => applyAction(rested, { type: 'rest' }), /无需调息/);
   rested.player.place = 'market';
   const bought = applyAction(rested, { type: 'buy_talisman' }).game;

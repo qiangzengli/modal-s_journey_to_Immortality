@@ -10,7 +10,7 @@
   <header class="topbar">
     <div class="brand"><span class="brand-mark">逆</span><div><strong>逆命录</strong><small>一场机缘 · 众生因果</small></div></div>
     <div class="resource-strip"><span class="realm-chip" id="realm">炼气九层</span><span title="可用于买卖、调息与布置"><i>◆</i> <b id="hud-stones">180</b> <small>灵石</small></span><span class="health-resource"><small>气血</small><span class="health-track"><i id="hp-fill"></i></span><b id="hud-hp">100</b></span><span class="reputation-resource"><small>声望</small> <b id="hud-reputation">50</b></span></div>
-    <div class="top-actions"><div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b id="ap">3</b> 次</small></div><button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button></div>
+    <div class="top-actions"><div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b>不限</b></small></div><button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button></div>
   </header>
   <div class="world-top"><span class="eyebrow">乱星海 · 东境</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击人物交谈，探索属于你的机缘</span></div>
 
@@ -23,7 +23,7 @@
     <div class="character-heading"><span id="person-seal" class="person-seal">沈</span><div><small id="world-role"></small><strong id="world-name"></strong></div></div>
     <div id="person-meta" class="person-meta"></div><p id="world-goal"></p><blockquote id="person-dialogue" hidden></blockquote>
     <div id="world-actions" class="context-actions"></div>
-    <form id="trade-form" class="trade-form" hidden><label for="trade-offer">当面议价 <small>被拒绝也消耗 1 行动</small></label><div class="offer-row"><input id="trade-offer" type="number" min="1" max="9999" value="200" required aria-label="灵石报价"><span>灵石</span><button type="submit">递上报价</button></div><label class="sr-only" for="trade-leverage">议价筹码</label><select id="trade-leverage"><option value="none">仅凭报价</option></select></form>
+    <form id="trade-form" class="trade-form" hidden><label for="trade-offer">当面议价 <small>报价过低可能降低信任</small></label><div class="offer-row"><input id="trade-offer" type="number" min="1" max="9999" value="200" required aria-label="灵石报价"><span>灵石</span><button type="submit">递上报价</button></div><label class="sr-only" for="trade-leverage">议价筹码</label><select id="trade-leverage"><option value="none">仅凭报价</option></select></form>
     <details id="person-memory"><summary>与你有关的往事</summary><div id="memory-list"></div></details>
   </section>
 
@@ -40,10 +40,10 @@
 
   <nav class="map-nav" aria-label="地图功能"><button type="button" data-open-panel="opportunity"><i>◇</i>机缘</button><button type="button" data-open-panel="self"><i>▧</i>行囊</button><button type="button" data-open-panel="people"><i>♧</i>人物</button><button type="button" data-open-panel="actions"><i>⚒</i>行动</button><button type="button" data-open-panel="events"><i>≋</i>邸报 <b id="news-count" hidden>0</b></button></nav>
 
-  <section class="command-dock" aria-label="自然语言行动"><div class="command-caption"><span>心念传音</span><small id="command-status">一次计策 · 一次行动</small></div><form id="command-form"><label class="sr-only" for="command">写下你的计策</label><textarea id="command" maxlength="280" rows="1" placeholder="例如：我拿货道证词压价，出价 200 灵石买丹。"></textarea><button id="command-submit" class="primary" type="submit">落子 <span>↗</span></button></form><div id="message" class="message" role="status" aria-live="polite">先观察持丹者与人物的动向，再决定如何落子。</div></section>
+  <section class="command-dock" aria-label="自然语言行动"><div class="command-caption"><span>心念传音</span><small id="command-status">行动不限 · 时间手动推进</small></div><form id="command-form"><label class="sr-only" for="command">写下你的计策</label><textarea id="command" maxlength="280" rows="1" placeholder="例如：我拿货道证词压价，出价 200 灵石买丹。"></textarea><button id="command-submit" class="primary" type="submit">落子 <span>↗</span></button></form><div id="message" class="message" role="status" aria-live="polite">先观察持丹者与人物的动向，再决定如何落子。</div></section>
 
   <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="坊市与黑风林导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
-  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击空地自动绕路，点击人物和地点靠近。</p><p>WASD / 方向键移动 · Q / E 旋转 · 滚轮缩放 · Esc 收起浮层</p><p>每旬 3 次行动。交易、调查、跨界门会消耗行动；在同一区域走动不消耗。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
+  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击空地自动绕路，点击人物和地点靠近。</p><p>WASD / 方向键移动 · Q / E 旋转 · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；点击「推进一旬」才会推进时间并结算世界事件。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
   <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
   <section id="turn-summary" class="turn-summary" aria-label="本旬动向" hidden><div><span class="eyebrow">时序流转</span><button id="summary-close" class="icon-close" type="button" aria-label="关闭本旬动向">×</button></div><h2 id="summary-title"></h2><div id="summary-events"></div><button id="summary-continue" class="primary" type="button">继续游历 →</button></section>
   <dialog id="ending" class="ending"><span class="ending-seal">筑</span><p class="eyebrow">道途初开</p><h2>一念破境，因果未了。</h2><p id="ending-copy"></p><div id="ending-stats"></div><button id="ending-close" class="primary" type="button">回到这片修真界 →</button></dialog>

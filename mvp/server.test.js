@@ -13,6 +13,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
   const savePath = join(directory, 'save.json');
   const old = createGame();
   old.turn = 2;
+  old.ap = 0;
   old.player.hp = 70;
   old.player.stones = 170;
   delete old.player.dialogues;
@@ -55,6 +56,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     await start();
     const initial = (await (await fetch(origin + '/api/state')).json()).view;
     assert.equal(initial.turn, 2);
+    assert.equal(initial.ap, null);
     assert.equal(initial.player.hp, 70);
     assert.equal(initial.player.stones, 170);
     assert.deepEqual(initial.player.dialogues, {});
@@ -71,6 +73,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.deepEqual(stale.view, bought.view);
     const saved = JSON.parse(await readFile(savePath, 'utf8'));
     assert.equal(saved.revision, 1);
+    assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
     for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js']) {

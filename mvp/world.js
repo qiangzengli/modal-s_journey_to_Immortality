@@ -249,7 +249,7 @@ function createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleT
   makeLantern(scene, -2.9, 2.8);
   makeLantern(scene, -24.2, 1.8);
 
-  // 界门是两处场景的真实连接点，点击后消耗一次行动进入另一侧。
+  // 界门连接两处场景，可自由往返。
   const gate = new THREE.Group();
   gate.position.set(0, 0, 0);
   scene.add(gate);
@@ -435,9 +435,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function sync(nextView) {
-    const previousAp = view?.ap;
     view = nextView;
-    if (previousAp === 0 && nextView.ap > 0) travelArmed = true;
     if (!initialized || place !== nextView.player.place) {
       initialized = true;
       place = nextView.player.place;
@@ -566,7 +564,6 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   function attemptTravel() {
     if (travelPending || busy || !travelArmed || !view) return;
     travelArmed = false;
-    if (!view.ap) { onHint('本旬行动点不足。先推进一旬再通过界门。'); return; }
     travelPending = true;
     const next = place === MARKET ? WOODS : MARKET;
     Promise.resolve(onTravel(next)).finally(() => { travelPending = false; });
@@ -600,7 +597,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       travelArmed = true;
       select(null);
       walkTo(place === MARKET ? -2.2 : 2.2, 0, attemptTravel);
-      onHint(place === MARKET ? '正在走向界门，进入黑风林会消耗 1 次行动。' : '正在走向界门，回坊市会消耗 1 次行动。');
+      onHint(place === MARKET ? '正在走向界门，前往黑风林。' : '正在走向界门，返回坊市。');
       return;
     }
     const activePeople = Object.values(people).filter(actor => actor.visible);
@@ -628,7 +625,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         travelArmed = true;
         select(null);
         walkTo(place === MARKET ? -2.2 : 2.2, 0, attemptTravel);
-        onHint(place === MARKET ? '正在经过界门前往黑风林，消耗 1 次行动。' : '正在经过界门返回坊市，消耗 1 次行动。');
+        onHint(place === MARKET ? '正在经过界门前往黑风林。' : '正在经过界门返回坊市。');
       } else {
         select(null);
         walkTo(x, groundHit.point.z);

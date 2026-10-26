@@ -33,11 +33,6 @@ function know(game, id, fact, eventId) {
   if (!person.knowledge[fact]) person.knowledge[fact] = eventId;
 }
 
-function spend(game, amount = 1) {
-  if (game.ap < amount) throw new GameError('本旬行动点不足。先点击「推进一旬」。');
-  game.ap -= amount;
-}
-
 function at(game, place) {
   if (game.player.place !== place) {
     throw new GameError(place === MARKET ? '这件事需要回到地下坊市。' : '这件事需要先到黑风林。');
@@ -63,7 +58,7 @@ export function createGame() {
   const game = {
     version: 2,
     turn: 1,
-    ap: 3,
+    ap: null, // null 表示不限行动次数，兼容原有存档字段。
     nextId: 1,
     player: { place: MARKET, stones: 180, hp: 100, reputation: 50, herbs: 1, talismans: 1, seal: 0, clues: [], clueEvents: {}, dialogues: {} },
     people,
@@ -136,6 +131,7 @@ export function dialogueFor(game, target) {
 export function applyAction(source, action) {
   if (!action || !ACTIONS.includes(action.type)) throw new GameError('未识别的行动。可以试试「验丹」「调查货道」「找徐宁合资」。');
   const game = structuredClone(source);
+  game.ap = null;
   const type = action.type;
   const target = action.target;
   let result = '';
@@ -145,7 +141,6 @@ export function applyAction(source, action) {
       const person = game.people[target];
       if (!person) throw new GameError('请选择一位在场人物交谈。');
       if (person.place !== game.player.place) throw new GameError(`${person.name}不在此处。`);
-      spend(game);
       result = dialogueFor(game, target);
       game.player.dialogues ??= {};
       game.player.dialogues[target] = { turn: game.turn, text: result };
@@ -158,7 +153,6 @@ export function applyAction(source, action) {
       if (game.people.shen.place !== MARKET) throw new GameError('沈秋已带丹药离开坊市，白芷现在无法当面验丹。');
       if (game.player.clues.includes('authentic')) throw new GameError('白芷已为这枚丹药落印，无需重复鉴定。');
       requireStones(game, 10);
-      spend(game);
       game.player.stones -= 10;
       game.people.bai.stones += 10;
       game.player.clues.push('authentic');
@@ -171,7 +165,6 @@ export function applyAction(source, action) {
     case 'investigate_route': {
       at(game, MARKET);
       if (game.player.clues.includes('smuggling')) throw new GameError('你已拿到宁素的货道证词。');
-      spend(game);
       game.player.clues.push('smuggling');
       const id = note(game, '宁素', '宁素向你提供了禁运货道的车号与时间，可交给陆执事核对。', [1], 'player');
       game.player.clueEvents.smuggling = id;
@@ -184,7 +177,6 @@ export function applyAction(source, action) {
       hasPill(game, 'shen');
       if (game.flags.partner || game.flags.partnerDebt) throw new GameError('你与徐宁的合资约定尚未结清。');
       if (!game.player.clues.includes('authentic')) throw new GameError('徐宁不愿盲目出资。先请白芷验丹。');
-      spend(game);
       game.people.xu.stones -= 100;
       game.player.stones += 100;
       game.flags.partner = true;
@@ -202,7 +194,6 @@ export function applyAction(source, action) {
       if (owner === 'shen' && game.people.shen.place !== MARKET) throw new GameError('沈秋不在坊市，无法在此向他买丹。');
       const price = owner === 'lu' ? 150 : game.pill.price;
       requireStones(game, price);
-      spend(game);
       game.player.stones -= price;
       game.pill.owner = 'player';
       if (owner === 'shen') game.people.shen.stones += price;
@@ -221,7 +212,6 @@ export function applyAction(source, action) {
       if (!['none', 'smuggling', 'authentic'].includes(leverage)) throw new GameError('这项筹码无法核对。');
       if (leverage !== 'none' && !game.player.clues.includes(leverage)) throw new GameError('你尚未掌握所声称的证据，无法据此议价。');
       requireStones(game, offer);
-      spend(game);
       const minimum = leverage === 'smuggling' ? 200 : game.flags.disputed ? 190 : 240;
       const causes = leverage === 'none' ? [1] : [game.player.clueEvents[leverage]];
       if (offer < minimum) {
@@ -241,7 +231,6 @@ export function applyAction(source, action) {
     case 'sell_herbs': {
       at(game, MARKET);
       if (!game.player.herbs) throw new GameError('你的药草已经卖出。');
-      spend(game);
       game.player.herbs -= 1;
       game.player.stones += 80;
       game.people.bai.stones -= 80;
@@ -252,7 +241,6 @@ export function applyAction(source, action) {
     case 'gather_herbs': {
       at(game, WOODS);
       if (game.flags.herbGathered >= 2) throw new GameError('这片林道的灵草已采尽。');
-      spend(game);
       game.flags.herbGathered += 1;
       game.player.herbs += 1;
       note(game, '你', '你冒险深入林道，采到一株可卖给白芷的灵草。', [], 'player');
@@ -264,7 +252,6 @@ export function applyAction(source, action) {
       hasPill(game, 'shen');
       if (!game.player.clues.includes('smuggling')) throw new GameError('陆执事需要能核对的货道线索。先找宁素调查。');
       if (game.flags.report) throw new GameError('陆执事已经收到你的证词。');
-      spend(game);
       const id = note(game, '你', '你把宁素的车号和时间交给陆执事，要求查验沈秋所售的丹药。', [], 'player');
       game.flags.report = id;
       know(game, 'lu', 'smuggling', id);
@@ -275,7 +262,6 @@ export function applyAction(source, action) {
       at(game, MARKET);
       hasPill(game, 'shen');
       if (game.flags.lured) throw new GameError('沈秋已答应在黑风林验货。');
-      spend(game);
       game.flags.lured = note(game, '你', '你以避开坊市耳目为由，约沈秋下旬在黑风林验货。', [], 'player');
       know(game, 'shen', 'woods_meeting', game.flags.lured);
       result = '沈秋答应赴约。先到黑风林准备，推进一旬后他会抵达。';
@@ -285,7 +271,6 @@ export function applyAction(source, action) {
     case 'travel_market': {
       const destination = type === 'travel_woods' ? WOODS : MARKET;
       if (game.player.place === destination) throw new GameError('你已经在这里。');
-      spend(game);
       game.player.place = destination;
       note(game, '你', `前往${destination === WOODS ? '黑风林' : '地下坊市'}。`, [], 'player');
       result = destination === WOODS ? '你进入黑风林。寒沙正在附近观察来路。' : '你回到地下坊市。';
@@ -295,7 +280,6 @@ export function applyAction(source, action) {
       at(game, WOODS);
       if (game.flags.trap) throw new GameError('天雷符已经布好。');
       if (!game.player.talismans) throw new GameError('你没有天雷符，无法布阵。');
-      spend(game);
       game.player.talismans -= 1;
       game.flags.trap = note(game, '你', '你在林道布下天雷符，准备截住携丹者。', [], 'player');
       result = '天雷符已布好，消耗 1 张。斗法仍会消耗气血并招来追查。';
@@ -305,7 +289,6 @@ export function applyAction(source, action) {
       at(game, WOODS);
       hasPill(game, 'shen');
       if (game.people.shen.place !== WOODS) throw new GameError('沈秋不在黑风林。可以先约他出城，再推进一旬。');
-      spend(game);
       if (!game.flags.trap) {
         game.player.hp = Math.max(1, game.player.hp - 35);
         game.people.shen.trust -= 30;
@@ -326,7 +309,6 @@ export function applyAction(source, action) {
       at(game, MARKET);
       if (game.player.seal) throw new GameError('你手里已有空白鉴定印。');
       requireStones(game, 25);
-      spend(game);
       game.player.stones -= 25;
       game.people.qing.stones += 25;
       game.player.seal = 1;
@@ -340,7 +322,6 @@ export function applyAction(source, action) {
       hasPill(game, 'shen');
       if (!game.player.seal) throw new GameError('要伪造药师鉴定，需要先向青闻取得空白印。');
       if (game.flags.forged) throw new GameError('假鉴定已经传出。');
-      spend(game);
       game.player.seal = 0;
       game.flags.forged = note(game, '你', '你伪造“筑基丹有毒”的鉴定符，交给宁素传播。', [], 'player');
       know(game, 'ning', 'poison_rumor', game.flags.forged);
@@ -352,7 +333,6 @@ export function applyAction(source, action) {
       at(game, MARKET);
       if (!game.flags.partnerDebt) throw new GameError('当前没有待履行的合资承诺。');
       requireStones(game, game.flags.partnerDebt);
-      spend(game);
       game.player.stones -= game.flags.partnerDebt;
       game.people.xu.stones += game.flags.partnerDebt;
       note(game, '你', `你向徐宁付清 ${game.flags.partnerDebt} 灵石，履行合资承诺。`);
@@ -364,7 +344,6 @@ export function applyAction(source, action) {
     case 'buy_talisman': {
       at(game, MARKET);
       requireStones(game, 35);
-      spend(game);
       game.player.stones -= 35;
       game.people.qing.stones += 35;
       game.player.talismans += 1;
@@ -376,7 +355,6 @@ export function applyAction(source, action) {
       at(game, WOODS);
       if (game.player.hp >= 100) throw new GameError('气血已充盈，无需调息。');
       requireStones(game, 10);
-      spend(game);
       game.player.stones -= 10;
       const restored = Math.min(30, 100 - game.player.hp);
       game.player.hp += restored;
@@ -389,7 +367,6 @@ export function applyAction(source, action) {
       if (game.flags.playerBreakthrough) throw new GameError('你已完成筑基。未了的承诺与因果仍可继续处理。');
       hasPill(game, 'player');
       if (game.player.hp < 60) throw new GameError('气血不足 60，强行突破会伤及根基。先在听雨亭调息。');
-      spend(game);
       game.pill.owner = 'consumed';
       game.player.hp = Math.min(100, game.player.hp + 20);
       game.flags.playerBreakthrough = note(game, '你', '在听雨亭服下筑基丹，灵气贯通经脉。你踏入筑基初期，旧日的承诺与仇怨仍留在身后。', [game.flags.pillSale || game.flags.attacked].filter(Boolean));
@@ -408,7 +385,7 @@ function spreadKnowledge(game, from, fact, to, cause) {
 export function advanceTurn(source) {
   const game = structuredClone(source);
   game.turn += 1;
-  game.ap = 3;
+  game.ap = null;
   const started = game.events.length;
 
   // 宁素只传递自己确实收到的消息，消息来源留在事件账本中。
@@ -532,7 +509,7 @@ export function getView(game) {
   const pillOwner = game.pill.owner;
   return {
     turn: game.turn,
-    ap: game.ap,
+    ap: null,
     revision: game.revision || 0,
     player: structuredClone(game.player),
     pill: {

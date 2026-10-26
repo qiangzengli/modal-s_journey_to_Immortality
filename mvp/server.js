@@ -20,6 +20,7 @@ async function loadGame() {
       saved.player.dialogues ??= {};
       saved.flags.playerBreakthrough ??= 0;
       saved.revision ??= 0;
+      saved.ap = null;
       return saved;
     }
   } catch (error) {

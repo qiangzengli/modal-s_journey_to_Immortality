@@ -41,8 +41,8 @@ function closePerson() {
   $('#world-person').hidden = true;
 }
 function actionMarkup(type) {
-  const state = type === 'ask' ? { available: current.ap > 0, reason: '本旬行动点已用尽，先推进一旬。' } : current.actionOptions[type];
-  const def = defs[type] || { title: names[type], cost: '1 行动', detail: '听取对方当前的关切，记入往事。' };
+  const state = type === 'ask' ? { available: true, reason: '' } : current.actionOptions[type];
+  const def = defs[type] || { title: names[type], cost: '无资源消耗', detail: '听取对方当前的关切，记入往事。' };
   return `<button type="button" class="context-action" data-world-action="${type}" ${state.available ? '' : 'disabled'}><span><b>${esc(def.title)}</b><small>${esc(def.cost)}</small></span><i>${state.available ? '↗' : '·'}</i><em>${esc(state.available ? def.detail : state.reason)}</em></button>`;
 }
 function relationship(trust) { return trust >= 20 ? '信任' : trust <= -30 ? '敌视' : trust < 0 ? '戒备' : '初识'; }
@@ -65,7 +65,6 @@ function showPerson(id, focusUI = true) {
   $('#world-actions').innerHTML=options.map(actionMarkup).join('');
   $('#trade-form').hidden=!(id === 'shen' && current.pill.ownerId === 'shen' && current.player.place === 'market');
   $('#trade-leverage').innerHTML='<option value="none">仅凭报价</option>'+current.player.clues.map(clue => `<option value="${clue}">${clue === 'smuggling' ? '亮出货道证词' : '持真丹鉴定'}</option>`).join('');
-  $('#trade-form button').disabled=!current.ap;
   $('#person-memory').hidden=false;
   $('#memory-list').innerHTML=person.memories.map(event=>`<p><small>第 ${event.turn} 旬</small>${esc(event.text)}</p>`).join('') || '<p>尚无与你有关的往事。</p>';
   if (focusUI) $('#world-hint').textContent=`已走近${person.name}。先看清前提与代价，再落子。`;
@@ -126,8 +125,8 @@ function render(view, modelName) {
   if((selectedPerson&&view.people.find(p=>p.id===selectedPerson)?.place!==view.player.place)||(selectedSite&&view.player.place!=='woods'))closePerson();
   else if(selectedPerson)showPerson(selectedPerson,false);
   else if(selectedSite)showSite(selectedSite,false);
-  $('#turn').textContent=`第 ${view.turn} 旬`;$('#ap').textContent=view.ap;
-  $('#advance').title=view.ap?`推进时间，本旬剩余 ${view.ap} 次行动将不再保留`:'行动已用尽，推进一旬恢复';
+  $('#turn').textContent=`第 ${view.turn} 旬`;
+  $('#advance').title='推进时间，结算人物行动和世界事件';
   $('#realm').textContent=view.world.realm;
   $('#hud-stones').textContent=view.player.stones;$('#hud-hp').textContent=view.player.hp;$('#hud-reputation').textContent=view.player.reputation;
   $('#hp-fill').style.width=`${view.player.hp}%`;$('#hp-fill').classList.toggle('low',view.player.hp<60);
@@ -184,7 +183,7 @@ async function call(path,payload={}) {
     }
     return true;
   }catch(error){notice(error.message,true);$('#world-hint').textContent=error.message;return false;}
-  finally{busy=false;world.setBusy(false);document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');$('#command-status').textContent='一次计策 · 一次行动';}
+  finally{busy=false;world.setBusy(false);document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');$('#command-status').textContent='行动不限 · 时间手动推进';}
 }
 
 $('#world-actions').addEventListener('click',event=>{const button=event.target.closest('[data-world-action]');if(!button)return;const type=button.dataset.worldAction;call('/api/action',type==='ask'?{type,target:selectedPerson}:{type});});
