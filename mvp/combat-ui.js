@@ -11,6 +11,11 @@ export function createCombatUI({ request, navigate, openInventory }) {
   let previousEnemy;
   let previousTurn;
   const stage = $('#combat-stage');
+  function updateRoundLabel() {
+    const battle = current?.battle;
+    if (!battle) return;
+    $('#battle-round').textContent = pending ? '招式交锋中…' : battle.status === 'active' ? `第 ${battle.round} 回合 · 轮到你` : { won: '胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
+  }
   function control(move, title, detail, extra = '', reason = '') {
     return `<button type="button" data-combat-move="${move}" ${extra} ${reason ? 'disabled' : ''}><strong>${esc(title)}</strong><small>${esc(reason || detail)}</small></button>`;
   }
@@ -35,7 +40,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     const active = battle.status === 'active';
     const enemy = view.roamers.find(person => person.id === battle.enemyId);
     const intentCopy = { heavy: '重击将至 · 防御可减伤 65%，缚灵阵可打断', guard: '护体中 · 伤害减免 55%，本回合不会攻击', heal: '即将恢复 15 气血 · 可趁机进攻', attack: '即将反击 · 每次选择后敌方行动一次' };
-    $('#battle-round').textContent = active ? `第 ${battle.round} 回合 · 轮到你` : { won: '胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
+    updateRoundLabel();
     $('#battle-player-hp').textContent = `${view.player.hp} / 100`;
     $('#battle-player-bar').style.width = `${view.player.hp}%`;
     $('#battle-mana').textContent = `${battle.mana} / 40`;
@@ -70,9 +75,10 @@ export function createCombatUI({ request, navigate, openInventory }) {
   async function submit(path, input) {
     if (pending) return;
     pending = true;
+    updateRoundLabel();
     $('#combat-inputs').disabled = true;
     try { return await request(path, input); }
-    finally { pending = false; $('#combat-inputs').disabled = false; }
+    finally { pending = false; $('#combat-inputs').disabled = false; updateRoundLabel(); }
   }
   stage.addEventListener('click', async event => {
     const change = event.target.closest('[data-combat-tab]');

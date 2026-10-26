@@ -124,8 +124,10 @@ function makePerson(id, name) {
     put(body, new THREE.BoxGeometry(0.46, 0.43, 0.23), material(0x78543a), 0, 0.88, -0.43);
     put(body, new THREE.BoxGeometry(0.48, 0.06, 0.28), trim, 0, 1.12, -0.43);
   }
+  let heldWeapon;
   if (['wei', 'xu', 'lu', 'han', ...WANDERERS.map(enemy=>enemy.id)].includes(id)) {
     const blade = put(body, new THREE.BoxGeometry(0.075, 1.28, 0.09), material(0xa9b1a9, 0.32, 0.7), 0.63, 0.95, -0.25);
+    heldWeapon = blade;
     blade.rotation.z = -0.15;
     put(body, new THREE.BoxGeometry(0.32, 0.07, 0.15), trim, 0.63, 0.42, -0.25);
   }
@@ -153,7 +155,7 @@ function makePerson(id, name) {
     nameplate.position.y = 3.16;
     root.add(nameplate);
   }
-  root.userData = { id, body, leftArm, rightArm, baseY: 0 };
+  root.userData = { id, body, leftArm, rightArm, baseY: 0, weapon: heldWeapon };
   if(id==='player')root.userData.weapon=put(body,new THREE.BoxGeometry(.08,1.05,.09),material(0xb1b9b4,.3,.7),.62,.72,.08);
   if (WANDERERS.some(enemy=>enemy.id===id)) {
     const bag = new THREE.Group();

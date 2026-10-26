@@ -275,11 +275,14 @@ async function call(path,payload={}) {
     if(!response.ok){if(data.view)render(data.view,data.modelName);throw new Error(data.error||'行动未能执行');}
     if(path==='/api/reset'){world.reset();chooseRoute('trade');lastInteraction=null;}
     if(path==='/api/advance')lastInteraction=null;
+    if(path==='/api/combat'&&payload.type==='turn') {
+      world.sync(data.view);
+      await world.combatReact(before,data.view,payload);
+    }
     render(data.view,data.modelName);
     if(path==='/api/intent')return data;
     notice(data.result);feedback(before,data.view);
     if(path==='/api/combat'&&payload.type==='claim')$('#world-hint').textContent='战利品已收入行囊。可以研习功法、装备武器，再继续游历。';
-    if(path==='/api/combat'&&payload.type==='turn')await world.combatReact(before,data.view,payload);
     if(path==='/api/action'&&!data.actionType.startsWith('travel_')) {
       const target=actionTarget({...payload,type:data.actionType},before);
       lastInteraction={target,text:data.result}; updateInteractionResult();

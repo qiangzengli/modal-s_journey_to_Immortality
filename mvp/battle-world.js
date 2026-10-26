@@ -1,5 +1,6 @@
 import * as THREE from '/vendor/three.module.js';
 import { WANDERERS } from './combat-data.js';
+import { createBattleEffects, playerEffect, enemyEffect } from './battle-fx.js';
 
 // 独立斗法场景与相机。主地图的人物、位置和镜头不参与战斗动画。
 export function createBattleWorld(renderer, makePerson) {
@@ -55,8 +56,12 @@ export function createBattleWorld(renderer, makePerson) {
   }));
   const playerName=caption('你 · 持剑');playerName.position.set(-3,3.6,0);scene.add(playerName);
   let enemyName=null;
-  const arc=mesh(new THREE.TorusGeometry(1.0,.055,6,36,Math.PI*1.3),0xe6d1a3,0,1.2,0,true);arc.visible=false;
-  const ward=ring(.85,0x87c5d3,.11);ward.visible=false;
+  const fx=createBattleEffects(THREE,scene);
+  const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+  const hitMaterials=new Map([player,...Object.values(enemies)].map(actor=>{
+    const materials=new Set();actor.userData.body.traverse(node=>{if(node.material?.isMeshStandardMaterial)materials.add(node.material);});
+    return [actor,[...materials]];
+  }));
   let view=null, width=1200,height=800, animation=null;
   const effects=[];
   function showNumber(text,side,color) {
@@ -74,7 +79,7 @@ export function createBattleWorld(renderer, makePerson) {
     const previousId=view?.battle?.enemyId;
     view=next;
     if(!view.battle){
-      animation?.finish();
+      animation?.finish();fx.clear();
       for(const {sprite} of effects){scene.remove(sprite);sprite.material.map.dispose();sprite.material.dispose();}
       effects.length=0;
       return;
@@ -92,12 +97,29 @@ export function createBattleWorld(renderer, makePerson) {
     if(!before.battle)return Promise.resolve();
     if(animation)animation.finish();
     const entries=after.battle?.log.filter(entry=>entry.round===before.battle.round)||[];
+    const playerLine=entries.find(entry=>entry.side==='player')?.text||'';
+    const enemyLine=entries.find(entry=>entry.side==='enemy')?.text||'';
+    const kind=playerEffect(choice);
+    const response=enemyEffect(before.battle.enemyId,before.battle.intent);
+    const attacking=playerLine.includes('伤害');
+    const counter=enemyLine.includes('损失');
+    const healing=enemyLine.includes('恢复');
+    const playerMs=['slash','shield','escape'].includes(kind)?700:1000;
+    const enemyMs=counter?(response==='slash'?650:900):healing?850:0;
+    const enemyStart=playerMs+50;
+    const duration=enemyMs?enemyStart+enemyMs:playerMs+80;
+    const impactAt=effect=>({slash:.42,heavy_slash:.46,qi_bolt:.55,wind_blade:.55,fire_art:.53,thunder_art:.44,binding_array:.42,thunder_array:.5}[effect]||.47);
+    const origin=player.position.clone(),target=enemies[before.battle.enemyId].position.clone();
     return new Promise(resolve=>{
       let timer;
-      const finish=()=>{clearTimeout(timer);if(animation?.finish===finish)animation=null;arc.visible=false;ward.visible=false;resolve();};
-      animation={start:performance.now(),choice,entries,playerShown:false,enemyShown:false,finish};
-      // 切到后台也能结束表现，避免动画阻塞下一次操作。
-      timer=setTimeout(finish,1250);
+      const finish=()=>{clearTimeout(timer);if(animation?.finish===finish)animation=null;fx.clear();resolve();};
+      const start=performance.now();
+      animation={start,duration,playerMs,enemyStart,enemyMs,kind,response,attacking,counter,healing,playerLine,enemyLine,playerImpact:impactAt(kind),enemyImpact:impactAt(response),playerShown:false,enemyShown:false,finish};
+      fx.spawn(kind,origin,target,{start,duration:kind==='shield'?duration+200:playerMs,reducedMotion:reducedMotion.matches});
+      if(before.battle.intent==='guard')fx.spawn('shield',target,origin,{start,duration,reducedMotion:reducedMotion.matches});
+      if(counter||healing)fx.spawn(response,target,origin,{start:start+enemyStart,duration:enemyMs,reducedMotion:reducedMotion.matches});
+      // 后台页面不依赖动画帧完成，也不会留下锁住的操作按钮。
+      timer=setTimeout(finish,duration+100);
     });
   }
   function render(elapsed) {
@@ -107,7 +129,7 @@ export function createBattleWorld(renderer, makePerson) {
     player.position.set(-gap,.055,0);enemy.position.set(gap,.055,0);
     player.rotation.y=Math.PI/2;enemy.rotation.y=-Math.PI/2;
     player.userData.body.rotation.z=0;
-    enemy.userData.body.rotation.z=view.battle.status==='won'?-.45:0;
+    enemy.userData.body.rotation.z=!animation&&view.battle.status==='won'?-.45:0;
     for(const actor of [player,enemy]){
       actor.userData.body.position.y=Math.sin(elapsed*2.3)*.025;
       actor.userData.rightArm.rotation.z=Math.sin(elapsed*1.8)*.06;
@@ -115,30 +137,52 @@ export function createBattleWorld(renderer, makePerson) {
     }
     playerName.position.set(-gap,3.3,0);enemyName.position.set(gap,3.3,0);
     playerName.visible=width>=700;enemyName.visible=width>=700;
+    for(const actor of [player,enemy]){
+      if(actor.userData.weapon)actor.userData.weapon.rotation.z=0;
+      for(const material of hitMaterials.get(actor)){material.emissive.setHex(0);material.emissiveIntensity=0;}
+    }
+    camera.position.x=0;
     if(animation){
-      const t=(performance.now()-animation.start)/1100;
-      const line=animation.entries.find(entry=>entry.side==='player')?.text||'';
-      const enemyLine=animation.entries.find(entry=>entry.side==='enemy')?.text||'';
-      const attacking=line.includes('伤害');
-      const counter=enemyLine.includes('损失');
-      if(attacking){
-        player.position.x+=Math.sin(Math.min(1,t*2)*Math.PI)*.85;
-        player.userData.rightArm.rotation.z=-Math.sin(Math.min(1,t*2)*Math.PI)*1.2;
-        arc.visible=t>.12&&t<.48;arc.position.set(gap-.3,1.25,0);arc.rotation.set(.3,t*9,-.2);
-        arc.material.color.setHex(animation.choice.move==='skill'?0x92ccdf:animation.choice.move==='item'?0xbf9ee4:0xe4cf93);
-      }else{ward.visible=t<.5;ward.position.x=-gap;ward.material.color.setHex(animation.choice.move==='guard'?0x91c5db:0xa1d4a6);}
-      if(counter){enemy.position.x-=Math.sin(Math.max(0,Math.min(1,(t-.5)*2))*Math.PI)*.8;enemy.userData.rightArm.rotation.z=-Math.sin(Math.max(0,Math.min(1,(t-.5)*2))*Math.PI)*1.2;}
-      if(t>.23&&!animation.playerShown){
-        animation.playerShown=true;
-        const hit=line.match(/造成 (\d+) 点/);const heal=line.match(/恢复 (\d+) (气血|真气)/);
-        if(hit)showNumber(`−${hit[1]}`,'enemy','#efba87');else if(heal)showNumber(`+${heal[1]} ${heal[2]}`,'player','#a8dfb3');else if(animation.choice.move==='guard')showNumber('凝气防御','player','#a5d6e3');else if(animation.choice.move==='escape')showNumber(view.battle.status==='escaped'?'脱身成功':'退路被封','player','#e8d2a0');
+      const time=performance.now()-animation.start;
+      const p=Math.min(1,time/animation.playerMs);
+      const e=Math.max(0,Math.min(1,(time-animation.enemyStart)/(animation.enemyMs||1)));
+      const motion=reducedMotion.matches ? .25 : 1;
+      const swing=Math.sin(p*Math.PI);
+      const enemySwing=Math.sin(e*Math.PI);
+      if(animation.attacking){
+        const melee=animation.kind==='slash';
+        player.position.x+=swing*(melee ? .9 : .14)*motion;
+        player.userData.rightArm.rotation.z=-swing*(melee?1.4:.7);
+        if(player.userData.weapon)player.userData.weapon.rotation.z=-swing*(melee?1.6:.35);
+      }else if(animation.kind==='shield')player.userData.leftArm.rotation.z=Math.min(1,p*4)*.9;
+      else if(animation.kind==='escape')player.position.x-=swing*.65*motion;
+      else player.userData.leftArm.rotation.z=swing*.5;
+      if(animation.counter){
+        const melee=['slash','heavy_slash'].includes(animation.response);
+        enemy.position.x-=enemySwing*(melee ? .8 : .12)*motion;
+        enemy.userData.rightArm.rotation.z=-enemySwing*(melee?1.3:.7);
+        if(enemy.userData.weapon)enemy.userData.weapon.rotation.z=-enemySwing*(melee?1.5:.35);
       }
-      if(t>.73&&!animation.enemyShown){
-        animation.enemyShown=true;const hurt=enemyLine.match(/损失 (\d+) 气血/);const heal=enemyLine.match(/恢复 (\d+) 气血/);
+      const impact=(progress,at)=>progress<at?0:Math.max(0,1-(progress-at)/.22);
+      const playerHit=impact(p,animation.playerImpact)*(animation.attacking?1:0);
+      const enemyHit=impact(e,animation.enemyImpact)*(animation.counter?1:0);
+      enemy.userData.body.rotation.z=-playerHit*.18*motion;
+      player.userData.body.rotation.z=enemyHit*.18*motion;
+      for(const [actor,hit] of [[enemy,playerHit],[player,enemyHit]])for(const material of hitMaterials.get(actor)){material.emissive.setHex(0xe49d60);material.emissiveIntensity=hit*.3;}
+      if(!reducedMotion.matches)camera.position.x=Math.sin(time*.035)*(playerHit+enemyHit)*.035;
+      if(p>=animation.playerImpact&&!animation.playerShown){
+        animation.playerShown=true;
+        const hit=animation.playerLine.match(/造成 (\d+) 点/);const heal=animation.playerLine.match(/恢复 (\d+) (气血|真气)/);
+        if(hit)showNumber(`−${hit[1]}`,'enemy','#efba87');else if(heal)showNumber(`+${heal[1]} ${heal[2]}`,'player','#a8dfb3');else if(animation.kind==='shield')showNumber('凝气防御','player','#a5d6e3');else if(animation.kind==='escape')showNumber(view.battle.status==='escaped'?'脱身成功':'退路被封','player','#e8d2a0');
+      }
+      if(e>=animation.enemyImpact&&!animation.enemyShown){
+        animation.enemyShown=true;const hurt=animation.enemyLine.match(/损失 (\d+) 气血/);const heal=animation.enemyLine.match(/恢复 (\d+) 气血/);
         if(hurt)showNumber(`−${hurt[1]}`,'player','#eeac94');else if(heal)showNumber(`+${heal[1]}`,'enemy','#a8dfb3');
       }
-      if(t>=1)animation.finish();
+      if(view.battle.status==='won'&&p>.6)enemy.userData.body.rotation.z=-.45;
+      if(time>=animation.duration)animation.finish();
     }
+    fx.update();
     for(let i=effects.length-1;i>=0;i--){
       const effect=effects[i],age=(performance.now()-effect.start)/1000;
       effect.sprite.position.y=3+age*.7;effect.sprite.material.opacity=Math.max(0,1-age/1.5);

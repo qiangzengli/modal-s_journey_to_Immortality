@@ -111,6 +111,7 @@ const files = {
   '/combat-data.js': ['combat-data.js', 'text/javascript; charset=utf-8'],
   '/combat-ui.js': ['combat-ui.js', 'text/javascript; charset=utf-8'],
   '/battle-world.js': ['battle-world.js', 'text/javascript; charset=utf-8'],
+  '/battle-fx.js': ['battle-fx.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.module.js': ['node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.core.js': ['node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
