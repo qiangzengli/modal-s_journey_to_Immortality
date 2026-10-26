@@ -1,3 +1,5 @@
+import { createWorld } from './world.js';
+
 const actions = [
   { group: '消息与交易', type: 'inspect_pill', title: '请白芷验丹', detail: '花 10 灵石，取得真伪记录', place: 'market' },
   { group: '消息与交易', type: 'investigate_route', title: '查货道', detail: '找宁素取得可核对的线索', place: 'market' },
@@ -19,12 +21,71 @@ const actions = [
 const $ = selector => document.querySelector(selector);
 const el = {
   turn: $('#turn'), ap: $('#ap'), owner: $('#owner'), price: $('#price'), dispute: $('#dispute'),
+  ownerDetail: $('#owner-detail'), priceDetail: $('#price-detail'),
   outcome: $('#outcome'), stats: $('#stats'), clues: $('#clues'), people: $('#people'),
   events: $('#events'), actions: $('#actions'), message: $('#message'), mode: $('#mode'),
-  command: $('#command'), form: $('#command-form'), advance: $('#advance'), restart: $('#restart')
+  command: $('#command'), form: $('#command-form'), advance: $('#advance'), restart: $('#restart'),
+  worldLocation: $('#world-location'), worldHint: $('#world-hint'), worldPerson: $('#world-person'),
+  worldRole: $('#world-role'), worldName: $('#world-name'), worldGoal: $('#world-goal'), worldActions: $('#world-actions'),
+  panel: $('#map-panel'), panelTitle: $('#panel-title')
 };
 let current;
 let busy = false;
+let selectedPerson = null;
+let activePanel = null;
+const panelTitles = { opportunity: '筑基丹去向', self: '行囊与处境', people: '修真界众生', actions: '可尝试的行动', events: '修真邸报' };
+
+function closePanel() {
+  activePanel = null;
+  el.panel.hidden = true;
+  document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', 'false'));
+}
+
+function openPanel(name) {
+  if (activePanel === name) { closePanel(); return; }
+  activePanel = name;
+  el.panel.hidden = false;
+  el.panelTitle.textContent = panelTitles[name];
+  document.querySelectorAll('[data-panel-content]').forEach(section => { section.hidden = section.dataset.panelContent !== name; });
+  document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.openPanel === name)));
+}
+
+function closePerson() {
+  selectedPerson = null;
+  el.worldPerson.hidden = true;
+}
+const personActions = {
+  shen: ['ask', 'buy_pill', 'lure'], bai: ['ask', 'inspect_pill', 'sell_herbs'],
+  xu: ['ask', 'partner', 'honor_partner'], lu: ['ask', 'report'],
+  qing: ['ask', 'buy_seal'], wei: ['ask'], han: ['ask', 'ambush'],
+  ning: ['ask', 'investigate_route', 'forge_poison']
+};
+const actionNames = Object.fromEntries(actions.map(action => [action.type, action.title]));
+actionNames.ask = '交谈';
+
+function showPerson(id, focusUI = true) {
+  const person = current?.people.find(entry => entry.id === id);
+  if (!person) return;
+  selectedPerson = id;
+  if (focusUI) closePanel();
+  el.worldPerson.hidden = false;
+  el.worldRole.textContent = person.role;
+  el.worldName.textContent = person.name;
+  el.worldGoal.textContent = person.goal;
+  el.worldActions.innerHTML = personActions[id].map(type => `<button type="button" data-world-action="${type}" ${!current.ap ? 'disabled' : ''}>${esc(actionNames[type] || type)}</button>`).join('');
+  el.worldHint.textContent = `已走近${person.name}。可以交谈或采取行动。`;
+}
+
+const world = createWorld($('#world-canvas'), {
+  onSelectPerson: showPerson,
+  onClearPerson: closePerson,
+  onTravel: async place => {
+    const arrived = await call('/api/action', { type: place === 'woods' ? 'travel_woods' : 'travel_market' });
+    if (arrived) el.worldHint.textContent = place === 'woods' ? '已进入黑风林。探索林道或接触在场人物。' : '已回到地下坊市。继续寻找筑基丹的线索。';
+    return arrived;
+  },
+  onHint: message => { el.worldHint.textContent = message; notice(message); }
+});
 
 function esc(value) {
   return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -35,16 +96,24 @@ function notice(text, bad = false) {
   el.message.classList.toggle('bad', bad);
 }
 
-function render(view, modelEnabled) {
+function render(view, modelName) {
   current = view;
+  world.sync(view);
+  el.worldLocation.textContent = view.player.place === 'market' ? '地下坊市' : '黑风林';
+  if (selectedPerson && view.people.find(p => p.id === selectedPerson)?.place !== view.player.place) {
+    selectedPerson = null;
+    el.worldPerson.hidden = true;
+  } else if (selectedPerson) showPerson(selectedPerson, false);
   el.turn.textContent = `第 ${view.turn} 旬`;
   el.ap.textContent = view.ap;
   el.owner.textContent = view.pill.owner;
   el.price.textContent = view.pill.price === null ? '不在售' : `${view.pill.price} 灵石`;
+  el.ownerDetail.textContent = el.owner.textContent;
+  el.priceDetail.textContent = el.price.textContent;
   el.dispute.textContent = view.pill.disputed ? '真伪争议中' : '无公开争议';
   el.outcome.textContent = view.outcome || '机缘仍在流转。观察人物目标，再决定下一步。';
   el.outcome.classList.toggle('won', view.pill.ownerId === 'player');
-  el.mode.textContent = modelEnabled ? '模型解析已接入' : '离线规则模式';
+  el.mode.textContent = modelName ? `模型：${modelName}` : '离线规则模式';
 
   const place = view.player.place === 'market' ? '地下坊市' : '黑风林';
   el.stats.innerHTML = [
@@ -68,18 +137,21 @@ function render(view, modelEnabled) {
 }
 
 async function call(path, payload = {}) {
-  if (busy) return;
+  if (busy) return false;
   busy = true;
   document.body.classList.add('busy');
   try {
     const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '操作失败');
-    render(data.view, data.modelEnabled);
-    notice(data.result);
+    render(data.view, data.modelName);
+    notice(data.parserSource === 'fallback' ? `${data.result}（模型暂不可用，已按离线规则解析）` : data.result);
     if (path === '/api/command') el.command.value = '';
+    return true;
   } catch (error) {
     notice(error.message, true);
+    el.worldHint.textContent = error.message;
+    return false;
   } finally {
     busy = false;
     document.body.classList.remove('busy');
@@ -90,9 +162,19 @@ el.actions.addEventListener('click', event => {
   const button = event.target.closest('[data-action]');
   if (button) call('/api/action', { type: button.dataset.action });
 });
+document.querySelectorAll('[data-open-panel]').forEach(button => button.addEventListener('click', () => openPanel(button.dataset.openPanel)));
+$('#panel-close').addEventListener('click', closePanel);
+$('#person-close').addEventListener('click', closePerson);
+document.addEventListener('keydown', event => { if (event.key === 'Escape') { closePanel(); closePerson(); } });
 el.people.addEventListener('click', event => {
   const button = event.target.closest('[data-person]');
-  if (button) call('/api/action', { type: 'ask', target: button.dataset.person });
+  if (button) world.focus(button.dataset.person);
+});
+el.worldActions.addEventListener('click', event => {
+  const button = event.target.closest('[data-world-action]');
+  if (!button || !selectedPerson) return;
+  const type = button.dataset.worldAction;
+  call('/api/action', type === 'ask' ? { type, target: selectedPerson } : { type });
 });
 el.advance.addEventListener('click', () => call('/api/advance'));
 el.restart.addEventListener('click', () => {
@@ -113,7 +195,7 @@ try {
   const response = await fetch('/api/state');
   if (!response.ok) throw new Error('无法读取游戏状态');
   const data = await response.json();
-  render(data.view, data.modelEnabled);
+  render(data.view, data.modelName);
 } catch (error) {
   notice(`无法连接本地游戏服务：${error.message}`, true);
 }

@@ -4,49 +4,52 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141914">
-  <title>逆命录 · 地下坊市</title>
+  <title>逆命录 · 乱星海</title>
   <link rel="stylesheet" href="/style.css">
   <script type="module" src="/app.js"></script>
 </head>
 <body>
-  <div class="shell">
+  <main class="world-panel" aria-label="逆命录可探索地图">
+    <div id="world-canvas" class="world-canvas"></div>
+    <div class="world-vignette" aria-hidden="true"></div>
+
     <header class="topbar">
-      <div class="brand"><span class="brand-mark">逆</span><div><strong>逆命录</strong><small>全员 Agent 修仙沙盒 · 可玩切片</small></div></div>
-      <div class="top-actions"><span id="mode" class="mode">离线规则模式</span><button id="restart" class="text-button" type="button">重开此局</button></div>
+      <div class="brand"><span class="brand-mark">逆</span><div><strong>逆命录</strong><small>乱星海 · 机缘争夺</small></div></div>
+      <div class="top-actions">
+        <span id="mode" class="mode">离线规则模式</span>
+        <div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b id="ap">3</b> 次</small></div>
+        <button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button>
+      </div>
     </header>
 
-    <section class="hero">
-      <div><p class="eyebrow">乱星海 · 地下坊市</p><h1>一枚筑基丹，<br><em>八个人的算盘。</em></h1><p class="hero-copy">你只有三旬左右的窗口。查证、合资、举报，或把交易引向黑风林。人物会记得你做过的事。</p></div>
-      <div class="turn-card"><span>当前时序</span><strong id="turn">第一旬</strong><p>本旬可行动 <b id="ap">3</b> 次</p><button id="advance" class="primary" type="button">推进一旬 <span>→</span></button></div>
-    </section>
+    <div class="world-top"><span class="eyebrow">可探索地图</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击地面移动，点击人物交谈，点击界门切换场景</span></div>
 
-    <div class="dashboard">
-      <main class="main-column">
-        <section class="panel opportunity">
-          <div class="section-title"><div><span class="eyebrow">机缘 / OPPORTUNITY</span><h2>筑基丹去向</h2></div><span class="pill-icon">丹</span></div>
-          <div class="opportunity-grid"><div><small>当前持有人</small><strong id="owner">—</strong></div><div><small>当前售价</small><strong id="price">—</strong></div><div><small>传闻状态</small><strong id="dispute">—</strong></div></div>
-          <p id="outcome" class="outcome">选择路线，争取这次机缘。</p>
-        </section>
+    <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>机缘 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small>查看去向 ↗</small></button>
 
-        <section class="panel command-panel">
-          <div class="section-title"><div><span class="eyebrow">心念 / INTENT</span><h2>写下你的计策</h2></div></div>
-          <p class="hint">自然语言会被解析成游戏行动；灵石、位置和证据仍由规则核验。试试：“我拿货道证词压价，出价 200 灵石买丹。”</p>
-          <form id="command-form"><label class="sr-only" for="command">行动描述</label><textarea id="command" maxlength="280" rows="3" placeholder="例如：我想请白芷验丹，拿到能说服徐宁的凭证。"></textarea><div class="form-bottom"><small>一次输入对应一个行动 · Enter 发送，Shift+Enter 换行</small><button class="primary" type="submit">执行计策 <span>↗</span></button></div></form>
-          <div id="message" class="message" role="status" aria-live="polite">先观察局势，或从下方选择一项行动。</div>
-        </section>
+    <section id="world-person" class="world-person" aria-label="在场人物" hidden><button id="person-close" class="icon-close" type="button" aria-label="关闭人物交互">×</button><small id="world-role"></small><strong id="world-name"></strong><p id="world-goal"></p><div id="world-actions"></div></section>
 
-        <section class="panel actions-panel"><div class="section-title"><div><span class="eyebrow">落子 / ACTIONS</span><h2>可尝试的行动</h2></div></div><div id="actions" class="action-grid"></div></section>
+    <aside id="map-panel" class="map-panel" aria-label="地图信息" hidden>
+      <div class="panel-heading"><div><span class="eyebrow">逆命录 / JOURNAL</span><h2 id="panel-title">机缘</h2></div><button id="panel-close" class="icon-close" type="button" aria-label="关闭信息面板">×</button></div>
+      <div class="panel-scroll">
+        <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>当前持有人</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>当前售价</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>传闻状态</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome">机缘仍在流转。</p><p class="panel-tip">查证、合资、举报，或把交易引向黑风林。行动后可在邸报中追溯因果。</p></section>
+        <section data-panel-content="self" hidden><div id="stats" class="stats"></div><div id="clues" class="clues"></div><button id="restart" class="text-button" type="button">重开此局</button></section>
+        <section data-panel-content="people" hidden><p class="panel-tip">点击人物，角色会走近。也可以直接点击地图上的人物模型。</p><div id="people" class="people"></div></section>
+        <section data-panel-content="actions" hidden><p class="panel-tip">这里列出当前位置可执行的行动；地图上的人物也提供相关选项。</p><div id="actions" class="action-grid"></div></section>
+        <section data-panel-content="events" hidden><div id="events" class="events"></div></section>
+      </div>
+    </aside>
 
-        <section class="panel ledger-panel"><div class="section-title"><div><span class="eyebrow">因果 / LEDGER</span><h2>修真邸报与事件账</h2></div><span class="tiny-label">新事在上</span></div><div id="events" class="events"></div></section>
-      </main>
+    <nav class="map-nav" aria-label="地图功能">
+      <button type="button" data-open-panel="opportunity">机缘</button>
+      <button type="button" data-open-panel="self">行囊</button>
+      <button type="button" data-open-panel="people">人物</button>
+      <button type="button" data-open-panel="actions">行动</button>
+      <button type="button" data-open-panel="events">邸报</button>
+    </nav>
 
-      <aside class="sidebar">
-        <section class="panel self-panel"><span class="eyebrow">自身 / SELF</span><h2>行囊与处境</h2><div id="stats" class="stats"></div><div id="clues" class="clues"></div></section>
-        <section class="panel people-panel"><div class="section-title"><div><span class="eyebrow">众生 / PEOPLE</span><h2>坊市人物</h2></div><span class="tiny-label">点击交谈</span></div><div id="people" class="people"></div></section>
-        <section class="note-panel"><strong>三条可能的路</strong><p>请白芷验丹 → 找徐宁合资 → 买丹</p><p>找宁素查货道 → 举报 → 等查封公售</p><p>约沈秋出城 → 入林布阵 → 伏击</p></section>
-      </aside>
-    </div>
-    <footer>逆命录 · 原创世界观玩法原型 ｜ 所有结果可在事件账中追溯</footer>
-  </div>
+    <section class="command-dock" aria-label="自然语言行动"><form id="command-form"><label class="sr-only" for="command">写下你的计策</label><textarea id="command" maxlength="280" rows="1" placeholder="写下计策，例如：请白芷看看这颗丹是否掺假……"></textarea><button class="primary" type="submit">执行 <span>↗</span></button></form><div id="message" class="message" role="status" aria-live="polite">点击人物交谈，或写下你的计策。</div></section>
+
+    <div class="world-controls">WASD / 方向键移动 · 点击地面寻路 · 滚轮缩放</div>
+  </main>
 </body>
 </html>

@@ -5,9 +5,13 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
+    "start:ollama": "LLM_BASE_URL=http://127.0.0.1:11434/v1 LLM_MODEL=qwen2.5-coder:14b node server.js",
     "test": "node --test"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "three": "0.186.1"
   }
 }
