@@ -688,21 +688,21 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     const dt = Math.min((now - lastFrameTime) / 1000, 0.04);
     lastFrameTime = now;
     elapsed += dt;
-    const screenX = (keys.has('d') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('a') || keys.has('ArrowLeft') ? 1 : 0);
-    const screenY = (keys.has('s') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('w') || keys.has('ArrowUp') ? 1 : 0);
-    const east = screenX * Math.cos(azimuth) + screenY * Math.sin(azimuth);
-    const north = -screenX * Math.sin(azimuth) + screenY * Math.cos(azimuth);
+    // 按地图坐标移动；默认视角下，上/下沿主路，左/右沿横向斜轴。
+    // 镜头旋转只改变观察角度，不改变按键所控制的地图方向。
+    const moveX = (keys.has('s') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('w') || keys.has('ArrowUp') ? 1 : 0);
+    const moveZ = (keys.has('a') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('d') || keys.has('ArrowRight') ? 1 : 0);
     let moving = false;
-    if (east || north) {
+    if (moveX || moveZ) {
       destination = null;
       route = [];
       routeLine.visible = false;
       destinationMarker.visible = false;
       afterWalk = null;
-      const distance = Math.hypot(east, north);
+      const distance = Math.hypot(moveX, moveZ);
       const oldX = player.position.x;
       const oldZ = player.position.z;
-      moveBy(east / distance * MOVE_SPEED * dt, north / distance * MOVE_SPEED * dt);
+      moveBy(moveX / distance * MOVE_SPEED * dt, moveZ / distance * MOVE_SPEED * dt);
       moving = Math.hypot(player.position.x - oldX, player.position.z - oldZ) > 0.001;
     } else if (destination) {
       const diff = destination.clone().sub(player.position);
@@ -736,7 +736,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     player.userData.body.position.y = moving ? Math.sin(elapsed * 12) * 0.07 : Math.sin(elapsed * 2.4) * 0.025;
     player.userData.leftArm.rotation.z = moving ? Math.sin(elapsed * 10) * 0.25 : -0.08;
     player.userData.rightArm.rotation.z = moving ? -Math.sin(elapsed * 10) * 0.25 : 0.08;
-    if (moving && (east || north)) player.rotation.y = Math.atan2(east, north);
+    if (moving && (moveX || moveZ)) player.rotation.y = Math.atan2(moveX, moveZ);
     else if (moving && destination) player.rotation.y = Math.atan2(destination.x - player.position.x, destination.z - player.position.z);
 
     for (const actor of Object.values(people)) {
