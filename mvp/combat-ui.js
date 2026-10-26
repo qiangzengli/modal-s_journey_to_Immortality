@@ -1,0 +1,104 @@
+import { ITEM_KINDS } from './combat-data.js';
+
+const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const $ = selector => document.querySelector(selector);
+const lootMarkup = loot => loot.map(item => `<div class="loot-item"><small>${esc(item.kind)}</small><strong>${esc(item.name)}</strong><span>× ${item.quantity}</span></div>`).join('');
+
+export function createCombatUI({ request, navigate, openInventory }) {
+  let current;
+  let pending = false;
+  let tab = 'skills';
+  let previousEnemy;
+  let previousTurn;
+  const stage = $('#combat-stage');
+  function control(move, title, detail, extra = '', reason = '') {
+    return `<button type="button" data-combat-move="${move}" ${extra} ${reason ? 'disabled' : ''}><strong>${esc(title)}</strong><small>${esc(reason || detail)}</small></button>`;
+  }
+  function renderInventory() {
+    $('#equipment').innerHTML = `<h3>随身法器</h3><p class="loadout-summary">${esc(current.weapon.name)} <span>威力 +${current.weapon.attack}</span></p><h3>已修功法</h3><div class="learned-skills">${current.skills.map(skill => `<p><strong>${esc(skill.name)}</strong><small>${esc(skill.description)}</small></p>`).join('')}</div>`;
+    $('#inventory').innerHTML = current.inventory.map(item => {
+      const type = item.kind === 'weapon' ? 'equip' : item.kind === 'manual' ? 'learn' : item.heal ? 'use' : '';
+      const unavailable = item.equipped || item.learned || (item.heal && current.player.hp >= 100);
+      const label = item.equipped ? '已装备' : item.learned ? '已掌握' : type === 'equip' ? '装备' : type === 'learn' ? '研习' : '服用';
+      return `<article class="inventory-item"><div><small>${ITEM_KINDS[item.kind]} · ${item.quantity} 件</small><strong>${esc(item.name)}</strong><p>${esc(item.description)}</p></div>${type ? `<button type="button" data-inventory-action="${type}" data-item-id="${item.id}" ${unavailable ? 'disabled' : ''}>${label}</button>` : '<span class="item-use-hint">斗法中使用</span>'}</article>`;
+    }).join('');
+    $('#roamers').innerHTML = current.roamers.map(enemy => `<button type="button" class="roamer-row" data-roamer="${enemy.id}" ${enemy.looted ? 'disabled' : ''}><span style="--roamer-color:${enemy.color}">${enemy.defeated ? '袋' : enemy.name[0]}</span><div><strong>${enemy.name} <small>${enemy.realm}</small></strong><p>${enemy.looted ? '已败退 · 储物袋已取空' : enemy.defeated ? '储物袋待拾取' : `${enemy.role} · 气血 ${enemy.hp}`}</p></div><b>↗</b></button>`).join('');
+  }
+  function render(view) {
+    current = view;
+    renderInventory();
+    const battle = view.battle;
+    document.body.classList.toggle('in-combat', Boolean(battle));
+    stage.hidden = !battle;
+    if (!battle) { previousEnemy = null; previousTurn = null; return; }
+    if (previousEnemy !== battle.enemyId) { tab = 'skills'; previousEnemy = battle.enemyId; }
+    const active = battle.status === 'active';
+    const enemy = view.roamers.find(person => person.id === battle.enemyId);
+    const intentCopy = { heavy: '重击将至 · 防御可减伤 65%，缚灵阵可打断', guard: '护体中 · 伤害减免 55%，本回合不会攻击', heal: '即将恢复 15 气血 · 可趁机进攻', attack: '即将反击 · 每次选择后敌方行动一次' };
+    $('#battle-round').textContent = active ? `第 ${battle.round} 回合 · 轮到你` : { won: '胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
+    $('#battle-player-hp').textContent = `${view.player.hp} / 100`;
+    $('#battle-player-bar').style.width = `${view.player.hp}%`;
+    $('#battle-mana').textContent = `${battle.mana} / 40`;
+    $('#battle-mana-bar').style.width = `${battle.mana / 40 * 100}%`;
+    $('#battle-weapon').textContent = view.weapon.name;
+    $('#battle-enemy').textContent = enemy.name;
+    $('#battle-enemy-realm').textContent = enemy.realm;
+    $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
+    $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
+    $('#battle-intent').textContent = active ? `${battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? '对方已败退。收取储物袋后可在行囊中研习、换装。' : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
+    $('#combat-controls').hidden = !active;
+    $('#combat-result').hidden = active;
+    $('#combat-error').textContent = '';
+    const latestRound = battle.log.at(-1)?.round;
+    $('#battle-log').innerHTML = battle.log.filter(entry => entry.round === latestRound).map(entry => `<p class="log-${entry.side}">${esc(entry.text)}</p>`).join('');
+    $('#battle-history').innerHTML = battle.log.map(entry => `<p><small>${entry.round ? `第 ${entry.round} 回合` : '交锋'}</small> ${esc(entry.text)}</p>`).join('');
+    $('#combat-basics').innerHTML = control('attack', '普通攻击', '回复 5 真气 · 无消耗') + control('guard', '凝气防御', '减伤 65% · 回复 8 真气') + control('escape', '尝试逃跑', `成功率 ${Math.round(battle.escapeChance * 100)}% · 失败会受击`);
+    $('#combat-tabs').innerHTML = `<button type="button" data-combat-tab="skills" aria-pressed="${tab === 'skills'}">功法 · ${view.skills.length}</button><button type="button" data-combat-tab="items" aria-pressed="${tab === 'items'}">灵丹与阵法</button>`;
+    if (tab === 'skills') {
+      $('#combat-options').innerHTML = view.skills.map(skill => control('skill', skill.name, `${skill.cost} 真气 · ${skill.description}`, `data-skill-id="${skill.id}"`, skill.remaining ? `冷却中 · 还需 ${skill.remaining} 回合` : battle.mana < skill.cost ? '真气不足' : skill.heal && view.player.hp >= 100 ? '气血已满' : '')).join('');
+    } else {
+      $('#combat-options').innerHTML = view.inventory.filter(item => ['pill', 'array'].includes(item.kind)).map(item => control('item', `${item.name} ×${item.quantity}`, item.description, `data-item-id="${item.id}"`, item.heal && view.player.hp >= 100 ? '气血已满' : item.mana && battle.mana >= 40 ? '真气已满' : '')).join('') || '<p class="panel-tip">没有可用的灵丹或阵盘。击败散修后可从储物袋中获得。</p>';
+    }
+    if (!active) $('#combat-result').innerHTML = battle.status === 'won'
+      ? `<h2>${enemy.name}的储物袋</h2><div class="loot-grid">${lootMarkup(battle.loot)}</div><div class="result-actions"><button type="button" class="primary" data-battle-result="claim">收取储物袋 →</button><button type="button" data-battle-result="leave">暂不拾取，回到地图</button></div>`
+      : `<h2>${battle.status === 'escaped' ? '留得青山在' : '败退，也是一场历练'}</h2><p>${esc(battle.log.at(-1)?.text)}</p><p>敌人未被击败，没有战利品。再次挑战时对方气血恢复。</p><div class="result-actions"><button type="button" class="primary" data-battle-result="leave">回到林道 →</button></div>`;
+    $('#combat-inputs').disabled = pending;
+    const turnKey=`${battle.enemyId}:${battle.round}:${battle.status}`;
+    if(previousTurn!==turnKey)stage.querySelector('.battle-console').scrollTop=0;
+    previousTurn=turnKey;
+  }
+  async function submit(path, input) {
+    if (pending) return;
+    pending = true;
+    $('#combat-inputs').disabled = true;
+    try { return await request(path, input); }
+    finally { pending = false; $('#combat-inputs').disabled = false; }
+  }
+  stage.addEventListener('click', async event => {
+    const change = event.target.closest('[data-combat-tab]');
+    if (change && !pending) { tab = change.dataset.combatTab; render(current); return; }
+    const button = event.target.closest('[data-combat-move]');
+    if (button) { await submit('/api/combat', { type: 'turn', move: button.dataset.combatMove, skillId: button.dataset.skillId, itemId: button.dataset.itemId }); return; }
+    const result = event.target.closest('[data-battle-result]');
+    if (result) {
+      const type = result.dataset.battleResult;
+      const data = await submit('/api/combat', { type, enemyId: current.battle.enemyId });
+      if (data && type === 'claim') openInventory();
+    }
+  });
+  $('#inventory').addEventListener('click', event => {
+    const button = event.target.closest('[data-inventory-action]');
+    if (button) submit('/api/inventory', { type: button.dataset.inventoryAction, itemId: button.dataset.itemId });
+  });
+  $('#roamers').addEventListener('click', event => {
+    const button = event.target.closest('[data-roamer]');
+    if (button) navigate(button.dataset.roamer);
+  });
+  return { render, showError(text) { $('#combat-error').textContent = text; } };
+}
+
+export function roamerActions(enemy, hp) {
+  const ready = !enemy.looted && (enemy.defeated || hp >= 20);
+  const type = enemy.defeated ? 'claim' : 'start';
+  return `<div class="roamer-drops"><small>${enemy.defeated ? '袋中物品' : '身携宝物'}</small><div class="loot-grid">${lootMarkup(enemy.loot)}</div></div><button type="button" class="challenge-button" data-encounter="${type}" data-enemy-id="${enemy.id}" ${ready ? '' : 'disabled'}>${enemy.looted ? '储物袋已取空' : enemy.defeated ? '拾取储物袋 →' : hp < 20 ? '气血不足 20 · 先行疗伤' : '发起斗法 ⚔'}</button>${enemy.defeated ? '' : `<p class="combat-warning">逃跑成功率 ${Math.round(enemy.escape * 100)}%。败退损失当前灵石的 10%，以 25 气血脱身；物品与功法保留。</p>`}`;
+}

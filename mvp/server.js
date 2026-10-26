@@ -3,6 +3,7 @@ import { readFile, mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ACTIONS, GameError, PEOPLE, advanceTurn, applyAction, createGame, getView, parseLocal } from './engine.js';
+import { combatAction, inventoryAction, ensureExploration } from './combat.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const savePath = process.env.SAVE_PATH || join(root, '.data', 'save.json');
@@ -21,7 +22,7 @@ async function loadGame() {
       saved.flags.playerBreakthrough ??= 0;
       saved.revision ??= 0;
       saved.ap = null;
-      return saved;
+      return ensureExploration(saved);
     }
   } catch (error) {
     if (error.code !== 'ENOENT') console.warn('存档未能读取，已开始新局：', error.message);
@@ -47,8 +48,11 @@ async function body(req) {
     input += chunk;
     if (input.length > 4096) throw new GameError('提交内容过长。');
   }
-  try { return JSON.parse(input || '{}'); }
+  let parsed;
+  try { parsed = JSON.parse(input || '{}'); }
   catch { throw new GameError('请求不是有效 JSON。'); }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new GameError('请求必须为 JSON 对象。');
+  return parsed;
 }
 
 async function modelAction(text) {
@@ -104,6 +108,9 @@ const files = {
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
   '/scenery.js': ['scenery.js', 'text/javascript; charset=utf-8'],
   '/navigation.js': ['navigation.js', 'text/javascript; charset=utf-8'],
+  '/combat-data.js': ['combat-data.js', 'text/javascript; charset=utf-8'],
+  '/combat-ui.js': ['combat-ui.js', 'text/javascript; charset=utf-8'],
+  '/battle-world.js': ['battle-world.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.module.js': ['node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.core.js': ['node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
@@ -125,7 +132,7 @@ async function handle(req, res) {
     json(res, 200, { view: getView(game), modelName });
     return;
   }
-  if (req.method !== 'POST' || !['/api/action', '/api/command', '/api/intent', '/api/advance', '/api/reset'].includes(path)) {
+  if (req.method !== 'POST' || !['/api/action', '/api/command', '/api/intent', '/api/combat', '/api/inventory', '/api/advance', '/api/reset'].includes(path)) {
     json(res, 404, { error: '找不到页面或接口。' });
     return;
   }
@@ -151,6 +158,8 @@ async function handle(req, res) {
     let actionType = input.type || path.split('/').at(-1);
     if (path === '/api/reset') outcome = { game: createGame(), result: '新的一局开始了。' };
     else if (path === '/api/advance') outcome = advanceTurn(game);
+    else if (path === '/api/combat') outcome = combatAction(game, input);
+    else if (path === '/api/inventory') outcome = inventoryAction(game, input);
     else if (path === '/api/command') {
       const parsed = await modelAction(input.text);
       parserSource = parsed.source;

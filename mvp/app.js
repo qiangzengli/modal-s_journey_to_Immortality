@@ -1,5 +1,6 @@
 import { createWorld } from './world.js';
 import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES, questSteps } from './content.js';
+import { createCombatUI, roamerActions } from './combat-ui.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -58,6 +59,7 @@ function closePanel() {
   document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', 'false'));
 }
 function openPanel(name) {
+  if(current?.battle)return;
   commandGeneration++;
   if (activePanel === name) { closePanel(); return; }
   world.clearSelection();
@@ -83,6 +85,8 @@ function actionMarkup(type) {
 }
 function relationship(trust) { return trust >= 20 ? '信任' : trust <= -30 ? '敌视' : trust < 0 ? '戒备' : '初识'; }
 function showPerson(id, focusUI = true) {
+  const roamer = current?.roamers.find(p => p.id === id);
+  if(roamer) { showRoamer(roamer,focusUI); return; }
   const person = current?.people.find(p => p.id === id);
   if (!person) return;
   selectedPerson=id; selectedSite=null;
@@ -109,6 +113,24 @@ function showPerson(id, focusUI = true) {
   updateNearbyPrompt(); updateInteractionResult();
   if (focusUI) $('#world-person').scrollTop=0;
   $('#world-hint').textContent=`正在与${person.name}交谈。`;
+}
+function showRoamer(enemy, focusUI = true) {
+  selectedPerson=enemy.id;selectedSite=null;
+  if(focusUI)closePanel();
+  $('#world-person').hidden=false;
+  document.body.classList.add('interacting');
+  $('#world-person').style.setProperty('--person-color',enemy.color);
+  $('#person-seal').textContent=enemy.defeated?'袋':enemy.name[0];
+  $('#world-role').textContent=enemy.defeated?'林道遗落 · 储物袋':enemy.role;
+  $('#world-name').textContent=enemy.defeated?`${enemy.name}的储物袋`:enemy.name;
+  $('#person-meta').innerHTML=`<span>${enemy.realm}</span><span>${enemy.defeated?'已败退':`气血 ${enemy.hp} · 攻势 ${enemy.attack}`}</span>`;
+  $('#world-goal').hidden=false;$('#world-goal').textContent=enemy.defeated?'散修已经负伤离去，只剩系着禁制绳结的储物袋。里面的物品尚未取出。':enemy.bio;
+  $('#person-dialogue').hidden=Boolean(enemy.defeated);$('#person-dialogue').textContent=`「${enemy.quote}」`;
+  $('#person-memory').hidden=true;$('#trade-form').hidden=true;$('#interaction-result').hidden=true;
+  $('#world-actions').innerHTML=roamerActions(enemy,current.player.hp);
+  if(focusUI)$('#world-person').scrollTop=0;
+  $('#world-hint').textContent=enemy.defeated?'储物袋就在脚边。':`已靠近${enemy.name}。可观察后再决定是否斗法。`;
+  updateNearbyPrompt();
 }
 function showSite(id, focusUI = true) {
   const site=SITES[id];
@@ -142,11 +164,12 @@ const world=createWorld($('#world-canvas'), {
   onNearby: target => { nearbyTarget=target; updateNearbyPrompt(); },
   onTravel: async place => {
     const arrived=await call('/api/action', { type:place==='woods'?'travel_woods':'travel_market' });
-    if(arrived) $('#world-hint').textContent=place==='woods'?'已进入黑风林。采药、设伏，或去听雨亭调息。':'已回到地下坊市。交易与消息仍在继续。';
+    if(arrived) $('#world-hint').textContent=place==='woods'?'散修出没于林道。点击人物观察，可斗法夺宝或去听雨亭调息。':'已回到地下坊市。交易与消息仍在继续。';
     return arrived;
   },
   onHint: text=>{ $('#world-hint').textContent=text; notice(text); }
 });
+const combatUI=createCombatUI({request:call,navigate,openInventory:()=>openPanel('self')});
 
 function updateQuest() {
   currentSteps=questSteps(current,chosenRoute);
@@ -160,14 +183,14 @@ function updateQuest() {
   $('#quest-steps').innerHTML=currentSteps.map((step,index)=>`<button type="button" data-quest-step="${index}" class="quest-step ${step.done||step.skipped?'done':''}"><b>${step.skipped?'—':step.done?'✓':index+1}</b><span><strong>${esc(step.title)}</strong><small>${step.skipped?'已取得机缘，此前置不再需要。':esc(step.detail)}</small></span></button>`).join('');
 }
 async function navigate(target) {
-  if(busy)return false;
+  if(busy||current?.battle)return false;
   closePanel();
   $('#turn-summary').hidden=true;
   if(target==='advance')return call('/api/advance');
   return world.goTo(target);
 }
 async function executeAction(action) {
-  if(busy||!current)return false;
+  if(busy||!current||current.battle)return false;
   const routes={inspect_pill:'trade',partner:'trade',investigate_route:'report',report:'report',lure:'ambush',prepare_trap:'ambush',ambush:'ambush'};
   if(routes[action.type]&&!current.world.breakthrough)chooseRoute(routes[action.type]);
   closePanel();
@@ -182,7 +205,7 @@ async function executeAction(action) {
   return call('/api/action',action);
 }
 async function submitCommand(text) {
-  if(busy||!current)return;
+  if(busy||!current||current.battle)return;
   const ticket=++commandGeneration;
   const planned=await call('/api/intent',{text});
   if(!planned||ticket!==commandGeneration)return;
@@ -193,7 +216,8 @@ function render(view, modelName) {
   current=view;
   world.sync(view);
   $('#world-location').textContent=view.player.place==='market'?'地下坊市':'黑风林';
-  if((selectedPerson&&view.people.find(p=>p.id===selectedPerson)?.place!==view.player.place)||(selectedSite&&view.player.place!=='woods'))closePerson();
+  if(view.battle) { closePanel(); closePerson(); }
+  if((selectedPerson&&[...view.people,...view.roamers].find(p=>p.id===selectedPerson)?.place!==view.player.place)||(selectedSite&&view.player.place!=='woods'))closePerson();
   else if(selectedPerson)showPerson(selectedPerson,false);
   else if(selectedSite)showSite(selectedSite,false);
   $('#turn').textContent=`第 ${view.turn} 旬`;
@@ -217,7 +241,11 @@ function render(view, modelName) {
     const state=view.actionOptions[def.type];
     return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button" ${state.available?'':'disabled'}><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');
-  updateQuest(); updateInteractionResult();
+  updateQuest();
+  if(!view.roamers.some(enemy=>enemy.id===selectedPerson))updateInteractionResult();
+  combatUI.render(view);
+  $('#advance').disabled=busy||Boolean(view.battle);
+  $('#command').disabled=Boolean(view.battle);
 }
 function feedback(before,after) {
   const labels={stones:'灵石',hp:'气血',herbs:'灵草',talismans:'天雷符',reputation:'声望',seal:'鉴定印'};
@@ -250,6 +278,8 @@ async function call(path,payload={}) {
     render(data.view,data.modelName);
     if(path==='/api/intent')return data;
     notice(data.result);feedback(before,data.view);
+    if(path==='/api/combat'&&payload.type==='claim')$('#world-hint').textContent='战利品已收入行囊。可以研习功法、装备武器，再继续游历。';
+    if(path==='/api/combat'&&payload.type==='turn')await world.combatReact(before,data.view,payload);
     if(path==='/api/action'&&!data.actionType.startsWith('travel_')) {
       const target=actionTarget({...payload,type:data.actionType},before);
       lastInteraction={target,text:data.result}; updateInteractionResult();
@@ -267,16 +297,28 @@ async function call(path,payload={}) {
     return data;
   }catch(error){
     notice(error.message,true);$('#world-hint').textContent=error.message;
+    if(path==='/api/combat')combatUI.showError(error.message);
     if(path==='/api/action'&&(selectedPerson||selectedSite)){lastInteraction={target:selectedPerson||selectedSite,text:error.message};updateInteractionResult();}
     return false;
   }
   finally{
     busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');$('#command-status').textContent='行动不限 · 时间手动推进';
-    for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=false;
+    for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=Boolean(current?.battle);
   }
 }
 
-$('#world-actions').addEventListener('click',event=>{const button=event.target.closest('[data-world-action]');if(!button)return;const type=button.dataset.worldAction;executeAction(type==='ask'?{type,target:selectedPerson}:{type});});
+$('#world-actions').addEventListener('click',async event=>{
+  const encounter=event.target.closest('[data-encounter]');
+  if(encounter){
+    if(busy||current.battle)return;
+    const enemyId=encounter.dataset.enemyId,type=encounter.dataset.encounter;
+    if(!await world.goTo(enemyId))return;
+    const data=await call('/api/combat',{type,enemyId});
+    if(data&&type==='claim')openPanel('self');
+    return;
+  }
+  const button=event.target.closest('[data-world-action]');if(!button)return;const type=button.dataset.worldAction;executeAction(type==='ask'?{type,target:selectedPerson}:{type});
+});
 $('#trade-form').addEventListener('submit',event=>{event.preventDefault();executeAction({type:'negotiate',offer:Number($('#trade-offer').value),leverage:$('#trade-leverage').value});});
 $('#actions').addEventListener('click',event=>{const button=event.target.closest('[data-locate-action]');if(button){const def=defs[button.dataset.locateAction];executeAction({type:def.type});}});
 $('#people').addEventListener('click',event=>{const button=event.target.closest('[data-person]');if(button)navigate(button.dataset.person);});
@@ -299,7 +341,7 @@ $('#ending-close').addEventListener('click',()=>$('#ending').close());
 $('#help-toggle').addEventListener('click',()=>{$('#help-card').hidden=!$('#help-card').hidden;});
 $('#camera-left').addEventListener('click',()=>world.rotate(-Math.PI/6));$('#camera-right').addEventListener('click',()=>world.rotate(Math.PI/6));
 $('#camera-in').addEventListener('click',()=>world.zoomBy(-3));$('#camera-out').addEventListener('click',()=>world.zoomBy(3));$('#camera-home').addEventListener('click',()=>world.recenter());
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){commandGeneration++;closePanel();world.clearSelection();$('#turn-summary').hidden=true;$('#help-card').hidden=true;}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!current?.battle){commandGeneration++;closePanel();world.clearSelection();$('#turn-summary').hidden=true;$('#help-card').hidden=true;}});
 
 try{const response=await fetch('/api/state');if(!response.ok)throw new Error('无法读取游戏状态');const data=await response.json();render(data.view,data.modelName);}
 catch(error){notice(`无法连接本地游戏服务：${error.message}`,true);}

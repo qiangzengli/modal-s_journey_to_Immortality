@@ -1,11 +1,7 @@
 import { ACTION_DEFS } from './content.js';
-
-export class GameError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = 'GameError';
-  }
-}
+import { GameError } from './errors.js';
+import { assertPeace, ensureExploration, getCombatView } from './combat.js';
+export { GameError } from './errors.js';
 
 export const PEOPLE = [
   { id: 'shen', name: '沈秋', role: '丹商', goal: '卖掉筑基丹，为师弟换取续命药', publicGoal: '急于卖丹', place: 'market', stones: 40, links: ['bai', 'wei'] },
@@ -80,7 +76,7 @@ export function createGame() {
   know(game, 'xu', 'pill', 1);
   know(game, 'qing', 'pill', 1);
   know(game, 'wei', 'pill', 1);
-  return game;
+  return ensureExploration(game);
 }
 
 export const ACTIONS = ['ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
@@ -129,6 +125,7 @@ export function dialogueFor(game, target) {
 }
 
 export function applyAction(source, action) {
+  assertPeace(source);
   if (!action || !ACTIONS.includes(action.type)) throw new GameError('未识别的行动。可以试试「验丹」「调查货道」「找徐宁合资」。');
   const game = structuredClone(source);
   game.ap = null;
@@ -383,6 +380,7 @@ function spreadKnowledge(game, from, fact, to, cause) {
 }
 
 export function advanceTurn(source) {
+  assertPeace(source);
   const game = structuredClone(source);
   game.turn += 1;
   game.ap = null;
@@ -508,6 +506,7 @@ export function getView(game) {
   const visibleIds = new Set(visible.map(e => e.id));
   const pillOwner = game.pill.owner;
   return {
+    ...getCombatView(game),
     turn: game.turn,
     ap: null,
     revision: game.revision || 0,

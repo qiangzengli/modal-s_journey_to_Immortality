@@ -2,6 +2,8 @@ import * as THREE from '/vendor/three.module.js';
 import { decorateWorld } from './scenery.js';
 import { createNavigator } from './navigation.js';
 import { SITES } from './content.js';
+import { WANDERERS } from './combat-data.js';
+import { createBattleWorld } from './battle-world.js';
 
 const NPC_SPOTS = {
   shen: { market: [-15, -4], woods: [12, -3] },
@@ -13,6 +15,7 @@ const NPC_SPOTS = {
   han: { woods: [16, 5] },
   ning: { market: [-7, 5] }
 };
+for (const enemy of WANDERERS) NPC_SPOTS[enemy.id] = { woods: enemy.spot };
 
 const SITE_SPOTS = { herbs: [20, 2], formation: [15, -6.5], camp: [25, -7] };
 const FOREST_TREES = [
@@ -37,6 +40,7 @@ const COLORS = {
   han: { robe: 0x413e42, trim: 0xab6b55, skin: 0xb98d75, hair: 0x1d2020 },
   ning: { robe: 0xb1a486, trim: 0x70685e, skin: 0xe2bb9e, hair: 0x272926 }
 };
+for (const enemy of WANDERERS) COLORS[enemy.id] = { robe: Number(enemy.color.replace('#','0x')), trim: 0xd3c392, skin: 0xcfad8e, hair: 0x292b29 };
 
 const WOODS = 'woods';
 const MARKET = 'market';
@@ -120,7 +124,7 @@ function makePerson(id, name) {
     put(body, new THREE.BoxGeometry(0.46, 0.43, 0.23), material(0x78543a), 0, 0.88, -0.43);
     put(body, new THREE.BoxGeometry(0.48, 0.06, 0.28), trim, 0, 1.12, -0.43);
   }
-  if (['wei', 'xu', 'lu', 'han'].includes(id)) {
+  if (['wei', 'xu', 'lu', 'han', ...WANDERERS.map(enemy=>enemy.id)].includes(id)) {
     const blade = put(body, new THREE.BoxGeometry(0.075, 1.28, 0.09), material(0xa9b1a9, 0.32, 0.7), 0.63, 0.95, -0.25);
     blade.rotation.z = -0.15;
     put(body, new THREE.BoxGeometry(0.32, 0.07, 0.15), trim, 0.63, 0.42, -0.25);
@@ -150,6 +154,19 @@ function makePerson(id, name) {
     root.add(nameplate);
   }
   root.userData = { id, body, leftArm, rightArm, baseY: 0 };
+  if(id==='player')root.userData.weapon=put(body,new THREE.BoxGeometry(.08,1.05,.09),material(0xb1b9b4,.3,.7),.62,.72,.08);
+  if (WANDERERS.some(enemy=>enemy.id===id)) {
+    const bag = new THREE.Group();
+    const pouch = put(bag,new THREE.SphereGeometry(0.42,9,7),material(0xa18755),0,0.4,0);
+    pouch.scale.set(0.8,1,0.75);
+    put(bag,new THREE.TorusGeometry(0.17,0.045,5,8),material(0xe3c681),0,0.7,0).rotation.x=Math.PI/2;
+    const glow=put(bag,new THREE.RingGeometry(0.55,0.65,24),new THREE.MeshBasicMaterial({color:0xe1be71,side:THREE.DoubleSide,transparent:true,opacity:0.8}),0,0.04,0);
+    glow.rotation.x=-Math.PI/2;
+    const caption=label(`${name} · 储物袋`,{width:290,font:28,color:'#f2d48c'});caption.position.y=1.65;bag.add(caption);
+    bag.visible=false;root.add(bag);
+    root.userData.bag=bag;
+    root.userData.nameplate=root.children.find(child=>child.isSprite);
+  }
   root.traverse(child => { child.userData.personId = id; });
   return root;
 }
@@ -369,7 +386,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const player = makePerson('player', '你');
   scene.add(player);
   const people = Object.fromEntries(Object.keys(NPC_SPOTS).map(id => {
-    const actor = makePerson(id, { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
+    const actor = makePerson(id, WANDERERS.find(enemy=>enemy.id===id)?.name || { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
     scene.add(actor);
     return [id, actor];
   }));
@@ -386,6 +403,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   scene.add(routeLine);
   const pillAura = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.025, 6, 32), new THREE.MeshBasicMaterial({ color: 0xf0c46a, transparent: true, opacity: 0.7 }));
   scene.add(pillAura);
+  const battleWorld=createBattleWorld(renderer,makePerson);
 
   let place = MARKET;
   let initialized = false;
@@ -419,8 +437,8 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   function locate(target) {
     if (typeof target === 'object') return target;
     if (target === 'gate') return { kind: 'gate', name: place === MARKET ? '黑风林' : '地下坊市', place: place === MARKET ? WOODS : MARKET };
-    const person = view?.people.find(p => p.id === target);
-    if (person) { const [x,z] = positionFor(target, person.place); return { kind: 'person', id: target, name: person.name, place: person.place, x, z }; }
+    const person = view && [...view.people,...view.roamers].find(p => p.id === target && !p.looted);
+    if (person) { const [x,z] = positionFor(target, person.place); return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x, z }; }
     if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: WOODS, x, z }; }
     return null;
   }
@@ -458,7 +476,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     }
   });
   function goTo(target) {
-    if (busy || !view) return Promise.resolve(false);
+    if (busy || !view || view.battle) return Promise.resolve(false);
     keys.clear(); select(null); bubble.hidden = true; speech = null;
     return navigation.go(target);
   }
@@ -468,10 +486,12 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     const height = Math.max(300, container.clientHeight);
     renderer.setSize(width, height, false);
     const aspect = width / height;
-    camera.left = -zoom * aspect / 2;
-    camera.right = zoom * aspect / 2;
-    camera.top = zoom / 2;
-    camera.bottom = -zoom / 2;
+    const lens = zoom;
+    battleWorld.resize(width,height);
+    camera.left = -lens * aspect / 2;
+    camera.right = lens * aspect / 2;
+    camera.top = lens / 2;
+    camera.bottom = -lens / 2;
     camera.updateProjectionMatrix();
   }
   const observer = new ResizeObserver(resize);
@@ -501,7 +521,10 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function sync(nextView) {
+    const previousBattle=view?.battle;
+    const firstLoad=!initialized;
     view = nextView;
+    battleWorld.sync(nextView);
     if (!initialized || place !== nextView.player.place) {
       const first = !initialized;
       initialized = true;
@@ -522,7 +545,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     plants.forEach((plant, i) => { plant.visible = nextView.world.herbsRemaining > 0 && (nextView.world.herbsRemaining > 1 || i < 4); });
     terrain.arrayRing.material.color.setHex(nextView.world.trapReady ? 0x88d5ee : 0xc49e69);
     terrain.arrayRing.material.transparent = true;
-    for (const person of nextView.people) {
+    for (const person of [...nextView.people,...nextView.roamers]) {
       const actor = people[person.id];
       const spot = positionFor(person.id, person.place);
       actor.userData.destination = new THREE.Vector3(spot[0], 0, spot[1]);
@@ -530,6 +553,26 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         actor.position.copy(actor.userData.destination);
         actor.userData.initialized = true;
       }
+      if(actor.userData.bag){
+        actor.userData.bag.visible=Boolean(person.defeated&&!person.looted);
+        actor.userData.body.visible=!person.defeated;
+        actor.userData.nameplate.visible=!person.defeated;
+        actor.visible=!person.looted;
+      }
+    }
+    if(nextView.battle&&!previousBattle){
+      navigation.cancel();keys.clear();select(null);speech=null;bubble.hidden=true;
+      if(firstLoad){
+        const goal=locate(nextView.battle.enemyId);
+        const approach=Array.from({length:16},(_,i)=>({x:goal.x+Math.cos(i*Math.PI/8)*2.7,z:goal.z+Math.sin(i*Math.PI/8)*2.7})).find(p=>walkable(p.x,p.z));
+        if(approach)player.position.set(approach.x,0,approach.z);
+      }
+    }
+    if(Boolean(nextView.battle)!==Boolean(previousBattle))resize();
+    if(selectedId&&!people[selectedId].visible)select(null);
+    if(nextView.weapon){
+      const auraColor=nextView.weapon.attack>=11?0xe0a478:nextView.weapon.attack>=5?0xa7d6ac:0xd8c38f;
+      player.userData.weapon.material.color.setHex(auraColor);
     }
   }
 
@@ -635,12 +678,16 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     raycaster.setFromCamera(pointer, camera);
   }
+  function visibleHit(hit) {
+    for(let object=hit.object;object;object=object.parent)if(!object.visible)return false;
+    return true;
+  }
 
   renderer.domElement.addEventListener('pointerdown', event => { pointerDown = [event.clientX, event.clientY]; });
   renderer.domElement.addEventListener('pointerup', event => {
     const start = pointerDown;
     pointerDown = null;
-    if (busy || !start || Math.hypot(event.clientX - start[0], event.clientY - start[1]) > 8) return;
+    if (busy || view?.battle || !start || Math.hypot(event.clientX - start[0], event.clientY - start[1]) > 8) return;
     pointerRay(event);
     const siteHit = raycaster.intersectObjects(siteTargets)[0];
     if (siteHit) {
@@ -650,7 +697,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     }
     const gateHit = raycaster.intersectObjects(gateTargets)[0];
     if (gateHit) { goTo('gate'); return; }
-    const hits = raycaster.intersectObjects(Object.values(people), true);
+    const hits = raycaster.intersectObjects(Object.values(people), true).filter(visibleHit);
     const id = hits.find(hit => hit.object.userData.personId)?.object.userData.personId;
     if (id) { goTo(id); return; }
     if (raycaster.intersectObjects(obstacleTargets, true).length) {
@@ -672,6 +719,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   window.addEventListener('keydown', event => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target?.isContentEditable || document.querySelector('dialog[open]')) return;
+    if (view?.battle) return;
     if (event.key.toLowerCase() === 'q') { azimuth -= 0.22; return; }
     if (event.key.toLowerCase() === 'e') { azimuth += 0.22; return; }
     if (busy) return;
@@ -700,7 +748,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     ctx.fillStyle = '#576351';
     for (const [x, z, rx, rz] of MARKET_BLOCKERS) ctx.fillRect(px(x - rx), py(z - rz), rx * width / 30, rz * height / 14);
     for (const [x,z] of Object.values(SITE_SPOTS)) { ctx.fillStyle='#dbc48b'; ctx.fillRect(px(x)-3,py(z)-3,6,6); }
-    for (const person of view.people) { const actor=people[person.id]; ctx.fillStyle = person.id === view.pill.ownerId ? '#f6ce65' : '#acc3ad'; ctx.beginPath(); ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill(); }
+    for (const person of [...view.people,...view.roamers]) { if(person.looted)continue;const actor=people[person.id]; ctx.fillStyle = person.defeated ? '#e5bf71' : person.id === view.pill.ownerId ? '#f6ce65' : person.realm ? '#d08f71' : '#acc3ad'; ctx.beginPath(); ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill(); }
     ctx.save(); ctx.translate(px(player.position.x), py(player.position.z)); ctx.rotate(-player.rotation.y);
     ctx.fillStyle='#f6efce'; ctx.beginPath(); ctx.moveTo(0,5);ctx.lineTo(-4,-4);ctx.lineTo(0,-2);ctx.lineTo(4,-4);ctx.closePath();ctx.fill();ctx.restore();
     ctx.fillStyle='#c4ccb2';ctx.font='12px sans-serif';ctx.fillText('坊市',9,17);ctx.fillText('黑风林',width-52,17);
@@ -728,10 +776,10 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function updateNearby() {
-    let candidates = view?.people.filter(p=>p.place===place).map(p=>locate(p.id)) || [];
+    let candidates = view ? [...view.people,...view.roamers].filter(p=>p.place===place&&!p.looted).map(p=>locate(p.id)) : [];
     if (place === WOODS) candidates.push(...Object.keys(SITE_SPOTS).map(locate));
     candidates.push({kind:'gate',id:'gate',name:place===MARKET?'前往黑风林':'返回坊市',x:place===MARKET?-2.2:2.2,z:0});
-    nearby = !busy && !navigation.active && !crossing ? candidates.filter(p=>Math.hypot(p.x-player.position.x,p.z-player.position.z)<3).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0] : null;
+    nearby = !busy && !view?.battle && !navigation.active && !crossing ? candidates.filter(p=>Math.hypot(p.x-player.position.x,p.z-player.position.z)<3).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0] : null;
     if ((nearby?.id || null) !== nearbyId) { nearbyId=nearby?.id || null; onNearby?.(nearby || null); }
   }
 
@@ -805,9 +853,9 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     }
     if (selectedId) ring.position.set(people[selectedId].position.x, 0.055, people[selectedId].position.z);
     ring.material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.3;
-    cameraFocus.lerp(new THREE.Vector3(player.position.x, 0, player.position.z), Math.min(1, dt * 2.7));
-    camera.position.set(cameraFocus.x + Math.sin(azimuth) * 26.2, 22, cameraFocus.z + Math.cos(azimuth) * 26.2);
-    camera.lookAt(cameraFocus.x, 0, cameraFocus.z);
+    cameraFocus.lerp(new THREE.Vector3(player.position.x,0,player.position.z),Math.min(1,dt*2.7));
+    camera.position.set(cameraFocus.x+Math.sin(azimuth)*26.2,22,cameraFocus.z+Math.cos(azimuth)*26.2);
+    camera.lookAt(cameraFocus.x,0,cameraFocus.z);
     const bearer = view?.pill.ownerId === 'player' ? player : people[view?.pill.ownerId];
     pillAura.visible = Boolean(bearer);
     if (bearer) { pillAura.position.set(bearer.position.x, 2.65 + Math.sin(elapsed * 2) * 0.1, bearer.position.z); pillAura.rotation.set(Math.PI / 2, 0, elapsed * 0.5); }
@@ -824,7 +872,8 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         bubble.style.top=`${THREE.MathUtils.clamp((1-screen.y)/2*container.clientHeight,200,container.clientHeight-210)}px`;
       }
     }
-    renderer.render(scene, camera);
+    if(view?.battle)battleWorld.render(elapsed);
+    else renderer.render(scene, camera);
   }
   frame();
 
@@ -845,6 +894,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       scenery.burst(player.position, color);
       if (type === 'breakthrough') { for (const offset of [0,0.4,0.8]) setTimeout(() => scenery.burst(player.position,0xcce5b0), offset*1000); }
     },
+    combatReact: battleWorld.react,
     focusSite: goTo,
     focus: goTo,
     travel() { return goTo('gate'); },

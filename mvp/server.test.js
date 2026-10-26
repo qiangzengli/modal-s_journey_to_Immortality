@@ -19,6 +19,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
   delete old.player.dialogues;
   delete old.flags.playerBreakthrough;
   delete old.revision;
+  delete old.exploration;
   await writeFile(savePath, JSON.stringify(old));
   const reservation = createServer();
   reservation.listen(0, '127.0.0.1');
@@ -61,6 +62,11 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.player.stones, 170);
     assert.deepEqual(initial.player.dialogues, {});
     assert.equal(initial.world.breakthrough, false);
+    assert.equal(initial.roamers.length,4);
+    assert.equal(initial.skills[0].id,'qi_bolt');
+    for (const input of [null, [], 'invalid']) {
+      assert.equal((await post('/api/combat',input)).status,400);
+    }
     const planned = await post('/api/intent', { text: '采集灵草', expectedRevision: 0 });
     assert.equal(planned.status, 200);
     assert.deepEqual(planned.action, { type: 'gather_herbs' });
@@ -84,13 +90,30 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
-    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/navigation.js']) {
+    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/navigation.js', '/combat-data.js', '/combat-ui.js', '/battle-world.js']) {
       assert.equal((await fetch(origin + file)).status, 200);
     }
     await stop();
     await start();
     const restored = (await (await fetch(origin + '/api/state')).json()).view;
     assert.deepEqual(restored, bought.view);
+    const entered = await post('/api/action',{type:'travel_woods',expectedRevision:1});
+    const started = await post('/api/combat',{type:'start',enemyId:'luohu',expectedRevision:entered.view.revision});
+    assert.equal(started.status,200);
+    const rejected=await post('/api/advance',{expectedRevision:started.view.revision});
+    assert.equal(rejected.status,400);
+    const moved=await post('/api/combat',{type:'turn',move:'skill',skillId:'qi_bolt',expectedRevision:started.view.revision});
+    assert.equal(moved.status,200);
+    const duplicate=await post('/api/combat',{type:'turn',move:'attack',expectedRevision:started.view.revision});
+    assert.equal(duplicate.status,409);
+    assert.deepEqual(duplicate.view,moved.view);
+    const illegalGear=await post('/api/inventory',{type:'equip',itemId:'thunder_blade',expectedRevision:moved.view.revision});
+    assert.equal(illegalGear.status,400);
+    await stop();await start();
+    const ongoing=(await(await fetch(origin+'/api/state')).json()).view;
+    assert.deepEqual(ongoing,moved.view);
+    assert.equal(ongoing.battle.round,2);
+    assert.equal(ongoing.battle.mana,28);
   } finally {
     await stop();
     await rm(directory, { recursive: true, force: true });

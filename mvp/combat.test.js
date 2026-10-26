@@ -1,0 +1,130 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { createGame, applyAction, advanceTurn, getView } from './engine.js';
+import { combatAction, inventoryAction, ensureExploration } from './combat.js';
+
+const act = (game, input, roll = 0.5) => combatAction(game, input, () => roll).game;
+const turn = (game, move, extra = {}, roll) => act(game, { type: 'turn', move, ...extra }, roll);
+function start(enemyId = 'luohu') {
+  const game = createGame(); game.player.place = 'woods';
+  return act(game, { type: 'start', enemyId });
+}
+function win(game = start()) {
+  for (let i = 0; i < 30 && game.exploration.battle.status === 'active'; i++) game = turn(game, 'attack');
+  assert.equal(game.exploration.battle.status, 'won');
+  return game;
+}
+
+test('旧档补充初始功法与行囊，不改原有资源；迁移幂等', () => {
+  const game = createGame(); delete game.exploration;
+  game.player.stones = 125; game.player.hp = 69;
+  const old = structuredClone(game);
+  ensureExploration(game);
+  assert.deepEqual(game.player, old.player);
+  assert.deepEqual(game.exploration.learned, ['qi_bolt']);
+  game.exploration.inventory.healing_pill = 0;
+  ensureExploration(game);
+  assert.equal(game.exploration.inventory.healing_pill, 0);
+});
+
+test('回合由玩家选择推进；真气、功法冷却和敌方反击正确结算', () => {
+  let game = start(); const before = structuredClone(game);
+  const view = getView(game);
+  assert.equal(view.battle.round, 1);
+  assert.deepEqual(game, before);
+  game = turn(game, 'skill', { skillId: 'qi_bolt' });
+  assert.equal(game.player.hp, 89);
+  assert.equal(game.exploration.battle.enemyHp, 40);
+  assert.equal(game.exploration.battle.mana, 28);
+  assert.equal(game.exploration.battle.cooldowns.qi_bolt, 1);
+  assert.equal(game.exploration.battle.round, 2);
+  assert.throws(() => turn(game, 'skill', { skillId: 'qi_bolt' }), /冷却/);
+  game = turn(game, 'guard');
+  assert.equal(game.player.hp, 82);
+  assert.equal(game.exploration.battle.mana, 36);
+  assert.equal(game.exploration.battle.cooldowns.qi_bolt, 0);
+  assert.equal(game.turn, 1);
+});
+
+test('逃跑成功不获战利品，失败受到一次反击；伤势保留', () => {
+  const source = start();
+  const escaped = turn(source, 'escape', {}, 0);
+  assert.equal(escaped.exploration.battle.status, 'escaped');
+  assert.equal(escaped.player.hp, 100);
+  assert.equal(escaped.exploration.enemies.luohu, undefined);
+  const failed = turn(source, 'escape', {}, 0.99);
+  assert.equal(failed.exploration.battle.status, 'active');
+  assert.ok(failed.player.hp < 100);
+  assert.equal(failed.exploration.battle.round, 2);
+});
+
+test('胜利不受死敌反击，储物袋跨保存保留、只可领取一次', () => {
+  let game = start();
+  game.exploration.battle.enemyHp = 1;
+  game = turn(game, 'attack');
+  assert.equal(game.player.hp, 100);
+  const won = JSON.parse(JSON.stringify(game));
+  game = act(won, { type: 'leave' });
+  assert.equal(game.exploration.enemies.luohu.looted, false);
+  game = act(game, { type: 'claim', enemyId: 'luohu' });
+  assert.equal(game.player.stones, 208);
+  assert.equal(game.player.herbs, 2);
+  assert.equal(game.exploration.inventory.green_sword, 1);
+  assert.throws(() => act(game, { type: 'claim', enemyId: 'luohu' }), /取空/);
+  assert.throws(() => act(game, { type: 'start', enemyId: 'luohu' }), /败退/);
+  assert.equal(won.exploration.enemies.luohu.looted, false);
+});
+
+test('战利品能装备、研习和使用，强化下一场斗法且不可凭空取物', () => {
+  let game = act(win(), { type: 'claim', enemyId: 'luohu' });
+  game = inventoryAction(game, { type: 'equip', itemId: 'green_sword' }).game;
+  game = inventoryAction(game, { type: 'learn', itemId: 'wind_manual' }).game;
+  assert.ok(game.exploration.learned.includes('wind_blade'));
+  assert.equal(game.exploration.inventory.wind_manual, 0);
+  assert.throws(() => inventoryAction(game, { type: 'equip', itemId: 'thunder_blade' }), /没有/);
+  game = act(game, { type: 'start', enemyId: 'suqin' });
+  game = turn(game, 'skill', { skillId: 'wind_blade' });
+  assert.equal(game.exploration.battle.enemyHp, 45);
+});
+
+test('丹药按实际恢复消耗，阵盘打断敌人，非法回合完全不改原档', () => {
+  let game = start(); const original = structuredClone(game);
+  for (const input of [{ move: 'item', itemId: 'healing_pill' }, { move: 'skill', skillId: 'fire_art' }, { move: 'item', itemId: '__proto__' }, { move: 'nope' }]) {
+    assert.throws(() => act(game, { type: 'turn', ...input }));
+    assert.deepEqual(game, original);
+  }
+  game.player.hp = 80;
+  game = turn(game, 'item', { itemId: 'healing_pill' });
+  assert.equal(game.player.hp, 89);
+  assert.equal(game.exploration.inventory.healing_pill, 1);
+  game.exploration.inventory.binding_array = 1;
+  const hp = game.player.hp;
+  game = turn(game, 'item', { itemId: 'binding_array' });
+  assert.equal(game.player.hp, hp);
+  assert.equal(game.exploration.inventory.binding_array, 0);
+});
+
+test('斗法中禁止移动、推进时间及场外服丹；败退有明示代价且可继续游玩', () => {
+  const game = start('mochi');
+  assert.throws(() => applyAction(game, { type: 'travel_market' }), /斗法/);
+  assert.throws(() => advanceTurn(game), /斗法/);
+  assert.throws(() => inventoryAction(game, { type: 'use', itemId: 'healing_pill' }), /斗法/);
+  assert.throws(() => act(game, { type: 'leave' }), /逃跑/);
+  assert.throws(() => act(game, { type: 'claim', enemyId: 'mochi' }), /斗法/);
+  game.player.hp = 1; game.exploration.battle.round = 2;
+  const lost = turn(game, 'attack');
+  assert.equal(lost.exploration.battle.status, 'lost');
+  assert.equal(lost.player.hp, 25);
+  assert.equal(lost.player.stones, 162);
+  assert.deepEqual(lost.exploration.inventory, game.exploration.inventory);
+  assert.equal(lost.exploration.enemies.mochi, undefined);
+  assert.equal(applyAction(lost, { type: 'travel_market' }).game.player.place, 'market');
+});
+
+test('场外和未击败时不能获取储物袋，真气不足不能出招', () => {
+  assert.throws(() => act(createGame(), { type: 'start', enemyId: 'luohu' }), /黑风林/);
+  const game = start(); game.exploration.battle.mana = 0;
+  assert.throws(() => turn(game, 'skill', { skillId: 'qi_bolt' }), /真气不足/);
+  const roaming = createGame(); roaming.player.place = 'woods';
+  assert.throws(() => act(roaming, { type: 'claim', enemyId: 'luohu' }), /击败/);
+});
