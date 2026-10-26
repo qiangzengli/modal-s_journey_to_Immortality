@@ -32,6 +32,7 @@ const el = {
 let current;
 let busy = false;
 let selectedPerson = null;
+let selectedSite = null;
 let activePanel = null;
 const panelTitles = { opportunity: '筑基丹去向', self: '行囊与处境', people: '修真界众生', actions: '可尝试的行动', events: '修真邸报' };
 
@@ -52,6 +53,7 @@ function openPanel(name) {
 
 function closePerson() {
   selectedPerson = null;
+  selectedSite = null;
   el.worldPerson.hidden = true;
 }
 const personActions = {
@@ -67,6 +69,7 @@ function showPerson(id, focusUI = true) {
   const person = current?.people.find(entry => entry.id === id);
   if (!person) return;
   selectedPerson = id;
+  selectedSite = null;
   if (focusUI) closePanel();
   el.worldPerson.hidden = false;
   el.worldRole.textContent = person.role;
@@ -76,8 +79,24 @@ function showPerson(id, focusUI = true) {
   el.worldHint.textContent = `已走近${person.name}。可以交谈或采取行动。`;
 }
 
+function showSite(id, focusUI = true) {
+  selectedPerson = null;
+  selectedSite = id;
+  if (focusUI) closePanel();
+  const site = id === 'herbs'
+    ? { name: '灵草坡', role: '黑风林 · 采集点', goal: '山坡上散落着可采集的灵草。', actions: ['gather_herbs'] }
+    : { name: '天雷阵位', role: '黑风林 · 埋伏点', goal: '在此布下天雷符，可为夺丹伏击做准备。', actions: ['prepare_trap', 'ambush'] };
+  el.worldPerson.hidden = false;
+  el.worldRole.textContent = site.role;
+  el.worldName.textContent = site.name;
+  el.worldGoal.textContent = site.goal;
+  el.worldActions.innerHTML = site.actions.map(type => `<button type="button" data-world-action="${type}" ${!current.ap ? 'disabled' : ''}>${esc(actionNames[type] || type)}</button>`).join('');
+  el.worldHint.textContent = `已到达${site.name}。选择一项行动。`;
+}
+
 const world = createWorld($('#world-canvas'), {
   onSelectPerson: showPerson,
+  onSelectSite: showSite,
   onClearPerson: closePerson,
   onTravel: async place => {
     const arrived = await call('/api/action', { type: place === 'woods' ? 'travel_woods' : 'travel_market' });
@@ -100,10 +119,9 @@ function render(view, modelName) {
   current = view;
   world.sync(view);
   el.worldLocation.textContent = view.player.place === 'market' ? '地下坊市' : '黑风林';
-  if (selectedPerson && view.people.find(p => p.id === selectedPerson)?.place !== view.player.place) {
-    selectedPerson = null;
-    el.worldPerson.hidden = true;
-  } else if (selectedPerson) showPerson(selectedPerson, false);
+  if ((selectedPerson && view.people.find(p => p.id === selectedPerson)?.place !== view.player.place) || (selectedSite && view.player.place !== 'woods')) closePerson();
+  else if (selectedPerson) showPerson(selectedPerson, false);
+  else if (selectedSite) showSite(selectedSite, false);
   el.turn.textContent = `第 ${view.turn} 旬`;
   el.ap.textContent = view.ap;
   el.owner.textContent = view.pill.owner;
@@ -172,7 +190,7 @@ el.people.addEventListener('click', event => {
 });
 el.worldActions.addEventListener('click', event => {
   const button = event.target.closest('[data-world-action]');
-  if (!button || !selectedPerson) return;
+  if (!button || (!selectedPerson && !selectedSite)) return;
   const type = button.dataset.worldAction;
   call('/api/action', type === 'ask' ? { type, target: selectedPerson } : { type });
 });
