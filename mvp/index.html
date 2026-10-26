@@ -14,6 +14,9 @@
   </header>
   <div class="world-top"><span class="eyebrow">乱星海 · 东境</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击人物交谈，探索属于你的机缘</span></div>
 
+  <div id="navigation-status" class="navigation-status" role="status" hidden><span class="walking-dot"></span><span id="navigation-copy"></span><button id="navigation-cancel" type="button">停止</button></div>
+  <button id="nearby-interact" class="nearby-interact" type="button" hidden><kbd>F</kbd><span id="nearby-name"></span><small>交互</small></button>
+
   <section class="journey-card" aria-label="机缘指引"><div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">0 / 5</span></div><div class="route-tabs"><button data-route="trade" type="button">交易</button><button data-route="report" type="button">借势</button><button data-route="ambush" type="button">夺宝</button></div><h2 id="quest-title">核验丹药</h2><p id="quest-detail">先取得药师印记。</p><button id="quest-track" type="button">追踪目标 <span>◇</span></button></section>
 
   <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>机缘 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small id="opportunity-hint">金色光环标记持丹者 ↗</small></button>
@@ -22,6 +25,7 @@
     <button id="person-close" class="icon-close" type="button" aria-label="关闭交互">×</button>
     <div class="character-heading"><span id="person-seal" class="person-seal">沈</span><div><small id="world-role"></small><strong id="world-name"></strong></div></div>
     <div id="person-meta" class="person-meta"></div><p id="world-goal"></p><blockquote id="person-dialogue" hidden></blockquote>
+    <div id="interaction-result" class="interaction-result" role="status" hidden><small>此刻 · 行动结果</small><p id="interaction-result-copy"></p><button id="interaction-next" type="button" hidden></button></div>
     <div id="world-actions" class="context-actions"></div>
     <form id="trade-form" class="trade-form" hidden><label for="trade-offer">当面议价 <small>报价过低可能降低信任</small></label><div class="offer-row"><input id="trade-offer" type="number" min="1" max="9999" value="200" required aria-label="灵石报价"><span>灵石</span><button type="submit">递上报价</button></div><label class="sr-only" for="trade-leverage">议价筹码</label><select id="trade-leverage"><option value="none">仅凭报价</option></select></form>
     <details id="person-memory"><summary>与你有关的往事</summary><div id="memory-list"></div></details>
@@ -33,7 +37,7 @@
       <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>当前持有人</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>当前售价</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>传闻状态</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome"></p><div id="quest-steps" class="quest-steps"></div></section>
       <section data-panel-content="self" hidden><div id="stats" class="stats"></div><div id="clues" class="clues"></div><p id="mode" class="panel-tip">离线规则模式</p><button id="restart" class="text-button" type="button">重开此局</button></section>
       <section data-panel-content="people" hidden><p class="panel-tip">人物会记得你的承诺与手段。点击卡片可在地图上寻找他。</p><div id="people" class="people"></div></section>
-      <section data-panel-content="actions" hidden><p class="panel-tip">先看清前提和代价，再前往对应人物或地点。</p><div id="actions" class="action-grid"></div></section>
+      <section data-panel-content="actions" hidden><p class="panel-tip">选择行动后会自动走到对应人物或地点执行；途中可按方向键或「停止」取消。</p><div id="actions" class="action-grid"></div></section>
       <section data-panel-content="events" hidden><div id="events" class="events"></div></section>
     </div>
   </aside>
@@ -43,9 +47,9 @@
   <section class="command-dock" aria-label="自然语言行动"><div class="command-caption"><span>心念传音</span><small id="command-status">行动不限 · 时间手动推进</small></div><form id="command-form"><label class="sr-only" for="command">写下你的计策</label><textarea id="command" maxlength="280" rows="1" placeholder="例如：我拿货道证词压价，出价 200 灵石买丹。"></textarea><button id="command-submit" class="primary" type="submit">落子 <span>↗</span></button></form><div id="message" class="message" role="status" aria-live="polite">先观察持丹者与人物的动向，再决定如何落子。</div></section>
 
   <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="坊市与黑风林导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
-  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击空地自动绕路，点击人物和地点靠近。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；点击「推进一旬」才会推进时间并结算世界事件。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
+  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击目标会自动绕路、经过界门并继续前往。靠近时按 F 交互，按方向键或 Esc 可取消寻路。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；点击「推进一旬」才会推进时间并结算世界事件。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
   <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
-  <section id="turn-summary" class="turn-summary" aria-label="本旬动向" hidden><div><span class="eyebrow">时序流转</span><button id="summary-close" class="icon-close" type="button" aria-label="关闭本旬动向">×</button></div><h2 id="summary-title"></h2><div id="summary-events"></div><button id="summary-continue" class="primary" type="button">继续游历 →</button></section>
+  <section id="turn-summary" class="turn-summary" aria-label="本旬动向" hidden><div><span class="eyebrow">时序流转</span><button id="summary-close" class="icon-close" type="button" aria-label="关闭本旬动向">×</button></div><h2 id="summary-title"></h2><div id="summary-events"></div><button id="summary-continue" class="primary" type="button">展开邸报 →</button></section>
   <dialog id="ending" class="ending"><span class="ending-seal">筑</span><p class="eyebrow">道途初开</p><h2>一念破境，因果未了。</h2><p id="ending-copy"></p><div id="ending-stats"></div><button id="ending-close" class="primary" type="button">回到这片修真界 →</button></dialog>
 </main>
 </body></html>

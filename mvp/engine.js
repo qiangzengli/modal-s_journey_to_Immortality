@@ -523,6 +523,7 @@ export function getView(game) {
       id: p.id, name: p.name, role: p.role, goal: p.publicGoal,
       place: game.people[p.id].place, condition: game.people[p.id].condition,
       trust: game.people[p.id].trust,
+      greeting: dialogueFor(game, p.id),
       dialogue: game.player.dialogues?.[p.id] || null,
       memories: visible.filter(e => e.actor === p.name || e.text.includes(p.name)).slice(-3).map(e => ({ turn: e.turn, text: e.text, id: e.id }))
     })),

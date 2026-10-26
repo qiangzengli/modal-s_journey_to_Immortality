@@ -13,8 +13,40 @@ let selectedPerson = null;
 let selectedSite = null;
 let activePanel = null;
 let chosenRoute = 'trade';
+try { const route=localStorage.getItem('niminglu-route'); if(['trade','report','ambush'].includes(route)) chosenRoute=route; } catch {}
 let currentSteps = [];
 let newsCount = 0;
+let summaryTimer;
+let nearbyTarget = null;
+let lastInteraction = null;
+let commandGeneration = 0;
+function chooseRoute(route) {
+  chosenRoute=route;
+  try { localStorage.setItem('niminglu-route',route); } catch {}
+  if(current)updateQuest();
+}
+function actionTarget(action, view=current) {
+  if(action.type==='ask')return action.target;
+  if(action.type==='negotiate')return 'shen';
+  if(action.type==='buy_pill')return view.pill.ownerId==='lu'?'lu':'shen';
+  const def=defs[action.type];
+  return def?.person || def?.site;
+}
+function updateNearbyPrompt() {
+  $('#nearby-interact').hidden=!nearbyTarget||busy||Boolean(selectedPerson||selectedSite);
+  $('#nearby-name').textContent=nearbyTarget ? `${nearbyTarget.kind==='gate'?'':'交互 · '}${nearbyTarget.name}` : '';
+}
+function updateInteractionResult() {
+  const id=selectedPerson||selectedSite;
+  $('#interaction-result').hidden=!lastInteraction||lastInteraction.target!==id;
+  $('#world-goal').hidden=!$('#interaction-result').hidden;
+  $('#person-dialogue').hidden=Boolean(selectedSite)||!$('#interaction-result').hidden;
+  if(!$('#interaction-result').hidden)$('#interaction-result-copy').textContent=lastInteraction.text;
+  const next=currentSteps.find(step=>!step.done&&!step.skipped);
+  $('#interaction-next').hidden=!next||!lastInteraction||lastInteraction.target!==id;
+  $('#interaction-next').textContent=next?.target==='advance'?'等候下一旬 →':`接下来 · ${next?.title || ''} →`;
+}
+
 
 function notice(text, bad = false) {
   $('#message').textContent = text;
@@ -26,6 +58,7 @@ function closePanel() {
   document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', 'false'));
 }
 function openPanel(name) {
+  commandGeneration++;
   if (activePanel === name) { closePanel(); return; }
   world.clearSelection();
   activePanel = name;
@@ -36,9 +69,12 @@ function openPanel(name) {
   if (name === 'events') { newsCount=0; $('#news-count').hidden=true; }
 }
 function closePerson() {
+  lastInteraction = null;
   selectedPerson = null;
   selectedSite = null;
   $('#world-person').hidden = true;
+  document.body.classList.remove('interacting');
+  updateNearbyPrompt();
 }
 function actionMarkup(type) {
   const state = type === 'ask' ? { available: true, reason: '' } : current.actionOptions[type];
@@ -53,21 +89,26 @@ function showPerson(id, focusUI = true) {
   if (focusUI) closePanel();
   const detail=PERSON_DETAILS[id];
   $('#world-person').hidden=false;
+  document.body.classList.add('interacting');
   $('#world-person').style.setProperty('--person-color', detail.color);
   $('#person-seal').textContent=person.name[0];
   $('#world-role').textContent=person.role;
   $('#world-name').textContent=person.name;
   $('#person-meta').innerHTML=`<span>${esc(person.condition === '筑基初期' ? person.condition : detail.realm)}</span><span>${esc(relationship(person.trust))} ${person.trust > 0 ? '+' : ''}${person.trust}</span><span>${esc(person.condition)}</span>`;
   $('#world-goal').textContent=detail.bio;
-  $('#person-dialogue').hidden=!person.dialogue;
-  $('#person-dialogue').textContent=person.dialogue ? `第 ${person.dialogue.turn} 旬 · ${person.dialogue.text}` : '';
+  $('#person-dialogue').hidden=false;
+  $('#person-dialogue').textContent=person.greeting || person.dialogue?.text || '';
   const options = PERSON_ACTIONS[id].filter(type => type !== 'buy_pill' || (id === 'lu' ? current.pill.ownerId === 'lu' : current.pill.ownerId !== 'lu'));
   $('#world-actions').innerHTML=options.map(actionMarkup).join('');
   $('#trade-form').hidden=!(id === 'shen' && current.pill.ownerId === 'shen' && current.player.place === 'market');
+  const previousLeverage=$('#trade-leverage').value;
   $('#trade-leverage').innerHTML='<option value="none">仅凭报价</option>'+current.player.clues.map(clue => `<option value="${clue}">${clue === 'smuggling' ? '亮出货道证词' : '持真丹鉴定'}</option>`).join('');
+  if([...$('#trade-leverage').options].some(option=>option.value===previousLeverage))$('#trade-leverage').value=previousLeverage;
   $('#person-memory').hidden=false;
   $('#memory-list').innerHTML=person.memories.map(event=>`<p><small>第 ${event.turn} 旬</small>${esc(event.text)}</p>`).join('') || '<p>尚无与你有关的往事。</p>';
-  if (focusUI) $('#world-hint').textContent=`已走近${person.name}。先看清前提与代价，再落子。`;
+  updateNearbyPrompt(); updateInteractionResult();
+  if (focusUI) $('#world-person').scrollTop=0;
+  $('#world-hint').textContent=`正在与${person.name}交谈。`;
 }
 function showSite(id, focusUI = true) {
   const site=SITES[id];
@@ -75,6 +116,7 @@ function showSite(id, focusUI = true) {
   selectedPerson=null;selectedSite=id;
   if (focusUI) closePanel();
   $('#world-person').hidden=false;
+  document.body.classList.add('interacting');
   $('#world-person').style.setProperty('--person-color', '#c9bb82');
   $('#person-seal').textContent=id==='herbs'?'草':id==='camp'?'静':'阵';
   $('#world-role').textContent=site.role;
@@ -84,12 +126,20 @@ function showSite(id, focusUI = true) {
   $('#person-meta').innerHTML=`<span>${esc(state)}</span>`;
   $('#person-dialogue').hidden=true;$('#person-memory').hidden=true;$('#trade-form').hidden=true;
   $('#world-actions').innerHTML=site.actions.map(actionMarkup).join('');
-  if (focusUI) $('#world-hint').textContent=`已到达${site.name}。${state}。`;
+  updateNearbyPrompt(); updateInteractionResult();
+  if (focusUI) $('#world-person').scrollTop=0;
+  $('#world-hint').textContent=`已到达${site.name}。${state}。`;
 }
 
 const world=createWorld($('#world-canvas'), {
   onSelectPerson: showPerson, onSelectSite: showSite, onClearPerson: closePerson,
   miniMap: $('#mini-map'),
+  onNavigation: state => {
+    $('#navigation-status').hidden=!state;
+    if(state){ $('#navigation-copy').textContent=`${state.stage} · ${state.name}`; $('#world-hint').textContent=`${state.stage} · ${state.name}`; $('#turn-summary').hidden=true; }
+    else if (/^(正在前往|经过界门) · /.test($('#world-hint').textContent)) $('#world-hint').textContent='点击人物交谈，或继续探索这片天地。';
+  },
+  onNearby: target => { nearbyTarget=target; updateNearbyPrompt(); },
   onTravel: async place => {
     const arrived=await call('/api/action', { type:place==='woods'?'travel_woods':'travel_market' });
     if(arrived) $('#world-hint').textContent=place==='woods'?'已进入黑风林。采药、设伏，或去听雨亭调息。':'已回到地下坊市。交易与消息仍在继续。';
@@ -109,14 +159,35 @@ function updateQuest() {
   document.querySelectorAll('[data-route]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.route===chosenRoute)));
   $('#quest-steps').innerHTML=currentSteps.map((step,index)=>`<button type="button" data-quest-step="${index}" class="quest-step ${step.done||step.skipped?'done':''}"><b>${step.skipped?'—':step.done?'✓':index+1}</b><span><strong>${esc(step.title)}</strong><small>${step.skipped?'已取得机缘，此前置不再需要。':esc(step.detail)}</small></span></button>`).join('');
 }
-function navigate(target) {
+async function navigate(target) {
+  if(busy)return false;
   closePanel();
-  if(target==='advance'){ $('#advance').classList.remove('attention'); void $('#advance').offsetWidth; $('#advance').classList.add('attention');notice('右上角推进一旬，人物会按各自目标行动。');return; }
-  const person=current.people.find(p=>p.id===target);
-  if(person){
-    if(person.place!==current.player.place){world.focusSite('gate');notice(`${person.name}在${person.place==='woods'?'黑风林':'坊市'}，先经过界门。`);}
-    else world.focus(target);
-  } else world.focusSite(target);
+  $('#turn-summary').hidden=true;
+  if(target==='advance')return call('/api/advance');
+  return world.goTo(target);
+}
+async function executeAction(action) {
+  if(busy||!current)return false;
+  const routes={inspect_pill:'trade',partner:'trade',investigate_route:'report',report:'report',lure:'ambush',prepare_trap:'ambush',ambush:'ambush'};
+  if(routes[action.type]&&!current.world.breakthrough)chooseRoute(routes[action.type]);
+  closePanel();
+  if(action.type==='travel_woods'||action.type==='travel_market') {
+    const place=action.type==='travel_woods'?'woods':'market';
+    if(current.player.place===place){notice('你已经在这里。');return false;}
+    return world.goTo({kind:'gate',place,name:place==='woods'?'黑风林':'地下坊市'});
+  }
+  const target=actionTarget(action);
+  if(!target){notice('这项行动暂时没有对应的地图目标。',true);return false;}
+  if(!await world.goTo(target))return false;
+  return call('/api/action',action);
+}
+async function submitCommand(text) {
+  if(busy||!current)return;
+  const ticket=++commandGeneration;
+  const planned=await call('/api/intent',{text});
+  if(!planned||ticket!==commandGeneration)return;
+  $('#command').blur();
+  if(await executeAction(planned.action) && $('#command').value.trim()===text)$('#command').value='';
 }
 function render(view, modelName) {
   current=view;
@@ -144,9 +215,9 @@ function render(view, modelName) {
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
   $('#actions').innerHTML=ACTION_DEFS.filter(def=>def.place===view.player.place).map(def=>{
     const state=view.actionOptions[def.type];
-    return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button"><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
+    return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button" ${state.available?'':'disabled'}><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');
-  updateQuest();
+  updateQuest(); updateInteractionResult();
 }
 function feedback(before,after) {
   const labels={stones:'灵石',hp:'气血',herbs:'灵草',talismans:'天雷符',reputation:'声望',seal:'鉴定印'};
@@ -159,20 +230,32 @@ function showTurnSummary(before,after) {
   const events=after.events.filter(event=>event.id>lastId);
   newsCount+=events.length;$('#news-count').hidden=!newsCount;$('#news-count').textContent=newsCount;
   $('#summary-title').textContent=`第 ${after.turn} 旬 · ${events.length} 条新动向`;
-  $('#summary-events').innerHTML=events.slice(0,5).map(event=>`<p><b>${esc(event.actor)}</b>${esc(event.text)}</p>`).join('')||'<p>风过坊市，本旬尚无新的公开动向。</p>';
-  if(events.length>5)$('#summary-events').innerHTML+=`<small>其余 ${events.length-5} 条可在邸报查看。</small>`;
+  $('#summary-events').innerHTML=events.slice(0,2).map(event=>`<p><b>${esc(event.actor)}</b>${esc(event.text)}</p>`).join('')||'<p>风过坊市，本旬尚无新的公开动向。</p>';
+  if(events.length>2)$('#summary-events').innerHTML+=`<small>其余 ${events.length-2} 条可在邸报查看。</small>`;
   $('#turn-summary').hidden=false;
+  clearTimeout(summaryTimer); summaryTimer=setTimeout(()=>{ $('#turn-summary').hidden=true; },10000);
 }
 async function call(path,payload={}) {
   if(busy||!current)return false;
   const before=current;
-  busy=true;world.setBusy(true);document.body.classList.add('busy');$('#command-form').setAttribute('aria-busy','true');
-  $('#command-status').textContent=path==='/api/command'?'正在推敲你的计策……':'正在结算……';
+  busy=true;world.setBusy(true);updateNearbyPrompt();document.body.classList.add('busy');$('#command-form').setAttribute('aria-busy','true');
+  for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=true;
+  $('#command-status').textContent=path==='/api/intent'?'正在推敲你的计策……':'正在结算……';
   try {
     const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,expectedRevision:current.revision})});
     const data=await response.json();
     if(!response.ok){if(data.view)render(data.view,data.modelName);throw new Error(data.error||'行动未能执行');}
-    render(data.view,data.modelName);notice(data.result);feedback(before,data.view);
+    if(path==='/api/reset'){world.reset();chooseRoute('trade');lastInteraction=null;}
+    if(path==='/api/advance')lastInteraction=null;
+    render(data.view,data.modelName);
+    if(path==='/api/intent')return data;
+    notice(data.result);feedback(before,data.view);
+    if(path==='/api/action'&&!data.actionType.startsWith('travel_')) {
+      const target=actionTarget({...payload,type:data.actionType},before);
+      lastInteraction={target,text:data.result}; updateInteractionResult();
+      world.speak(target,data.result);
+      $('#world-person').scrollTop=0;
+    }
     world.react(data.actionType,before,data.view);
     if(path==='/api/command')$('#command').value='';
     if(path==='/api/advance')showTurnSummary(before,data.view);
@@ -181,31 +264,42 @@ async function call(path,payload={}) {
       $('#ending-stats').innerHTML=`<span>历时 <b>${data.view.turn} 旬</b></span><span>声望 <b>${data.view.player.reputation}</b></span><span>未偿承诺 <b>${data.view.pill.partnerDebt} 灵石</b></span>`;
       $('#ending').showModal();
     }
-    return true;
-  }catch(error){notice(error.message,true);$('#world-hint').textContent=error.message;return false;}
-  finally{busy=false;world.setBusy(false);document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');$('#command-status').textContent='行动不限 · 时间手动推进';}
+    return data;
+  }catch(error){
+    notice(error.message,true);$('#world-hint').textContent=error.message;
+    if(path==='/api/action'&&(selectedPerson||selectedSite)){lastInteraction={target:selectedPerson||selectedSite,text:error.message};updateInteractionResult();}
+    return false;
+  }
+  finally{
+    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');$('#command-status').textContent='行动不限 · 时间手动推进';
+    for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=false;
+  }
 }
 
-$('#world-actions').addEventListener('click',event=>{const button=event.target.closest('[data-world-action]');if(!button)return;const type=button.dataset.worldAction;call('/api/action',type==='ask'?{type,target:selectedPerson}:{type});});
-$('#trade-form').addEventListener('submit',event=>{event.preventDefault();call('/api/action',{type:'negotiate',offer:Number($('#trade-offer').value),leverage:$('#trade-leverage').value});});
-$('#actions').addEventListener('click',event=>{const button=event.target.closest('[data-locate-action]');if(button){const def=defs[button.dataset.locateAction];navigate(def.type==='buy_pill'&&current.pill.ownerId==='lu'?'lu':def.person||def.site);}});
+$('#world-actions').addEventListener('click',event=>{const button=event.target.closest('[data-world-action]');if(!button)return;const type=button.dataset.worldAction;executeAction(type==='ask'?{type,target:selectedPerson}:{type});});
+$('#trade-form').addEventListener('submit',event=>{event.preventDefault();executeAction({type:'negotiate',offer:Number($('#trade-offer').value),leverage:$('#trade-leverage').value});});
+$('#actions').addEventListener('click',event=>{const button=event.target.closest('[data-locate-action]');if(button){const def=defs[button.dataset.locateAction];executeAction({type:def.type});}});
 $('#people').addEventListener('click',event=>{const button=event.target.closest('[data-person]');if(button)navigate(button.dataset.person);});
 document.querySelectorAll('[data-open-panel]').forEach(button=>button.addEventListener('click',()=>openPanel(button.dataset.openPanel)));
-document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>{chosenRoute=button.dataset.route;updateQuest();}));
+document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>{commandGeneration++;world.cancel();chooseRoute(button.dataset.route);}));
 $('#quest-track').addEventListener('click',()=>{const next=currentSteps.find(step=>!step.done&&!step.skipped);if(current.pill.ownerId==='xu'||!next)openPanel('events');else navigate(next.target);});
 $('#quest-steps').addEventListener('click',event=>{const button=event.target.closest('[data-quest-step]');if(button)navigate(currentSteps[Number(button.dataset.questStep)].target);});
 $('#panel-close').addEventListener('click',closePanel);
 $('#person-close').addEventListener('click',()=>world.clearSelection());
-$('#advance').addEventListener('click',()=>call('/api/advance'));
+$('#advance').addEventListener('click',()=>{world.cancel();call('/api/advance');});
 $('#restart').addEventListener('click',()=>{if(confirm('重开会覆盖当前局的存档，确定吗？')){closePerson();closePanel();call('/api/reset');}});
-$('#command-form').addEventListener('submit',event=>{event.preventDefault();if($('#command').value.trim())call('/api/command',{text:$('#command').value.trim()});});
+$('#command-form').addEventListener('submit',event=>{event.preventDefault();if($('#command').value.trim())submitCommand($('#command').value.trim());});
 $('#command').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('#command-form').requestSubmit();}});
-for(const id of ['summary-close','summary-continue'])$('#'+id).addEventListener('click',()=>{$('#turn-summary').hidden=true;});
+$('#summary-close').addEventListener('click',()=>{$('#turn-summary').hidden=true;});
+$('#summary-continue').addEventListener('click',()=>{$('#turn-summary').hidden=true;openPanel('events');});
+$('#navigation-cancel').addEventListener('click',()=>{commandGeneration++;world.cancel();});
+$('#nearby-interact').addEventListener('click',()=>world.interact());
+$('#interaction-next').addEventListener('click',()=>{const next=currentSteps.find(step=>!step.done&&!step.skipped);if(next)navigate(next.target);});
 $('#ending-close').addEventListener('click',()=>$('#ending').close());
 $('#help-toggle').addEventListener('click',()=>{$('#help-card').hidden=!$('#help-card').hidden;});
 $('#camera-left').addEventListener('click',()=>world.rotate(-Math.PI/6));$('#camera-right').addEventListener('click',()=>world.rotate(Math.PI/6));
 $('#camera-in').addEventListener('click',()=>world.zoomBy(-3));$('#camera-out').addEventListener('click',()=>world.zoomBy(3));$('#camera-home').addEventListener('click',()=>world.recenter());
-document.addEventListener('keydown',event=>{if(event.key==='Escape'){closePanel();world.clearSelection();$('#turn-summary').hidden=true;$('#help-card').hidden=true;}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){commandGeneration++;closePanel();world.clearSelection();$('#turn-summary').hidden=true;$('#help-card').hidden=true;}});
 
 try{const response=await fetch('/api/state');if(!response.ok)throw new Error('无法读取游戏状态');const data=await response.json();render(data.view,data.modelName);}
 catch(error){notice(`无法连接本地游戏服务：${error.message}`,true);}

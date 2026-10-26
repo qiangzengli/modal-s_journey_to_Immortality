@@ -61,6 +61,14 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.player.stones, 170);
     assert.deepEqual(initial.player.dialogues, {});
     assert.equal(initial.world.breakthrough, false);
+    const planned = await post('/api/intent', { text: '采集灵草', expectedRevision: 0 });
+    assert.equal(planned.status, 200);
+    assert.deepEqual(planned.action, { type: 'gather_herbs' });
+    assert.deepEqual(planned.view, initial);
+    assert.deepEqual(JSON.parse(await readFile(savePath, 'utf8')), old);
+    const stalePlan = await post('/api/intent', { text: '采集灵草', expectedRevision: 99 });
+    assert.equal(stalePlan.status, 409);
+    assert.deepEqual(stalePlan.view, initial);
     const invalid = await post('/api/action', { type: 'rest', expectedRevision: 0 });
     assert.equal(invalid.status, 400);
     const bought = await post('/api/action', { type: 'buy_talisman', expectedRevision: 0 });
@@ -76,7 +84,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
-    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js']) {
+    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/navigation.js']) {
       assert.equal((await fetch(origin + file)).status, 200);
     }
     await stop();

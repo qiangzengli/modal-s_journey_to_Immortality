@@ -103,6 +103,7 @@ const files = {
   '/world.js': ['world.js', 'text/javascript; charset=utf-8'],
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
   '/scenery.js': ['scenery.js', 'text/javascript; charset=utf-8'],
+  '/navigation.js': ['navigation.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.module.js': ['node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.core.js': ['node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
@@ -124,7 +125,7 @@ async function handle(req, res) {
     json(res, 200, { view: getView(game), modelName });
     return;
   }
-  if (req.method !== 'POST' || !['/api/action', '/api/command', '/api/advance', '/api/reset'].includes(path)) {
+  if (req.method !== 'POST' || !['/api/action', '/api/command', '/api/intent', '/api/advance', '/api/reset'].includes(path)) {
     json(res, 404, { error: '找不到页面或接口。' });
     return;
   }
@@ -138,6 +139,11 @@ async function handle(req, res) {
     const input = await body(req);
     if (input.expectedRevision !== undefined && input.expectedRevision !== (game.revision || 0)) {
       json(res, 409, { error: '存档已在另一页面更新，已同步最新局势，请重新选择行动。', view: getView(game), modelName });
+      return;
+    }
+    if (path === '/api/intent') {
+      const parsed = await modelAction(input.text);
+      json(res, 200, { action: parsed.action, parserSource: parsed.source, view: getView(game), modelName });
       return;
     }
     let outcome;
