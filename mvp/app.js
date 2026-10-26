@@ -1,219 +1,212 @@
 import { createWorld } from './world.js';
-
-const actions = [
-  { group: '消息与交易', type: 'inspect_pill', title: '请白芷验丹', detail: '花 10 灵石，取得真伪记录', place: 'market' },
-  { group: '消息与交易', type: 'investigate_route', title: '查货道', detail: '找宁素取得可核对的线索', place: 'market' },
-  { group: '消息与交易', type: 'partner', title: '找徐宁合资', detail: '凭鉴定记录争取 100 灵石', place: 'market' },
-  { group: '消息与交易', type: 'sell_herbs', title: '卖出灵草', detail: '向白芷出售，换 80 灵石', place: 'market' },
-  { group: '消息与交易', type: 'buy_pill', title: '购买筑基丹', detail: '按当前售价交易', place: 'market' },
-  { group: '布局与争夺', type: 'report', title: '向陆执事举报', detail: '需先取得货道证词', place: 'market' },
-  { group: '布局与争夺', type: 'buy_seal', title: '买空白鉴定印', detail: '向青闻支付 25 灵石', place: 'market' },
-  { group: '布局与争夺', type: 'forge_poison', title: '伪造有毒鉴定', detail: '将假消息交给宁素传播', place: 'market' },
-  { group: '布局与争夺', type: 'lure', title: '约沈秋出城', detail: '下旬赴黑风林验货', place: 'market' },
-  { group: '布局与争夺', type: 'travel_woods', title: '前往黑风林', detail: '城外险地', place: 'market' },
-  { group: '布局与争夺', type: 'travel_market', title: '返回坊市', detail: '回到交易中心', place: 'woods' },
-  { group: '布局与争夺', type: 'gather_herbs', title: '采集灵草', detail: '林道最多可再采两株', place: 'woods' },
-  { group: '布局与争夺', type: 'prepare_trap', title: '布下天雷符', detail: '消耗一张符箓', place: 'woods' },
-  { group: '布局与争夺', type: 'ambush', title: '拦截夺丹', detail: '有受伤与被追查风险', place: 'woods' },
-  { group: '承诺', type: 'honor_partner', title: '结清合资承诺', detail: '向徐宁偿付约定灵石', place: 'market' }
-];
+import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES, questSteps } from './content.js';
 
 const $ = selector => document.querySelector(selector);
-const el = {
-  turn: $('#turn'), ap: $('#ap'), owner: $('#owner'), price: $('#price'), dispute: $('#dispute'),
-  ownerDetail: $('#owner-detail'), priceDetail: $('#price-detail'),
-  outcome: $('#outcome'), stats: $('#stats'), clues: $('#clues'), people: $('#people'),
-  events: $('#events'), actions: $('#actions'), message: $('#message'), mode: $('#mode'),
-  command: $('#command'), form: $('#command-form'), advance: $('#advance'), restart: $('#restart'),
-  worldLocation: $('#world-location'), worldHint: $('#world-hint'), worldPerson: $('#world-person'),
-  worldRole: $('#world-role'), worldName: $('#world-name'), worldGoal: $('#world-goal'), worldActions: $('#world-actions'),
-  panel: $('#map-panel'), panelTitle: $('#panel-title')
-};
+const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+const names = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action.title]));
+names.ask = '探问近况';
+const defs = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action]));
+const titles = { opportunity: '筑基丹去向', self: '行囊与处境', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
 let current;
 let busy = false;
 let selectedPerson = null;
 let selectedSite = null;
 let activePanel = null;
-const panelTitles = { opportunity: '筑基丹去向', self: '行囊与处境', people: '修真界众生', actions: '可尝试的行动', events: '修真邸报' };
+let chosenRoute = 'trade';
+let currentSteps = [];
+let newsCount = 0;
 
+function notice(text, bad = false) {
+  $('#message').textContent = text;
+  $('#message').classList.toggle('bad', bad);
+}
 function closePanel() {
   activePanel = null;
-  el.panel.hidden = true;
+  $('#map-panel').hidden = true;
   document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', 'false'));
 }
-
 function openPanel(name) {
   if (activePanel === name) { closePanel(); return; }
+  world.clearSelection();
   activePanel = name;
-  el.panel.hidden = false;
-  el.panelTitle.textContent = panelTitles[name];
+  $('#map-panel').hidden = false;
+  $('#panel-title').textContent = titles[name];
   document.querySelectorAll('[data-panel-content]').forEach(section => { section.hidden = section.dataset.panelContent !== name; });
   document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.openPanel === name)));
+  if (name === 'events') { newsCount=0; $('#news-count').hidden=true; }
 }
-
 function closePerson() {
   selectedPerson = null;
   selectedSite = null;
-  el.worldPerson.hidden = true;
+  $('#world-person').hidden = true;
 }
-const personActions = {
-  shen: ['ask', 'buy_pill', 'lure'], bai: ['ask', 'inspect_pill', 'sell_herbs'],
-  xu: ['ask', 'partner', 'honor_partner'], lu: ['ask', 'report'],
-  qing: ['ask', 'buy_seal'], wei: ['ask'], han: ['ask', 'ambush'],
-  ning: ['ask', 'investigate_route', 'forge_poison']
-};
-const actionNames = Object.fromEntries(actions.map(action => [action.type, action.title]));
-actionNames.ask = '交谈';
-
+function actionMarkup(type) {
+  const state = type === 'ask' ? { available: current.ap > 0, reason: '本旬行动点已用尽，先推进一旬。' } : current.actionOptions[type];
+  const def = defs[type] || { title: names[type], cost: '1 行动', detail: '听取对方当前的关切，记入往事。' };
+  return `<button type="button" class="context-action" data-world-action="${type}" ${state.available ? '' : 'disabled'}><span><b>${esc(def.title)}</b><small>${esc(def.cost)}</small></span><i>${state.available ? '↗' : '·'}</i><em>${esc(state.available ? def.detail : state.reason)}</em></button>`;
+}
+function relationship(trust) { return trust >= 20 ? '信任' : trust <= -30 ? '敌视' : trust < 0 ? '戒备' : '初识'; }
 function showPerson(id, focusUI = true) {
-  const person = current?.people.find(entry => entry.id === id);
+  const person = current?.people.find(p => p.id === id);
   if (!person) return;
-  selectedPerson = id;
-  selectedSite = null;
+  selectedPerson=id; selectedSite=null;
   if (focusUI) closePanel();
-  el.worldPerson.hidden = false;
-  el.worldRole.textContent = person.role;
-  el.worldName.textContent = person.name;
-  el.worldGoal.textContent = person.goal;
-  el.worldActions.innerHTML = personActions[id].map(type => `<button type="button" data-world-action="${type}" ${!current.ap ? 'disabled' : ''}>${esc(actionNames[type] || type)}</button>`).join('');
-  el.worldHint.textContent = `已走近${person.name}。可以交谈或采取行动。`;
+  const detail=PERSON_DETAILS[id];
+  $('#world-person').hidden=false;
+  $('#world-person').style.setProperty('--person-color', detail.color);
+  $('#person-seal').textContent=person.name[0];
+  $('#world-role').textContent=person.role;
+  $('#world-name').textContent=person.name;
+  $('#person-meta').innerHTML=`<span>${esc(person.condition === '筑基初期' ? person.condition : detail.realm)}</span><span>${esc(relationship(person.trust))} ${person.trust > 0 ? '+' : ''}${person.trust}</span><span>${esc(person.condition)}</span>`;
+  $('#world-goal').textContent=detail.bio;
+  $('#person-dialogue').hidden=!person.dialogue;
+  $('#person-dialogue').textContent=person.dialogue ? `第 ${person.dialogue.turn} 旬 · ${person.dialogue.text}` : '';
+  const options = PERSON_ACTIONS[id].filter(type => type !== 'buy_pill' || (id === 'lu' ? current.pill.ownerId === 'lu' : current.pill.ownerId !== 'lu'));
+  $('#world-actions').innerHTML=options.map(actionMarkup).join('');
+  $('#trade-form').hidden=!(id === 'shen' && current.pill.ownerId === 'shen' && current.player.place === 'market');
+  $('#trade-leverage').innerHTML='<option value="none">仅凭报价</option>'+current.player.clues.map(clue => `<option value="${clue}">${clue === 'smuggling' ? '亮出货道证词' : '持真丹鉴定'}</option>`).join('');
+  $('#trade-form button').disabled=!current.ap;
+  $('#person-memory').hidden=false;
+  $('#memory-list').innerHTML=person.memories.map(event=>`<p><small>第 ${event.turn} 旬</small>${esc(event.text)}</p>`).join('') || '<p>尚无与你有关的往事。</p>';
+  if (focusUI) $('#world-hint').textContent=`已走近${person.name}。先看清前提与代价，再落子。`;
 }
-
 function showSite(id, focusUI = true) {
-  selectedPerson = null;
-  selectedSite = id;
+  const site=SITES[id];
+  if (!site) return;
+  selectedPerson=null;selectedSite=id;
   if (focusUI) closePanel();
-  const site = id === 'herbs'
-    ? { name: '灵草坡', role: '黑风林 · 采集点', goal: '山坡上散落着可采集的灵草。', actions: ['gather_herbs'] }
-    : { name: '天雷阵位', role: '黑风林 · 埋伏点', goal: '在此布下天雷符，可为夺丹伏击做准备。', actions: ['prepare_trap', 'ambush'] };
-  el.worldPerson.hidden = false;
-  el.worldRole.textContent = site.role;
-  el.worldName.textContent = site.name;
-  el.worldGoal.textContent = site.goal;
-  el.worldActions.innerHTML = site.actions.map(type => `<button type="button" data-world-action="${type}" ${!current.ap ? 'disabled' : ''}>${esc(actionNames[type] || type)}</button>`).join('');
-  el.worldHint.textContent = `已到达${site.name}。选择一项行动。`;
+  $('#world-person').hidden=false;
+  $('#world-person').style.setProperty('--person-color', '#c9bb82');
+  $('#person-seal').textContent=id==='herbs'?'草':id==='camp'?'静':'阵';
+  $('#world-role').textContent=site.role;
+  $('#world-name').textContent=site.name;
+  $('#world-goal').textContent=site.detail;
+  const state=id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
+  $('#person-meta').innerHTML=`<span>${esc(state)}</span>`;
+  $('#person-dialogue').hidden=true;$('#person-memory').hidden=true;$('#trade-form').hidden=true;
+  $('#world-actions').innerHTML=site.actions.map(actionMarkup).join('');
+  if (focusUI) $('#world-hint').textContent=`已到达${site.name}。${state}。`;
 }
 
-const world = createWorld($('#world-canvas'), {
-  onSelectPerson: showPerson,
-  onSelectSite: showSite,
-  onClearPerson: closePerson,
+const world=createWorld($('#world-canvas'), {
+  onSelectPerson: showPerson, onSelectSite: showSite, onClearPerson: closePerson,
+  miniMap: $('#mini-map'),
   onTravel: async place => {
-    const arrived = await call('/api/action', { type: place === 'woods' ? 'travel_woods' : 'travel_market' });
-    if (arrived) el.worldHint.textContent = place === 'woods' ? '已进入黑风林。探索林道或接触在场人物。' : '已回到地下坊市。继续寻找筑基丹的线索。';
+    const arrived=await call('/api/action', { type:place==='woods'?'travel_woods':'travel_market' });
+    if(arrived) $('#world-hint').textContent=place==='woods'?'已进入黑风林。采药、设伏，或去听雨亭调息。':'已回到地下坊市。交易与消息仍在继续。';
     return arrived;
   },
-  onHint: message => { el.worldHint.textContent = message; notice(message); }
+  onHint: text=>{ $('#world-hint').textContent=text; notice(text); }
 });
 
-function esc(value) {
-  return String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
+function updateQuest() {
+  currentSteps=questSteps(current,chosenRoute);
+  const done=currentSteps.filter(step=>step.done||step.skipped).length;
+  const next=currentSteps.find(step=>!step.done&&!step.skipped);
+  $('#quest-progress').textContent=`${done} / ${currentSteps.length}`;
+  $('#quest-title').textContent=next?.title || '筑基已成';
+  $('#quest-detail').textContent=current.pill.ownerId==='xu'?'徐宁已经取得这枚丹。可在邸报复盘因果，重开尝试另一条路。':next?.detail || '道途继续，兑现承诺，或看看世界如何回应你。';
+  $('#quest-track').textContent=current.pill.ownerId==='xu'?'查看因果账本':next?`追踪目标 ◇`:'查看未了因果';
+  document.querySelectorAll('[data-route]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.route===chosenRoute)));
+  $('#quest-steps').innerHTML=currentSteps.map((step,index)=>`<button type="button" data-quest-step="${index}" class="quest-step ${step.done||step.skipped?'done':''}"><b>${step.skipped?'—':step.done?'✓':index+1}</b><span><strong>${esc(step.title)}</strong><small>${step.skipped?'已取得机缘，此前置不再需要。':esc(step.detail)}</small></span></button>`).join('');
 }
-
-function notice(text, bad = false) {
-  el.message.textContent = text;
-  el.message.classList.toggle('bad', bad);
+function navigate(target) {
+  closePanel();
+  if(target==='advance'){ $('#advance').classList.remove('attention'); void $('#advance').offsetWidth; $('#advance').classList.add('attention');notice('右上角推进一旬，人物会按各自目标行动。');return; }
+  const person=current.people.find(p=>p.id===target);
+  if(person){
+    if(person.place!==current.player.place){world.focusSite('gate');notice(`${person.name}在${person.place==='woods'?'黑风林':'坊市'}，先经过界门。`);}
+    else world.focus(target);
+  } else world.focusSite(target);
 }
-
 function render(view, modelName) {
-  current = view;
+  current=view;
   world.sync(view);
-  el.worldLocation.textContent = view.player.place === 'market' ? '地下坊市' : '黑风林';
-  if ((selectedPerson && view.people.find(p => p.id === selectedPerson)?.place !== view.player.place) || (selectedSite && view.player.place !== 'woods')) closePerson();
-  else if (selectedPerson) showPerson(selectedPerson, false);
-  else if (selectedSite) showSite(selectedSite, false);
-  el.turn.textContent = `第 ${view.turn} 旬`;
-  el.ap.textContent = view.ap;
-  el.owner.textContent = view.pill.owner;
-  el.price.textContent = view.pill.price === null ? '不在售' : `${view.pill.price} 灵石`;
-  el.ownerDetail.textContent = el.owner.textContent;
-  el.priceDetail.textContent = el.price.textContent;
-  el.dispute.textContent = view.pill.disputed ? '真伪争议中' : '无公开争议';
-  el.outcome.textContent = view.outcome || '机缘仍在流转。观察人物目标，再决定下一步。';
-  el.outcome.classList.toggle('won', view.pill.ownerId === 'player');
-  el.mode.textContent = modelName ? `模型：${modelName}` : '离线规则模式';
-
-  const place = view.player.place === 'market' ? '地下坊市' : '黑风林';
-  el.stats.innerHTML = [
-    ['所在', place], ['灵石', `${view.player.stones} 枚`], ['气血', `${view.player.hp} / 100`],
-    ['声望', `${view.player.reputation} / 100`], ['灵草', `${view.player.herbs} 株`],
-    ['天雷符', `${view.player.talismans} 张`], ['空白印', `${view.player.seal} 枚`]
-  ].map(([label, value]) => `<div><span>${label}</span><strong>${esc(value)}</strong></div>`).join('');
-  const clueNames = { authentic: '真丹鉴定', smuggling: '禁运货道证词' };
-  el.clues.innerHTML = `<h3>已知线索</h3>${view.player.clues.length ? view.player.clues.map(c => `<span class="clue">${esc(clueNames[c] || c)}</span>`).join('') : '<p>尚无证据。先从人物交谈或调查开始。</p>'}${view.pill.partnerDebt ? `<p class="debt">待履约：徐宁 ${view.pill.partnerDebt} 灵石</p>` : ''}`;
-
-  el.people.innerHTML = view.people.map(person => `<button class="person" type="button" data-person="${person.id}" ${person.place !== view.player.place || !view.ap ? 'disabled' : ''}><span class="avatar">${esc(person.name[0])}</span><span class="person-main"><strong>${esc(person.name)} <small>${esc(person.role)}</small></strong><span>${esc(person.goal)}</span></span><span class="person-place">${person.place === 'market' ? '坊市' : '林中'}</span></button>`).join('');
-
-  el.events.innerHTML = view.events.map(event => `<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length ? `<small>缘起：${event.causes.map(id => `<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>` : ''}</article>`).join('');
-
-  let lastGroup = '';
-  el.actions.innerHTML = actions.filter(action => action.place === view.player.place).map(action => {
-    const heading = action.group !== lastGroup ? `<h3>${action.group}</h3>` : '';
-    lastGroup = action.group;
-    return `${heading}<button class="action" data-action="${action.type}" type="button" ${!view.ap ? 'disabled' : ''}><strong>${action.title}</strong><span>${action.detail}</span></button>`;
+  $('#world-location').textContent=view.player.place==='market'?'地下坊市':'黑风林';
+  if((selectedPerson&&view.people.find(p=>p.id===selectedPerson)?.place!==view.player.place)||(selectedSite&&view.player.place!=='woods'))closePerson();
+  else if(selectedPerson)showPerson(selectedPerson,false);
+  else if(selectedSite)showSite(selectedSite,false);
+  $('#turn').textContent=`第 ${view.turn} 旬`;$('#ap').textContent=view.ap;
+  $('#advance').title=view.ap?`推进时间，本旬剩余 ${view.ap} 次行动将不再保留`:'行动已用尽，推进一旬恢复';
+  $('#realm').textContent=view.world.realm;
+  $('#hud-stones').textContent=view.player.stones;$('#hud-hp').textContent=view.player.hp;$('#hud-reputation').textContent=view.player.reputation;
+  $('#hp-fill').style.width=`${view.player.hp}%`;$('#hp-fill').classList.toggle('low',view.player.hp<60);
+  $('#owner').textContent=view.pill.owner;$('#price').textContent=view.pill.price===null?'不在售':`${view.pill.price} 灵石`;
+  $('#owner-detail').textContent=view.pill.owner;$('#price-detail').textContent=$('#price').textContent;
+  $('#dispute').textContent=view.pill.disputed?'真伪争议中':'无公开争议';
+  $('#outcome').textContent=view.outcome||'机缘仍在流转。人物的需求、钱财与消息会改变丹药的去向。';
+  $('#outcome').classList.toggle('won',view.pill.ownerId==='player'||view.world.breakthrough);
+  $('#opportunity-hint').textContent=view.world.breakthrough?'此丹已化为你的修为':view.pill.ownerId==='player'?'已入行囊 · 可前往听雨亭':'金色光环标记持丹者 ↗';
+  $('#mode').textContent=modelName?`自然语言模型：${modelName}。明确行动直接执行，自由表达由模型解析。`:'离线规则模式：可使用按钮或常见中文行动。';
+  const entries=[['境界',view.world.realm],['所在',view.player.place==='market'?'地下坊市':'黑风林'],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
+  $('#stats').innerHTML=entries.map(([key,value])=>`<div><span>${key}</span><strong>${esc(value)}</strong></div>`).join('');
+  $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与徐宁的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
+  $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${p.place==='market'?'坊市':'林中'} ↗</span></button>`).join('');
+  $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
+  $('#actions').innerHTML=ACTION_DEFS.filter(def=>def.place===view.player.place).map(def=>{
+    const state=view.actionOptions[def.type];
+    return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button"><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');
+  updateQuest();
 }
-
-async function call(path, payload = {}) {
-  if (busy) return false;
-  busy = true;
-  document.body.classList.add('busy');
+function feedback(before,after) {
+  const labels={stones:'灵石',hp:'气血',herbs:'灵草',talismans:'天雷符',reputation:'声望',seal:'鉴定印'};
+  const changes=Object.entries(labels).map(([key,label])=>{const n=after.player[key]-before.player[key];return n?`<span class="${n<0?'loss':'gain'}">${label} ${n>0?'+':''}${n}</span>`:'';}).filter(Boolean);
+  if(!changes.length)return;
+  const item=document.createElement('div');item.className='resource-feedback';item.innerHTML=changes.join('');$('#feedback-stack').append(item);setTimeout(()=>item.remove(),4500);
+}
+function showTurnSummary(before,after) {
+  const lastId=before.events[0]?.id||0;
+  const events=after.events.filter(event=>event.id>lastId);
+  newsCount+=events.length;$('#news-count').hidden=!newsCount;$('#news-count').textContent=newsCount;
+  $('#summary-title').textContent=`第 ${after.turn} 旬 · ${events.length} 条新动向`;
+  $('#summary-events').innerHTML=events.slice(0,5).map(event=>`<p><b>${esc(event.actor)}</b>${esc(event.text)}</p>`).join('')||'<p>风过坊市，本旬尚无新的公开动向。</p>';
+  if(events.length>5)$('#summary-events').innerHTML+=`<small>其余 ${events.length-5} 条可在邸报查看。</small>`;
+  $('#turn-summary').hidden=false;
+}
+async function call(path,payload={}) {
+  if(busy||!current)return false;
+  const before=current;
+  busy=true;world.setBusy(true);document.body.classList.add('busy');$('#command-form').setAttribute('aria-busy','true');
+  $('#command-status').textContent=path==='/api/command'?'正在推敲你的计策……':'正在结算……';
   try {
-    const response = await fetch(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '操作失败');
-    render(data.view, data.modelName);
-    notice(data.parserSource === 'fallback' ? `${data.result}（模型暂不可用，已按离线规则解析）` : data.result);
-    if (path === '/api/command') el.command.value = '';
+    const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,expectedRevision:current.revision})});
+    const data=await response.json();
+    if(!response.ok){if(data.view)render(data.view,data.modelName);throw new Error(data.error||'行动未能执行');}
+    render(data.view,data.modelName);notice(data.result);feedback(before,data.view);
+    world.react(data.actionType,before,data.view);
+    if(path==='/api/command')$('#command').value='';
+    if(path==='/api/advance')showTurnSummary(before,data.view);
+    if(!before.world.breakthrough&&data.view.world.breakthrough){
+      $('#ending-copy').textContent=data.result;
+      $('#ending-stats').innerHTML=`<span>历时 <b>${data.view.turn} 旬</b></span><span>声望 <b>${data.view.player.reputation}</b></span><span>未偿承诺 <b>${data.view.pill.partnerDebt} 灵石</b></span>`;
+      $('#ending').showModal();
+    }
     return true;
-  } catch (error) {
-    notice(error.message, true);
-    el.worldHint.textContent = error.message;
-    return false;
-  } finally {
-    busy = false;
-    document.body.classList.remove('busy');
-  }
+  }catch(error){notice(error.message,true);$('#world-hint').textContent=error.message;return false;}
+  finally{busy=false;world.setBusy(false);document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');$('#command-status').textContent='一次计策 · 一次行动';}
 }
 
-el.actions.addEventListener('click', event => {
-  const button = event.target.closest('[data-action]');
-  if (button) call('/api/action', { type: button.dataset.action });
-});
-document.querySelectorAll('[data-open-panel]').forEach(button => button.addEventListener('click', () => openPanel(button.dataset.openPanel)));
-$('#panel-close').addEventListener('click', closePanel);
-$('#person-close').addEventListener('click', closePerson);
-document.addEventListener('keydown', event => { if (event.key === 'Escape') { closePanel(); closePerson(); } });
-el.people.addEventListener('click', event => {
-  const button = event.target.closest('[data-person]');
-  if (button) world.focus(button.dataset.person);
-});
-el.worldActions.addEventListener('click', event => {
-  const button = event.target.closest('[data-world-action]');
-  if (!button || (!selectedPerson && !selectedSite)) return;
-  const type = button.dataset.worldAction;
-  call('/api/action', type === 'ask' ? { type, target: selectedPerson } : { type });
-});
-el.advance.addEventListener('click', () => call('/api/advance'));
-el.restart.addEventListener('click', () => {
-  if (confirm('重开会清除当前局的存档，确定吗？')) call('/api/reset');
-});
-el.form.addEventListener('submit', event => {
-  event.preventDefault();
-  if (el.command.value.trim()) call('/api/command', { text: el.command.value.trim() });
-});
-el.command.addEventListener('keydown', event => {
-  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-    event.preventDefault();
-    el.form.requestSubmit();
-  }
-});
+$('#world-actions').addEventListener('click',event=>{const button=event.target.closest('[data-world-action]');if(!button)return;const type=button.dataset.worldAction;call('/api/action',type==='ask'?{type,target:selectedPerson}:{type});});
+$('#trade-form').addEventListener('submit',event=>{event.preventDefault();call('/api/action',{type:'negotiate',offer:Number($('#trade-offer').value),leverage:$('#trade-leverage').value});});
+$('#actions').addEventListener('click',event=>{const button=event.target.closest('[data-locate-action]');if(button){const def=defs[button.dataset.locateAction];navigate(def.type==='buy_pill'&&current.pill.ownerId==='lu'?'lu':def.person||def.site);}});
+$('#people').addEventListener('click',event=>{const button=event.target.closest('[data-person]');if(button)navigate(button.dataset.person);});
+document.querySelectorAll('[data-open-panel]').forEach(button=>button.addEventListener('click',()=>openPanel(button.dataset.openPanel)));
+document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>{chosenRoute=button.dataset.route;updateQuest();}));
+$('#quest-track').addEventListener('click',()=>{const next=currentSteps.find(step=>!step.done&&!step.skipped);if(current.pill.ownerId==='xu'||!next)openPanel('events');else navigate(next.target);});
+$('#quest-steps').addEventListener('click',event=>{const button=event.target.closest('[data-quest-step]');if(button)navigate(currentSteps[Number(button.dataset.questStep)].target);});
+$('#panel-close').addEventListener('click',closePanel);
+$('#person-close').addEventListener('click',()=>world.clearSelection());
+$('#advance').addEventListener('click',()=>call('/api/advance'));
+$('#restart').addEventListener('click',()=>{if(confirm('重开会覆盖当前局的存档，确定吗？')){closePerson();closePanel();call('/api/reset');}});
+$('#command-form').addEventListener('submit',event=>{event.preventDefault();if($('#command').value.trim())call('/api/command',{text:$('#command').value.trim()});});
+$('#command').addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();$('#command-form').requestSubmit();}});
+for(const id of ['summary-close','summary-continue'])$('#'+id).addEventListener('click',()=>{$('#turn-summary').hidden=true;});
+$('#ending-close').addEventListener('click',()=>$('#ending').close());
+$('#help-toggle').addEventListener('click',()=>{$('#help-card').hidden=!$('#help-card').hidden;});
+$('#camera-left').addEventListener('click',()=>world.rotate(-Math.PI/6));$('#camera-right').addEventListener('click',()=>world.rotate(Math.PI/6));
+$('#camera-in').addEventListener('click',()=>world.zoomBy(-3));$('#camera-out').addEventListener('click',()=>world.zoomBy(3));$('#camera-home').addEventListener('click',()=>world.recenter());
+document.addEventListener('keydown',event=>{if(event.key==='Escape'){closePanel();world.clearSelection();$('#turn-summary').hidden=true;$('#help-card').hidden=true;}});
 
-try {
-  const response = await fetch('/api/state');
-  if (!response.ok) throw new Error('无法读取游戏状态');
-  const data = await response.json();
-  render(data.view, data.modelName);
-} catch (error) {
-  notice(`无法连接本地游戏服务：${error.message}`, true);
-}
+try{const response=await fetch('/api/state');if(!response.ok)throw new Error('无法读取游戏状态');const data=await response.json();render(data.view,data.modelName);}
+catch(error){notice(`无法连接本地游戏服务：${error.message}`,true);}

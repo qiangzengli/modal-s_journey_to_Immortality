@@ -1,4 +1,5 @@
 import * as THREE from '/vendor/three.module.js';
+import { decorateWorld } from './scenery.js';
 
 const NPC_SPOTS = {
   shen: { market: [-15, -4], woods: [12, -3] },
@@ -11,7 +12,7 @@ const NPC_SPOTS = {
   ning: { market: [-7, 5] }
 };
 
-const SITE_SPOTS = { herbs: [20, 2], formation: [15, -6.5] };
+const SITE_SPOTS = { herbs: [20, 2], formation: [15, -6.5], camp: [25, -7] };
 const FOREST_TREES = [
   [5, -10, 1], [8, -8, 1.25], [13, -10, 1.1], [19, -9, 1.4], [25, -10, 1],
   [4, 8, 1.2], [7, 10, 1.4], [12, 9, 1], [18, 10, 1.3], [24, 8, 1.1],
@@ -98,6 +99,16 @@ function makePerson(id, name) {
   put(body, new THREE.SphereGeometry(0.028, 6, 6), leather, 0.105, 1.85, 0.29);
   const leftArm = put(body, new THREE.CylinderGeometry(0.14, 0.2, 0.88, 7), robe, -0.48, 1.23, 0, -0.12);
   const rightArm = put(body, new THREE.CylinderGeometry(0.14, 0.2, 0.88, 7), robe, 0.48, 1.23, 0, 0.12);
+  for (const side of [-1, 1]) {
+    put(body, new THREE.SphereGeometry(0.115, 8, 6), skin, side * 0.48, 0.77, 0.02);
+    put(body, new THREE.CylinderGeometry(0.205, 0.205, 0.09, 8), trim, side * 0.48, 0.84, 0);
+    const lapel = put(body, new THREE.BoxGeometry(0.085, 0.59, 0.05), trim, side * 0.10, 1.32, 0.31);
+    lapel.rotation.z = side * 0.32;
+    put(body, new THREE.BoxGeometry(0.12, 0.026, 0.035), hair, side * 0.105, 1.93, 0.29);
+  }
+  put(body, new THREE.ConeGeometry(0.044, 0.11, 5), skin, 0, 1.82, 0.32).rotation.x = Math.PI / 2;
+  put(body, new THREE.BoxGeometry(0.1, 0.025, 0.02), leather, 0, 1.71, 0.285);
+  put(body, new THREE.TorusGeometry(0.37, 0.035, 5, 10), trim, 0, 0.76, 0).rotation.x = Math.PI / 2;
   put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), leather, -0.2, 0.13, 0.03);
   put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), leather, 0.2, 0.13, 0.03);
   put(body, new THREE.CylinderGeometry(0.13, 0.15, 0.25, 9), hair, 0, 2.24, -0.12);
@@ -121,7 +132,11 @@ function makePerson(id, name) {
   if (id === 'player') {
     const cape = put(body, new THREE.ConeGeometry(0.62, 1.25, 9, 1, true), material(0x354b5c, 0.75, 0.05), 0, 1.02, -0.08);
     cape.rotation.y = Math.PI;
+    const scabbard = put(body, new THREE.BoxGeometry(0.12, 1.5, 0.13), leather, -0.23, 1.30, -0.4);
+    scabbard.rotation.z = -0.3;
+    put(body, new THREE.BoxGeometry(0.4, 0.07, 0.16), trim, -0.03, 1.86, -0.4);
   }
+  if (id === 'bai' || id === 'ning') put(body, new THREE.CylinderGeometry(0.17, 0.1, 0.85, 7), hair, 0, 1.6, -0.25);
 
   const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.74, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.27, depthWrite: false }));
   shadow.rotation.x = -Math.PI / 2;
@@ -160,7 +175,27 @@ function makeBuilding(scene, x, z, width, depth, roofColor, title) {
   root.position.set(x, 0, z);
   scene.add(root);
   put(root, new THREE.BoxGeometry(width, 3.4, depth), material(0x494b3b), 0, 1.7, 0);
-  put(root, new THREE.ConeGeometry(Math.max(width, depth) * 0.78, 1.8, 4), material(roofColor), 0, 4.25, 0, Math.PI / 4);
+  const roofShape = new THREE.Shape();
+  roofShape.moveTo(-width * 0.64, 0.12);
+  roofShape.lineTo(-width * 0.46, 0.28);
+  roofShape.lineTo(0, 1.65);
+  roofShape.lineTo(width * 0.46, 0.28);
+  roofShape.lineTo(width * 0.64, 0.12);
+  roofShape.lineTo(width * 0.58, -0.12);
+  roofShape.lineTo(0, 1.33);
+  roofShape.lineTo(-width * 0.58, -0.12);
+  roofShape.closePath();
+  put(root, new THREE.ExtrudeGeometry(roofShape, { depth: depth * 1.28, bevelEnabled: false }), material(roofColor), 0, 3.45, -depth * 0.64);
+  put(root, new THREE.CylinderGeometry(0.11, 0.11, depth * 1.4, 8), material(0xb29b70), 0, 5.10, 0).rotation.x = Math.PI / 2;
+  for (let z = -depth * 0.63; z <= depth * 0.64; z += 0.38) {
+    const points = [[-width * 0.63, 3.59, z], [-width * 0.46, 3.75, z], [0, 5.12, z], [width * 0.46, 3.75, z], [width * 0.63, 3.59, z]].map(p => new THREE.Vector3(...p));
+    root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x35473f, transparent: true, opacity: 0.5 })));
+  }
+  for (const side of [-1, 1]) {
+    put(root, new THREE.BoxGeometry(0.15, 3.5, depth + 0.15), material(0x73553c), side * width * 0.44, 1.75, 0);
+    put(root, new THREE.BoxGeometry(1.0, 1.0, 0.06), material(0xb39c69), side * width * 0.28, 2.0, depth / 2 + 0.10);
+    for (let i = -1; i <= 1; i++) put(root, new THREE.BoxGeometry(0.055, 1.05, 0.08), material(0x4c3f2f), side * width * 0.28 + i * 0.3, 2.0, depth / 2 + 0.14);
+  }
   put(root, new THREE.BoxGeometry(1.1, 2.25, 0.15), material(0x2b2d28), 0, 1.12, depth / 2 + 0.08);
   const sign = label(title, { width: 270, font: 29 });
   sign.position.set(0, 3.08, depth / 2 + 0.25);
@@ -271,24 +306,40 @@ function createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleT
   herbTarget.userData.siteId = 'herbs';
   herbTarget.castShadow = false;
   siteTargets.push(herbTarget);
+  const camp = new THREE.Group();
+  camp.position.set(SITE_SPOTS.camp[0], 0, SITE_SPOTS.camp[1]);
+  scene.add(camp);
+  put(camp, new THREE.CylinderGeometry(1.65, 1.85, 0.2, 8), material(0x7f8875), 0, 0.1, 0);
+  for (const x of [-1.15, 1.15]) for (const z of [-1.15, 1.15]) put(camp, new THREE.CylinderGeometry(0.07, 0.09, 2.5, 7), material(0x70523a), x, 1.45, z);
+  put(camp, new THREE.ConeGeometry(2.1, 0.9, 4), material(0x4e6b62), 0, 3.0, 0, Math.PI / 4);
+  put(camp, new THREE.CylinderGeometry(0.60, 0.65, 0.12, 16), material(0xaa9a6a), 0, 0.27, 0);
+  const campLabel = label('听雨亭 · 调息', { width: 300, font: 29 });
+  campLabel.position.y = 4;
+  campLabel.userData.siteId = 'camp';
+  camp.add(campLabel);
+  const campTarget = put(camp, new THREE.BoxGeometry(3.2, 3.1, 3.2), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }), 0, 1.6, 0);
+  campTarget.userData.siteId = 'camp';
+  campTarget.castShadow = false;
+  siteTargets.push(campTarget, campLabel);
+  return { herbPatch, arrayRing: ring };
 }
 
-export function createWorld(container, { onSelectPerson, onSelectSite, onClearPerson, onTravel, onHint }) {
+export function createWorld(container, { onSelectPerson, onSelectSite, onClearPerson, onTravel, onHint, miniMap }) {
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x202a27);
-  scene.fog = new THREE.Fog(0x202a27, 32, 75);
+  scene.background = new THREE.Color(0x304d49);
+  scene.fog = new THREE.Fog(0x304d49, 43, 100);
   const camera = new THREE.OrthographicCamera(-16, 16, 10, -10, 0.1, 120);
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(devicePixelRatio, 1.6));
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.55;
+  renderer.toneMappingExposure = 1.25;
   container.appendChild(renderer.domElement);
-  const ambient = new THREE.HemisphereLight(0xdde8db, 0x526653, 2.6);
+  const ambient = new THREE.HemisphereLight(0xc6e0dc, 0x38493d, 2.1);
   scene.add(ambient);
-  const sun = new THREE.DirectionalLight(0xffe5b2, 3.1);
+  const sun = new THREE.DirectionalLight(0xffdfa3, 2.7);
   sun.position.set(-7, 23, 15);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -301,7 +352,8 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const gateTargets = [];
   const siteTargets = [];
   const obstacleTargets = [];
-  createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleTargets);
+  const terrain = createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleTargets);
+  const scenery = decorateWorld(scene);
   const player = makePerson('player', '你');
   scene.add(player);
   const people = Object.fromEntries(Object.keys(NPC_SPOTS).map(id => {
@@ -314,6 +366,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   ring.position.y = 0.05;
   ring.visible = false;
   scene.add(ring);
+  const destinationMarker = new THREE.Mesh(new THREE.RingGeometry(0.35, 0.44, 32), new THREE.MeshBasicMaterial({ color: 0xe4d196, side: THREE.DoubleSide, transparent: true, opacity: 0.8 }));
+  destinationMarker.rotation.x = -Math.PI / 2;
+  destinationMarker.visible = false;
+  scene.add(destinationMarker);
+  const routeLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xdfc587, transparent: true, opacity: 0.55 }));
+  scene.add(routeLine);
+  const pillAura = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.025, 6, 32), new THREE.MeshBasicMaterial({ color: 0xf0c46a, transparent: true, opacity: 0.7 }));
+  scene.add(pillAura);
 
   let place = MARKET;
   let initialized = false;
@@ -326,11 +386,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   let travelArmed = true;
   let pointerDown = null;
   let zoom = 23;
+  let azimuth = Math.atan2(18, 19);
+  let busy = false;
+  let mapTimer = 0;
   const keys = new Set();
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
   const cameraFocus = new THREE.Vector3(-16, 0, 0);
-  const clock = new THREE.Clock();
+  let lastFrameTime = performance.now();
   let elapsed = 0;
   let view;
 
@@ -357,7 +420,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     selectedId = id;
     selectedSiteId = null;
     ring.visible = Boolean(id);
-    if (!id) onClearPerson?.();
+    onClearPerson?.();
     if (id) {
       const actor = people[id];
       ring.position.set(actor.position.x, 0.06, actor.position.z);
@@ -386,7 +449,13 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       afterWalk = null;
       travelArmed = true;
       select(null);
+      destinationMarker.visible = false;
+      routeLine.visible = false;
     }
+    const plants = terrain.herbPatch.children.filter(child => child.isMesh && !child.userData.siteId);
+    plants.forEach((plant, i) => { plant.visible = nextView.world.herbsRemaining > 0 && (nextView.world.herbsRemaining > 1 || i < 4); });
+    terrain.arrayRing.material.color.setHex(nextView.world.trapReady ? 0x88d5ee : 0xc49e69);
+    terrain.arrayRing.material.transparent = true;
     for (const person of nextView.people) {
       const actor = people[person.id];
       const spot = positionFor(person.id, person.place);
@@ -474,6 +543,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     route = findRoute(target);
     destination = route.shift() || null;
     afterWalk = callback || null;
+    routeLine.geometry.dispose();
+    routeLine.geometry = new THREE.BufferGeometry().setFromPoints([player.position, ...(destination ? [destination] : []), ...route].map(p => new THREE.Vector3(p.x, 0.10, p.z)));
+    routeLine.visible = Boolean(destination);
+    destinationMarker.visible = Boolean(destination);
+    if (destination) {
+      const endpoint = route.at(-1) || destination;
+      destinationMarker.position.set(endpoint.x, 0.12, endpoint.z);
+    }
     if (!destination) onHint('此处暂时没有可走的路径。');
   }
 
@@ -487,7 +564,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function attemptTravel() {
-    if (travelPending || !travelArmed || !view) return;
+    if (travelPending || busy || !travelArmed || !view) return;
     travelArmed = false;
     if (!view.ap) { onHint('本旬行动点不足。先推进一旬再通过界门。'); return; }
     travelPending = true;
@@ -506,7 +583,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   renderer.domElement.addEventListener('pointerup', event => {
     const start = pointerDown;
     pointerDown = null;
-    if (!start || Math.hypot(event.clientX - start[0], event.clientY - start[1]) > 8) return;
+    if (busy || !start || Math.hypot(event.clientX - start[0], event.clientY - start[1]) > 8) return;
     pointerRay(event);
     const siteHit = raycaster.intersectObjects(siteTargets)[0];
     if (siteHit) {
@@ -515,7 +592,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       selectSite(id);
       const [x, z] = SITE_SPOTS[id];
       walkTo(id === 'herbs' ? x - 1.7 : x, id === 'herbs' ? z : z + 2.2, () => onSelectSite(id));
-      onHint(id === 'herbs' ? '正走向灵草坡。' : '正走向天雷阵位。');
+      onHint(`正走向${id === 'herbs' ? '灵草坡' : id === 'camp' ? '听雨亭' : '天雷阵位'}。`);
       return;
     }
     const gateHit = raycaster.intersectObjects(gateTargets)[0];
@@ -566,8 +643,12 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }, { passive: false });
 
   window.addEventListener('keydown', event => {
-    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target?.isContentEditable) return;
+    if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target?.isContentEditable || document.querySelector('dialog[open]')) return;
+    if (event.key.toLowerCase() === 'q') { azimuth -= 0.22; return; }
+    if (event.key.toLowerCase() === 'e') { azimuth += 0.22; return; }
+    if (busy) return;
     if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
+      if (!keys.size) select(null);
       keys.add(event.key);
       event.preventDefault();
     }
@@ -575,16 +656,51 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   window.addEventListener('keyup', event => { keys.delete(event.key); });
   window.addEventListener('blur', () => keys.clear());
 
+  function drawMiniMap() {
+    if (!miniMap || !view) return;
+    const ctx = miniMap.getContext('2d');
+    const width = miniMap.width, height = miniMap.height;
+    const px = x => (x + 30) / 60 * width;
+    const py = z => (z + 14) / 28 * height;
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#172d29'; ctx.fillRect(0, 0, width / 2, height);
+    ctx.fillStyle = '#253c2c'; ctx.fillRect(width / 2, 0, width / 2, height);
+    ctx.fillStyle = '#7f8061'; ctx.fillRect(0, py(-1.8), width, py(1.8) - py(-1.8));
+    ctx.strokeStyle = '#b5a46d'; ctx.beginPath(); ctx.moveTo(px(0), 0); ctx.lineTo(px(0), height); ctx.stroke();
+    ctx.fillStyle = '#576351';
+    for (const [x, z, rx, rz] of MARKET_BLOCKERS) ctx.fillRect(px(x - rx), py(z - rz), rx * width / 30, rz * height / 14);
+    for (const [x,z] of Object.values(SITE_SPOTS)) { ctx.fillStyle='#dbc48b'; ctx.fillRect(px(x)-3,py(z)-3,6,6); }
+    for (const person of view.people) { const actor=people[person.id]; ctx.fillStyle = person.id === view.pill.ownerId ? '#f6ce65' : '#acc3ad'; ctx.beginPath(); ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill(); }
+    ctx.save(); ctx.translate(px(player.position.x), py(player.position.z)); ctx.rotate(-player.rotation.y);
+    ctx.fillStyle='#f6efce'; ctx.beginPath(); ctx.moveTo(0,5);ctx.lineTo(-4,-4);ctx.lineTo(0,-2);ctx.lineTo(4,-4);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.fillStyle='#c4ccb2';ctx.font='12px sans-serif';ctx.fillText('坊市',9,17);ctx.fillText('黑风林',width-52,17);
+  }
+  miniMap?.addEventListener('click', event => {
+    if (busy || !view) return;
+    const rect = miniMap.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width * 60 - 30;
+    const z = (event.clientY - rect.top) / rect.height * 28 - 14;
+    select(null);
+    if ((x > 0) !== (place === WOODS)) { travelArmed=true; walkTo(place === MARKET ? -2.2 : 2.2,0,attemptTravel); }
+    else walkTo(x,z);
+  });
+
   function frame() {
     requestAnimationFrame(frame);
-    const dt = Math.min(clock.getDelta(), 0.04);
+    const now = performance.now();
+    const dt = Math.min((now - lastFrameTime) / 1000, 0.04);
+    lastFrameTime = now;
     elapsed += dt;
-    const east = (keys.has('d') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('a') || keys.has('ArrowLeft') ? 1 : 0);
-    const north = (keys.has('s') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('w') || keys.has('ArrowUp') ? 1 : 0);
+    const screenX = (keys.has('d') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('a') || keys.has('ArrowLeft') ? 1 : 0);
+    const screenY = (keys.has('s') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('w') || keys.has('ArrowUp') ? 1 : 0);
+    const east = screenX * Math.cos(azimuth) + screenY * Math.sin(azimuth);
+    const north = -screenX * Math.sin(azimuth) + screenY * Math.cos(azimuth);
     let moving = false;
     if (east || north) {
       destination = null;
       route = [];
+      routeLine.visible = false;
+      destinationMarker.visible = false;
       afterWalk = null;
       const distance = Math.hypot(east, north);
       const oldX = player.position.x;
@@ -598,6 +714,8 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         player.position.copy(destination);
         destination = route.shift() || null;
         if (!destination) {
+          routeLine.visible = false;
+          destinationMarker.visible = false;
           const callback = afterWalk;
           afterWalk = null;
           callback?.();
@@ -627,19 +745,50 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     for (const actor of Object.values(people)) {
       if (actor.userData.destination) actor.position.lerp(actor.userData.destination, Math.min(1, dt * 3.4));
       actor.userData.body.position.y = Math.sin(elapsed * 2.1 + actor.position.x) * 0.025;
+      actor.userData.leftArm.rotation.z = -0.08 + Math.sin(elapsed * 1.1 + actor.position.x) * 0.025;
+      actor.userData.rightArm.rotation.z = 0.08 - Math.sin(elapsed * 1.1 + actor.position.x) * 0.025;
+      if (selectedId === actor.userData.id) actor.rotation.y = Math.atan2(player.position.x - actor.position.x, player.position.z - actor.position.z);
+      const personView = view?.people.find(p => p.id === actor.userData.id);
+      actor.userData.body.rotation.z = personView?.condition === '负伤' ? 0.12 : 0;
     }
     if (selectedId) ring.position.set(people[selectedId].position.x, 0.055, people[selectedId].position.z);
     ring.material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.3;
     cameraFocus.lerp(new THREE.Vector3(player.position.x, 0, player.position.z), Math.min(1, dt * 2.7));
-    camera.position.set(cameraFocus.x + 18, 22, cameraFocus.z + 19);
+    camera.position.set(cameraFocus.x + Math.sin(azimuth) * 26.2, 22, cameraFocus.z + Math.cos(azimuth) * 26.2);
     camera.lookAt(cameraFocus.x, 0, cameraFocus.z);
+    const bearer = view?.pill.ownerId === 'player' ? player : people[view?.pill.ownerId];
+    pillAura.visible = Boolean(bearer);
+    if (bearer) { pillAura.position.set(bearer.position.x, 2.65 + Math.sin(elapsed * 2) * 0.1, bearer.position.z); pillAura.rotation.set(Math.PI / 2, 0, elapsed * 0.5); }
+    if (view?.world.trapReady) { terrain.arrayRing.rotation.z = elapsed * 0.3; terrain.arrayRing.material.opacity = 0.65 + Math.sin(elapsed * 3) * 0.3; }
+    scenery.update(elapsed, dt);
+    mapTimer += dt;
+    if (mapTimer > 0.12) { drawMiniMap(); mapTimer = 0; }
     renderer.render(scene, camera);
   }
   frame();
 
   return {
     sync,
+    setBusy(value) { busy = value; if (value) { keys.clear(); destination=null; route=[]; afterWalk=null; routeLine.visible=false; destinationMarker.visible=false; } },
+    clearSelection() { select(null); },
+    rotate(amount) { azimuth += amount; },
+    zoomBy(amount) { zoom = THREE.MathUtils.clamp(zoom + amount, 15, 37); resize(); },
+    recenter() { azimuth = Math.atan2(18,19); zoom=23; resize(); },
+    react(type, before, after) {
+      const color = type === 'ambush' ? 0xe99c7d : type === 'rest' ? 0x9ed9bb : 0xe7c774;
+      scenery.burst(player.position, color);
+      if (type === 'breakthrough') { for (const offset of [0,0.4,0.8]) setTimeout(() => scenery.burst(player.position,0xcce5b0), offset*1000); }
+    },
+    focusSite(id) {
+      if (busy) return;
+      if (id === 'gate') { travelArmed=true; walkTo(place === MARKET ? -2.2 : 2.2,0,attemptTravel); return; }
+      if (!SITE_SPOTS[id]) return;
+      if (place !== WOODS) { onHint('这处地点在黑风林，先通过界门。'); travelArmed=true; walkTo(-2.2,0,attemptTravel); return; }
+      selectSite(id); const [x,z]=SITE_SPOTS[id];
+      walkTo(id === 'herbs' ? x-1.7 : x, id === 'herbs' ? z : z+2.2, () => onSelectSite(id));
+    },
     focus(id) {
+      if (busy) return;
       if (!people[id]) return;
       select(id);
       const actor = people[id];

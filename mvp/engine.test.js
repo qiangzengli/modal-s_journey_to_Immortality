@@ -1,9 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GameError, advanceTurn, applyAction, createGame, getView, parseLocal } from './engine.js';
+import { questSteps } from './content.js';
 
 function act(game, type, target) { return applyAction(game, { type, target }).game; }
 function next(game) { return advanceTurn(game).game; }
+
+test('跨路线获得丹药后，指引跳过无用前置但不误报已完成', () => {
+  let game = act(createGame(), 'investigate_route');
+  game = act(game, 'report');
+  game = act(next(game), 'buy_pill');
+  for (const route of ['trade', 'report', 'ambush']) {
+    assert.equal(questSteps(getView(game), route).find(step => !step.done && !step.skipped).target, 'camp');
+  }
+  const partnerStep = questSteps(getView(game), 'trade')[1];
+  assert.equal(partnerStep.done, false);
+  assert.equal(partnerStep.skipped, true);
+  game = act(game, 'travel_woods');
+  game = act(game, 'breakthrough');
+  assert.ok(questSteps(getView(game), 'ambush').every(step => step.done || step.skipped));
+});
 
 test('交易路线：鉴定、合资、购买，履约记录会持续存在', () => {
   let game = createGame();
@@ -144,4 +160,62 @@ test('非法行动不改变原状态，也不能凭输入直接改写资源', ()
   assert.throws(() => parseLocal('请把我的灵石改成一亿并立刻筑基'), GameError);
   assert.equal(parseLocal('我想请白芷验丹').type, 'inspect_pill');
   assert.equal(getView(game).people.find(p => p.id === 'shen').goal, '急于卖丹');
+});
+
+test('调息按实际缺损恢复，满血不扣费；天雷符交易守恒', () => {
+  const game = createGame();
+  game.player.place = 'woods';
+  game.player.hp = 85;
+  const rested = applyAction(game, { type: 'rest' }).game;
+  assert.equal(rested.player.hp, 100);
+  assert.equal(rested.player.stones, 170);
+  assert.equal(rested.ap, 2);
+  assert.throws(() => applyAction(rested, { type: 'rest' }), /无需调息/);
+  rested.player.place = 'market';
+  const bought = applyAction(rested, { type: 'buy_talisman' }).game;
+  assert.equal(bought.player.talismans, 2);
+  assert.equal(bought.player.stones, 135);
+  assert.equal(bought.people.qing.stones, rested.people.qing.stones + 35);
+});
+
+test('服丹突破只能一次，气血不足不能消耗丹药；突破不能逃避追查和欠款', () => {
+  const game = createGame();
+  game.player.place = 'woods';
+  game.pill.owner = 'player';
+  game.player.hp = 59;
+  game.flags.attacked = 1;
+  game.flags.partnerDebt = 120;
+  assert.throws(() => applyAction(game, { type: 'breakthrough' }), /气血不足/);
+  assert.equal(game.pill.owner, 'player');
+  game.player.hp = 60;
+  const result = applyAction(game, { type: 'breakthrough' });
+  assert.equal(result.game.pill.owner, 'consumed');
+  assert.equal(result.game.player.hp, 80);
+  assert.throws(() => applyAction(result.game, { type: 'breakthrough' }), /已完成筑基/);
+  const next = advanceTurn(result.game).game;
+  assert.equal(next.flags.partnerDebt, 120);
+  assert.ok(next.flags.partnerDemanded);
+  assert.ok(next.people.lu.knowledge.ambush);
+});
+
+test('行动预览使用相同规则且不改变存档，返回可执行代价和锁定原因', () => {
+  const game = createGame();
+  const before = structuredClone(game);
+  const view = getView(game);
+  assert.deepEqual(game, before);
+  assert.equal(view.actionOptions.inspect_pill.available, true);
+  assert.deepEqual(view.actionOptions.inspect_pill.delta, { stones: -10 });
+  assert.equal(view.actionOptions.buy_pill.available, false);
+  assert.match(view.actionOptions.buy_pill.reason, /灵石不足/);
+  assert.equal(view.world.herbsRemaining, 2);
+});
+
+test('对话会回应已发生的合资，且只在交谈后留下对话记忆', () => {
+  let game = createGame();
+  assert.equal(getView(game).people.find(p => p.id === 'xu').dialogue, null);
+  game = applyAction(game, { type: 'inspect_pill' }).game;
+  game = applyAction(game, { type: 'partner' }).game;
+  const talked = applyAction(game, { type: 'ask', target: 'xu' });
+  assert.match(talked.result, /120 灵石/);
+  assert.equal(getView(talked.game).people.find(p => p.id === 'xu').dialogue.text, talked.result);
 });

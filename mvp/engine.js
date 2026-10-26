@@ -1,3 +1,5 @@
+import { ACTION_DEFS } from './content.js';
+
 export class GameError extends Error {
   constructor(message) {
     super(message);
@@ -63,7 +65,7 @@ export function createGame() {
     turn: 1,
     ap: 3,
     nextId: 1,
-    player: { place: MARKET, stones: 180, hp: 100, reputation: 50, herbs: 1, talismans: 1, seal: 0, clues: [], clueEvents: {} },
+    player: { place: MARKET, stones: 180, hp: 100, reputation: 50, herbs: 1, talismans: 1, seal: 0, clues: [], clueEvents: {}, dialogues: {} },
     people,
     pill: { owner: 'shen', price: 280, genuine: true },
     flags: {
@@ -73,7 +75,7 @@ export function createGame() {
       forged: 0, rumorSpread: 0, disputed: false, rumorDebunked: false,
       xuLoan: 0, xuBought: 0, breakthrough: 0, exposed: false,
       herbGathered: 0, herbSale: 0, tonicReady: 0, tonicDelivered: false,
-      pillSale: 0, hanStalked: false
+      pillSale: 0, hanStalked: false, playerBreakthrough: 0
     },
     events: []
   };
@@ -86,11 +88,7 @@ export function createGame() {
   return game;
 }
 
-export const ACTIONS = [
-  'ask', 'inspect_pill', 'investigate_route', 'partner', 'buy_pill', 'negotiate', 'sell_herbs',
-  'report', 'lure', 'travel_woods', 'travel_market', 'prepare_trap', 'ambush',
-  'buy_seal', 'forge_poison', 'honor_partner', 'gather_herbs'
-];
+export const ACTIONS = ['ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
 
 const ASK_LINES = {
   shen: '沈秋收起丹盒：「我急着换续命药，但丹药来路与你无关。」',
@@ -102,6 +100,38 @@ const ASK_LINES = {
   han: '寒沙眯眼望着林道：「黑风林的路，谁带着重宝，谁就要买平安。」',
   ning: '宁素说：「昨夜运丹的脚夫走的是封禁货道，我认得那辆车。」'
 };
+
+export function dialogueFor(game, target) {
+  const { flags: f, people: p, pill } = game;
+  if (target === 'shen') {
+    if (p.shen.trust <= -30) return '沈秋把丹盒藏进袖中：「你的手段，我会记住。再来谈买卖，先想清楚自己做过什么。」';
+    if (f.tonicDelivered) return '沈秋松开了紧握的手：「师弟的续命药已经备好。这笔买卖，总算有了一个交代。」';
+    if (pill.owner !== 'shen') return '沈秋叹道：「丹已不在我手里。眼下，我更在意师弟的续命药何时能备好。」';
+    if (p.shen.place === WOODS) return '沈秋看了眼身旁的魏守：「按约来了。就在这里验货，别往林子深处走。」';
+    if (f.disputed) return '沈秋压低声音：「那张有毒鉴定来得蹊跷，可买家都信了。价钱能谈，不能让我血本无归。」';
+  }
+  if (target === 'bai') {
+    if (f.rumorDebunked) return '白芷敲了敲丹谱：「药纹没错，有毒的鉴定才是假货。我会查清印信是从哪里流出的。」';
+    if (f.tonicReady) return '白芷说：「你卖来的灵草已炼成续命药。药成不易，希望它能到真正需要的人手里。」';
+    if (game.player.clues.includes('authentic')) return '白芷指向你的鉴定符：「我的印记是真的。带给徐宁看，他不会再担心丹药品质。」';
+  }
+  if (target === 'xu') {
+    if (f.partnerDebt) return `徐宁看着你：「还欠我 ${f.partnerDebt} 灵石。说好共担机缘，也得记得兑现承诺。」`;
+    if (f.breakthrough) return '徐宁气息渐稳：「这道瓶颈终于过去了。可当初买丹的那些传闻，我还要查清楚。」';
+    if (pill.owner === 'xu') return '徐宁收好丹盒：「我已准备闭关。机缘不等人，只能自己去争。」';
+    if (p.xu.trust > 20) return '徐宁拱手：「你把该还的灵石都还清了。下次遇到机缘，我们还可以坐下来谈。」';
+  }
+  if (target === 'lu') {
+    if (p.lu.knowledge.ambush) return '陆执事注视着你：「魏守已经报案。黑风林里那场夺丹，坊市会继续追查。」';
+    if (pill.owner === 'lu') return '陆执事展开封条：「车号与时间已经核实。此丹以一百五十灵石公售，账目公开。」';
+    if (f.report) return '陆执事把证词压在玉牌下：「线索已收下。待下旬核验，你可来问结果。」';
+  }
+  if (target === 'wei' && f.attacked) return '魏守按剑道：「我认得你的招式。伤了人、夺了丹，就别指望事情到此为止。」';
+  if (target === 'han' && f.hanStalked) return '寒沙低声道：「丹商进林了，身边那把剑可不好对付。没有准备，最好别动歪心思。」';
+  if (target === 'ning' && f.rumorSpread) return '宁素攥着传音符：「消息已经传开。可真假一旦出了差错，收信的人总会回来追问源头。」';
+  if (target === 'ning' && game.player.clues.includes('smuggling')) return '宁素点头：「车号和时间我都给你了。若要执事出面，记得把完整证词递上去。」';
+  return ASK_LINES[target];
+}
 
 export function applyAction(source, action) {
   if (!action || !ACTIONS.includes(action.type)) throw new GameError('未识别的行动。可以试试「验丹」「调查货道」「找徐宁合资」。');
@@ -116,7 +146,9 @@ export function applyAction(source, action) {
       if (!person) throw new GameError('请选择一位在场人物交谈。');
       if (person.place !== game.player.place) throw new GameError(`${person.name}不在此处。`);
       spend(game);
-      result = ASK_LINES[target];
+      result = dialogueFor(game, target);
+      game.player.dialogues ??= {};
+      game.player.dialogues[target] = { turn: game.turn, text: result };
       note(game, '你', `与${person.name}交谈，得知其当前关切。`, [], 'player');
       break;
     }
@@ -329,6 +361,41 @@ export function applyAction(source, action) {
       result = '合资承诺已经履行，徐宁认可你守信。';
       break;
     }
+    case 'buy_talisman': {
+      at(game, MARKET);
+      requireStones(game, 35);
+      spend(game);
+      game.player.stones -= 35;
+      game.people.qing.stones += 35;
+      game.player.talismans += 1;
+      note(game, '青闻', '青闻以 35 灵石卖出一张天雷符，提醒你符力只够布置一次阵法。', [], 'player');
+      result = '获得天雷符 1 张。前往黑风林的天雷阵位可布下埋伏。';
+      break;
+    }
+    case 'rest': {
+      at(game, WOODS);
+      if (game.player.hp >= 100) throw new GameError('气血已充盈，无需调息。');
+      requireStones(game, 10);
+      spend(game);
+      game.player.stones -= 10;
+      const restored = Math.min(30, 100 - game.player.hp);
+      game.player.hp += restored;
+      note(game, '你', `在听雨亭以灵石引气调息，恢复 ${restored} 气血。`, [], 'player');
+      result = `调息完成：恢复 ${restored} 气血，消耗 10 灵石。`;
+      break;
+    }
+    case 'breakthrough': {
+      at(game, WOODS);
+      if (game.flags.playerBreakthrough) throw new GameError('你已完成筑基。未了的承诺与因果仍可继续处理。');
+      hasPill(game, 'player');
+      if (game.player.hp < 60) throw new GameError('气血不足 60，强行突破会伤及根基。先在听雨亭调息。');
+      spend(game);
+      game.pill.owner = 'consumed';
+      game.player.hp = Math.min(100, game.player.hp + 20);
+      game.flags.playerBreakthrough = note(game, '你', '在听雨亭服下筑基丹，灵气贯通经脉。你踏入筑基初期，旧日的承诺与仇怨仍留在身后。', [game.flags.pillSale || game.flags.attacked].filter(Boolean));
+      result = `筑基已成。${game.flags.partnerDebt ? `与徐宁的 ${game.flags.partnerDebt} 灵石欠款仍未结清。` : '你可以继续观察这场机缘留下的因果。'}`;
+      break;
+    }
   }
   return { game, result };
 }
@@ -438,7 +505,7 @@ export function advanceTurn(source) {
     note(game, '宁素', '宁素在追问下承认鉴定符由你交给她。徐宁得知你是造谣者，决定追查当年的差价。', [game.flags.rumorDebunked, game.flags.forged]);
   }
 
-  if (game.flags.attacked && game.pill.owner === 'player' && !game.people.lu.knowledge.ambush) {
+  if (game.flags.attacked && (game.pill.owner === 'player' || game.flags.playerBreakthrough) && !game.people.lu.knowledge.ambush) {
     const id = note(game, '魏守', '魏守向陆执事报案，描述黑风林的夺丹者。坊市对你的警惕上升。', [game.flags.attacked]);
     know(game, 'lu', 'ambush', id);
     game.player.reputation = Math.max(0, game.player.reputation - 10);
@@ -447,7 +514,7 @@ export function advanceTurn(source) {
     note(game, '寒沙', '寒沙发现沈秋带丹入林，开始暗中尾随，但忌惮同行的魏守。', [game.flags.lured]);
     game.flags.hanStalked = true;
   }
-  if (game.flags.partnerDebt && game.pill.owner === 'player' && !game.flags.partnerDemanded) {
+  if (game.flags.partnerDebt && (game.pill.owner === 'player' || game.flags.playerBreakthrough) && !game.flags.partnerDemanded) {
     game.flags.partnerDemanded = true;
     note(game, '徐宁', `徐宁提醒你：合资承诺中的 ${game.flags.partnerDebt} 灵石还未结清。`);
   }
@@ -459,12 +526,14 @@ export function advanceTurn(source) {
 export function getView(game) {
   const names = Object.fromEntries(PEOPLE.map(p => [p.id, p.name]));
   names.player = '你';
+  names.consumed = '已炼化';
   const visible = game.events.filter(e => e.scope !== 'private');
   const visibleIds = new Set(visible.map(e => e.id));
   const pillOwner = game.pill.owner;
   return {
     turn: game.turn,
     ap: game.ap,
+    revision: game.revision || 0,
     player: structuredClone(game.player),
     pill: {
       owner: names[pillOwner],
@@ -476,10 +545,23 @@ export function getView(game) {
     people: PEOPLE.map(p => ({
       id: p.id, name: p.name, role: p.role, goal: p.publicGoal,
       place: game.people[p.id].place, condition: game.people[p.id].condition,
-      trust: game.people[p.id].trust
+      trust: game.people[p.id].trust,
+      dialogue: game.player.dialogues?.[p.id] || null,
+      memories: visible.filter(e => e.actor === p.name || e.text.includes(p.name)).slice(-3).map(e => ({ turn: e.turn, text: e.text, id: e.id }))
+    })),
+    world: { herbsRemaining: Math.max(0, 2 - game.flags.herbGathered), trapReady: Boolean(game.flags.trap), meetingPlanned: Boolean(game.flags.lured), reportFiled: Boolean(game.flags.report), partnered: Boolean(game.flags.partnerEvent), breakthrough: Boolean(game.flags.playerBreakthrough), realm: game.flags.playerBreakthrough ? '筑基初期' : '炼气九层' },
+    actionOptions: Object.fromEntries(ACTION_DEFS.map(def => {
+      try {
+        const after = applyAction(game, { type: def.type }).game;
+        const delta = Object.fromEntries(['stones', 'hp', 'herbs', 'talismans', 'reputation', 'seal'].map(key => [key, after.player[key] - game.player[key]]).filter(([,value]) => value));
+        return [def.type, { available: true, reason: '', delta }];
+      } catch (error) {
+        if (!(error instanceof GameError)) throw error;
+        return [def.type, { available: false, reason: error.message, delta: {} }];
+      }
     })),
     events: visible.map(e => ({ ...e, causes: e.causes.filter(id => visibleIds.has(id)) })).reverse(),
-    outcome: pillOwner === 'player'
+    outcome: game.flags.playerBreakthrough ? `筑基已成。${game.flags.partnerDebt ? '与徐宁的欠款仍待偿还。' : '这场机缘的因果仍将继续。'}` : pillOwner === 'player'
       ? game.flags.partnerDebt ? '筑基丹已入手；徐宁的合资承诺仍待履行。' : '筑基丹已入手。可以继续推进时间，观察人物的后续反应。'
       : pillOwner === 'xu' ? '徐宁已取得筑基丹。本局机缘失手，可重开尝试另一条路线。' : ''
   };
@@ -488,6 +570,9 @@ export function getView(game) {
 export function parseLocal(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_COMMAND) throw new GameError('请输入 1～280 字的行动描述。');
   const input = text.trim();
+  if (/服丹|冲击筑基|闭关突破|炼化筑基丹/.test(input)) return { type: 'breakthrough' };
+  if (/调息|疗伤|休息/.test(input)) return { type: 'rest' };
+  if (/买.*天雷符|购.*天雷符|补充.*符/.test(input)) return { type: 'buy_talisman' };
   const price = input.match(/(?:出价|报价|愿出|以|用)\s*(\d{1,4})\s*(?:枚)?灵石|(?:买丹|买筑基丹|购买筑基丹).*?(\d{1,4})\s*(?:枚)?灵石/);
   if (price && /丹|沈秋|丹商/.test(input)) {
     return {

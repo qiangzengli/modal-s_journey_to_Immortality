@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { ACTIONS, GameError, PEOPLE, advanceTurn, applyAction, createGame, getView, parseLocal } from './engine.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const savePath = join(root, '.data', 'save.json');
+const savePath = process.env.SAVE_PATH || join(root, '.data', 'save.json');
 const port = Number(process.env.PORT || 4177);
 const modelEnabled = Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL);
 const modelName = modelEnabled ? process.env.LLM_MODEL : null;
@@ -16,7 +16,12 @@ let locked = false;
 async function loadGame() {
   try {
     const saved = JSON.parse(await readFile(savePath, 'utf8'));
-    if (saved.version === 2 && saved.people && saved.player && saved.pill && Array.isArray(saved.events)) return saved;
+    if (saved.version === 2 && saved.people && saved.player && saved.pill && Array.isArray(saved.events)) {
+      saved.player.dialogues ??= {};
+      saved.flags.playerBreakthrough ??= 0;
+      saved.revision ??= 0;
+      return saved;
+    }
   } catch (error) {
     if (error.code !== 'ENOENT') console.warn('存档未能读取，已开始新局：', error.message);
   }
@@ -95,6 +100,8 @@ const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/world.js': ['world.js', 'text/javascript; charset=utf-8'],
+  '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
+  '/scenery.js': ['scenery.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.module.js': ['node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.core.js': ['node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
@@ -128,19 +135,26 @@ async function handle(req, res) {
   locked = true;
   try {
     const input = await body(req);
+    if (input.expectedRevision !== undefined && input.expectedRevision !== (game.revision || 0)) {
+      json(res, 409, { error: '存档已在另一页面更新，已同步最新局势，请重新选择行动。', view: getView(game), modelName });
+      return;
+    }
     let outcome;
     let parserSource = null;
+    let actionType = input.type || path.split('/').at(-1);
     if (path === '/api/reset') outcome = { game: createGame(), result: '新的一局开始了。' };
     else if (path === '/api/advance') outcome = advanceTurn(game);
     else if (path === '/api/command') {
       const parsed = await modelAction(input.text);
       parserSource = parsed.source;
+      actionType = parsed.action.type;
       outcome = applyAction(game, parsed.action);
     }
     else outcome = applyAction(game, input);
+    outcome.game.revision = (game.revision || 0) + 1;
     await saveGame(outcome.game);
     game = outcome.game;
-    json(res, 200, { view: getView(game), result: outcome.result, modelName, parserSource });
+    json(res, 200, { view: getView(game), result: outcome.result, modelName, parserSource, actionType });
   } catch (error) {
     const expected = error instanceof GameError;
     if (!expected) console.error(error);
