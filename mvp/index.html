@@ -17,7 +17,16 @@
   <div id="navigation-status" class="navigation-status" role="status" hidden><span class="walking-dot"></span><span id="navigation-copy"></span><button id="navigation-cancel" type="button">停止</button></div>
   <button id="nearby-interact" class="nearby-interact" type="button" hidden><kbd>F</kbd><span id="nearby-name"></span><small>交互</small></button>
 
-  <section class="journey-card" aria-label="机缘指引"><div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">0 / 5</span></div><div class="route-tabs"><button data-route="trade" type="button">交易</button><button data-route="report" type="button">借势</button><button data-route="ambush" type="button">夺宝</button></div><h2 id="quest-title">核验丹药</h2><p id="quest-detail">先取得药师印记。</p><button id="quest-track" type="button">追踪目标 <span>◇</span></button></section>
+  <section class="journey-card" aria-label="机缘指引">
+    <div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">0 / 5</span></div>
+    <div class="route-tabs"><button data-route="trade" type="button">交易</button><button data-route="report" type="button">借势</button><button data-route="ambush" type="button">夺宝</button></div>
+    <small id="quest-objective" class="quest-objective"></small>
+    <h2 id="quest-title">正在梳理线索</h2><p id="quest-detail" aria-live="polite"></p>
+    <small id="quest-facts" class="quest-objective"></small>
+    <div class="agent-source-row"><span id="agent-guide-source" role="status">正在推敲线索…</span><button id="guide-rethink" type="button" aria-label="重新解读线索">↻</button></div>
+    <button id="quest-track" type="button">追踪目标 ◇</button>
+    <details class="guide-inquiry"><summary>追问这条线索</summary><div id="guide-followups" class="agent-followups"></div><form id="guide-form"><label class="sr-only" for="guide-question">向手札追问</label><input id="guide-question" maxlength="280" placeholder="灵石不够，还有什么办法？" required><button id="guide-send" type="submit">推敲</button></form></details>
+  </section>
 
   <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>机缘 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small id="opportunity-hint">金色光环标记持丹者 ↗</small></button>
 
@@ -26,6 +35,14 @@
     <div class="character-heading"><span id="person-seal" class="person-seal">沈</span><div><small id="world-role"></small><strong id="world-name"></strong></div></div>
     <div id="person-meta" class="person-meta"></div><p id="world-goal"></p><blockquote id="person-dialogue" hidden></blockquote>
     <div id="interaction-result" class="interaction-result" role="status" hidden><small>此刻 · 行动结果</small><p id="interaction-result-copy"></p><button id="interaction-next" type="button" hidden></button></div>
+    <section id="agent-dialogue" class="agent-dialogue" hidden>
+      <div class="agent-source-row"><span id="agent-chat-source" role="status">人物交谈</span><small>问话不消耗资源</small></div>
+      <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
+      <div id="agent-chat-followups" class="agent-followups"></div>
+      <form id="agent-chat-form"><label class="sr-only" for="agent-chat-input">对人物说的话</label><textarea id="agent-chat-input" maxlength="280" rows="2" placeholder="询问线索，或说出你的打算…" required></textarea><button id="agent-chat-send" type="submit">交谈</button></form>
+      <p id="agent-chat-error" role="alert"></p><div id="agent-chat-actions" class="agent-chat-actions"></div>
+      <small class="agent-boundary">交谈可获得建议；取证、交易与履约请点击行动执行。</small>
+    </section>
     <div id="world-actions" class="context-actions"></div>
     <form id="trade-form" class="trade-form" hidden><label for="trade-offer">当面议价 <small>报价过低可能降低信任</small></label><div class="offer-row"><input id="trade-offer" type="number" min="1" max="9999" value="200" required aria-label="灵石报价"><span>灵石</span><button type="submit">递上报价</button></div><label class="sr-only" for="trade-leverage">议价筹码</label><select id="trade-leverage"><option value="none">仅凭报价</option></select></form>
     <details id="person-memory"><summary>与你有关的往事</summary><div id="memory-list"></div></details>
@@ -44,7 +61,17 @@
 
   <nav class="map-nav" aria-label="地图功能"><button type="button" data-open-panel="opportunity"><i>◇</i>机缘</button><button type="button" data-open-panel="self"><i>▧</i>行囊</button><button type="button" data-open-panel="people"><i>♧</i>人物</button><button type="button" data-open-panel="actions"><i>⚒</i>行动</button><button type="button" data-open-panel="events"><i>≋</i>邸报 <b id="news-count" hidden>0</b></button></nav>
 
-  <section class="command-dock" aria-label="自然语言行动"><div class="command-caption"><span>心念传音</span><small id="command-status">行动不限 · 时间手动推进</small></div><form id="command-form"><label class="sr-only" for="command">写下你的计策</label><textarea id="command" maxlength="280" rows="1" placeholder="例如：我拿货道证词压价，出价 200 灵石买丹。"></textarea><button id="command-submit" class="primary" type="submit">落子 <span>↗</span></button></form><div id="message" class="message" role="status" aria-live="polite">先观察持丹者与人物的动向，再决定如何落子。</div></section>
+  <section class="command-dock" aria-label="自然语言问计与行动">
+    <div class="command-caption"><span>心念传音</span><small id="command-status">正在连接……</small></div>
+    <div id="command-conversation" class="command-conversation" hidden>
+      <div class="agent-source-row"><span id="command-source">问计</span><button id="command-clear" type="button">清空问答</button></div>
+      <div id="command-log" class="agent-chat-log" role="log" aria-label="心念传音问答" aria-live="polite"></div>
+      <div id="command-followups" class="agent-followups"></div>
+      <div id="command-suggestions" class="agent-followups"></div>
+    </div>
+    <form id="command-form"><label class="sr-only" for="command">写下你的问题或计策</label><textarea id="command" maxlength="280" rows="1" placeholder="可问：灵石不够怎么办？也可行动：请白芷验丹。"></textarea><button id="command-submit" class="primary" type="submit">落子 <span>↗</span></button></form>
+    <div id="message" class="message" role="status" aria-live="polite">写下疑问向 AI 问计，或直接说出要做的行动。</div>
+  </section>
 
   <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="坊市与黑风林导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
   <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击目标会自动绕路、经过界门并继续前往。靠近时按 F 交互，按方向键或 Esc 可取消寻路。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；点击「推进一旬」才会推进时间并结算世界事件。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>

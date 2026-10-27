@@ -207,3 +207,31 @@ button:disabled{opacity:.42;cursor:not-allowed}
 @keyframes arena-enter{from{opacity:.15;filter:blur(5px)}to{opacity:1;filter:blur(0)}}
 .in-combat .world-canvas{animation:arena-enter .4s ease-out}
 @media(prefers-reduced-motion:reduce){.in-combat .world-canvas{animation:none}.battle-bar i{transition:none}}
+
+/* AI 解读与人物交流仍附着于地图手札和交互卡。 */
+.journey-card{max-height:calc(100dvh - 420px);overflow:auto;scrollbar-width:thin}
+.quest-objective{display:block;font-size:9px;color:#9dac8f;line-height:1.6}
+.agent-source-row{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#a6c5b0;font-size:9px;margin:10px 0 5px;line-height:1.5}
+.agent-source-row button{border:1px solid #627e68;color:#d7c897;background:#243d2b;padding:2px 7px;font-size:14px}
+.agent-source-row small{font-size:9px;color:#9aad91}
+.guide-inquiry{margin-top:10px;font-size:10px;color:#afc0a4}.guide-inquiry summary{cursor:pointer}
+#guide-form,#agent-chat-form{display:flex;gap:6px;margin:10px 0}
+#guide-question,#agent-chat-input{min-width:0;flex:1;width:100%;border:1px solid #526e58;background:#10271e;color:#e2dfc5;padding:8px;font-family:inherit;font-size:11px;line-height:1.7;resize:vertical}
+#guide-question::placeholder,#agent-chat-input::placeholder{color:#91a78e;font-size:10px}
+#guide-send,#agent-chat-send{align-self:flex-end;border:1px solid #b19c66;background:#b09b68;color:#1b2d20;padding:8px;font-size:10px;white-space:nowrap}
+#guide-send:disabled,#agent-chat-send:disabled{opacity:.5}
+.agent-dialogue{margin:15px 0;padding:12px 0;border-top:1px solid #6b806055;border-bottom:1px solid #6b806055}
+.agent-chat-log{max-height:220px;overflow:auto;scrollbar-width:thin}
+.agent-chat-log p{font-size:12px;line-height:1.85;color:#d8dfc4;margin:8px 0;padding:9px 10px;background:#223e2e}
+.agent-chat-log .user{margin-left:20px;background:#384b32;color:#e1d8b5}.agent-message small{display:block;font-size:9px;color:#a1b994;margin-bottom:4px}
+.agent-chat-log .agent-empty{color:#a9bd9e;font-size:11px;background:transparent;padding:0}
+.agent-followups{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.agent-followups:empty{display:none}.agent-followups button{background:#18382b;border:1px solid #627e66;color:#bcd2b0;padding:5px 7px;font:10px/1.6 sans-serif;text-align:left}
+.agent-followups button:hover{border-color:#b8b17f;color:#e4d5a5}.agent-followups button:disabled{opacity:.5}
+.agent-chat-actions{display:grid;gap:6px}.agent-chat-actions button{border:1px solid #9e9466;color:#e4d3a1;background:#344934;padding:9px;text-align:left}.agent-chat-actions b{display:block;font-size:12px;font-weight:500}.agent-chat-actions small{display:block;font-size:10px;margin-top:4px;color:#b8c8a4}
+.agent-boundary{display:block;color:#8fa68d;font-size:9px;line-height:1.7;margin-top:8px}
+#agent-chat-error{color:#e1ad8d;font-size:11px;line-height:1.6}#agent-chat-error:empty{display:none}
+.command-conversation{max-height:min(38vh,300px);overflow:auto;margin-bottom:10px;border-top:1px solid #6b806055;scrollbar-width:thin}
+.command-conversation .agent-source-row{margin:7px 0}.command-conversation .agent-source-row button{font-size:10px}
+.command-conversation .agent-chat-log{max-height:160px}.command-conversation .agent-chat-log p{font-size:12px;margin:5px 0;padding:6px 9px}
+.command-conversation .agent-followups{margin-top:5px}.command-conversation .agent-chat-log .user{margin-left:30px}
+@media(max-width:700px){.journey-card{max-height:245px}.journey-card #quest-detail{display:block;font-size:10px;margin-bottom:8px}.agent-source-row{font-size:8px}.quest-objective{font-size:8px}.guide-inquiry{font-size:9px}.agent-chat-log{max-height:180px}.agent-chat-log p{font-size:12px}#guide-form{flex-wrap:wrap}#guide-send{margin-left:auto}}

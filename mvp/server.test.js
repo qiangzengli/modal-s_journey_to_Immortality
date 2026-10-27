@@ -72,6 +72,13 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.deepEqual(planned.action, { type: 'gather_herbs' });
     assert.deepEqual(planned.view, initial);
     assert.deepEqual(JSON.parse(await readFile(savePath, 'utf8')), old);
+    const offlineQuestion = await post('/api/intent', { text: '买筑基丹还差多少灵石？', expectedRevision: 0 });
+    assert.equal(offlineQuestion.status, 200);
+    assert.equal(offlineQuestion.action, undefined);
+    assert.equal(offlineQuestion.reply.source, 'rules');
+    assert.equal(offlineQuestion.reply.reason, 'offline');
+    assert.deepEqual(offlineQuestion.view, initial);
+    assert.deepEqual(JSON.parse(await readFile(savePath, 'utf8')), old);
     const stalePlan = await post('/api/intent', { text: '采集灵草', expectedRevision: 99 });
     assert.equal(stalePlan.status, 409);
     assert.deepEqual(stalePlan.view, initial);
@@ -90,7 +97,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
-    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/navigation.js', '/combat-data.js', '/combat-ui.js', '/battle-world.js', '/battle-fx.js']) {
+    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/combat-data.js', '/combat-ui.js', '/battle-world.js', '/battle-fx.js']) {
       assert.equal((await fetch(origin + file)).status, 200);
     }
     await stop();
