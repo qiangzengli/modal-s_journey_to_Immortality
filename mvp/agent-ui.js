@@ -2,8 +2,7 @@ const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const sourceText = reply => reply.source === 'model' ? `AI · ${reply.modelName || '模型解读'}` : ({ offline: '未连接模型 · 已知线索', busy: '人物正在推敲 · 可稍后再问', timeout: '模型推敲超时 · 已知线索', invalid: '解读未通过核对 · 已知线索', unavailable: '模型暂未回应 · 已知线索' }[reply.reason] || '已知线索');
 
-export function createAgentUI({ getState, navigate, executeAction, onStale, notice }) {
-  let guideKey = '', guideReply = null, guideTimer, guideRequest = 0, guideController;
+export function createAgentUI({ getState, executeAction, onStale, notice }) {
   let chatRequest = 0, chatController, chatPending = false;
   let pendingQuestion = null;
   let shownPerson = null, lastRevision = null;
@@ -21,42 +20,6 @@ export function createAgentUI({ getState, navigate, executeAction, onStale, noti
       throw new Error(data.error || '暂时无法推敲，请稍后再问。');
     }
     return data;
-  }
-  function drawGuide(reply) {
-    $('#quest-title').textContent = reply.title;
-    $('#quest-detail').textContent = reply.text;
-    $('#agent-guide-source').textContent = sourceText(reply);
-    $('#agent-guide-source').title = reply.modelName || '';
-    $('#guide-followups').innerHTML = reply.followUps.map((text, index) => `<button type="button" data-guide-question="${index}">${esc(text)}</button>`).join('');
-    $('#quest-track').textContent = reply.suggestions[0]?.label || '查看因果账本';
-  }
-  async function askGuide(text = '') {
-    clearTimeout(guideTimer);
-    const { view, route } = getState();
-    if (!view || view.battle) return;
-    const ticket = ++guideRequest, key = `${route}:${view.revision}`;
-    guideController?.abort(); guideController = new AbortController();
-    $('#agent-guide-source').textContent = '正在推敲线索…';
-    $('#guide-send').disabled = true;
-    try {
-      const reply = await request({ mode: 'guide', route, text, expectedRevision: view.revision }, guideController.signal);
-      const latest = getState();
-      if (ticket !== guideRequest || key !== `${latest.route}:${latest.view.revision}` || latest.view.battle) return;
-      guideReply = reply; drawGuide(reply);
-    } catch (error) {
-      if (ticket === guideRequest && error.name !== 'AbortError') $('#agent-guide-source').textContent = error.message;
-    } finally { if (ticket === guideRequest) $('#guide-send').disabled = false; }
-  }
-  function guideChanged() {
-    const { view, route } = getState();
-    if (!view) return;
-    if (view.battle) { guideController?.abort(); clearTimeout(guideTimer); guideRequest++; guideKey = ''; guideReply = null; return; }
-    const key = `${route}:${view.revision}`;
-    if (key === guideKey) { if (guideReply) drawGuide(guideReply); return; }
-    guideKey = key; guideReply = null; guideRequest++; guideController?.abort();
-    $('#guide-followups').replaceChildren();
-    $('#agent-guide-source').textContent = '正在推敲线索…';
-    clearTimeout(guideTimer); guideTimer = setTimeout(() => askGuide(), 600);
   }
   function drawChat() {
     const { view, personId } = getState();
@@ -86,7 +49,7 @@ export function createAgentUI({ getState, navigate, executeAction, onStale, noti
     drawChat();
   }
   async function talk(text) {
-    const { view, personId, route, busy } = getState();
+    const { view, personId, plan, busy } = getState();
     if (chatPending || busy || view?.battle || !view?.people.some(person => person.id === personId) || !text.trim()) return;
     const thread = getThread(personId), ticket = ++chatRequest, history = thread.messages.slice(-6);
     chatController?.abort(); chatController = new AbortController(); chatPending = true;
@@ -97,7 +60,7 @@ export function createAgentUI({ getState, navigate, executeAction, onStale, noti
     $('#agent-chat-error').textContent = ''; drawChat();
     const log = $('#agent-chat-log'); log.scrollTop = log.scrollHeight;
     try {
-      const reply = await request({ mode: 'dialogue', personId, route, text, history, expectedRevision: view.revision }, chatController.signal);
+      const reply = await request({ mode: 'dialogue', personId, plan, text, history, expectedRevision: view.revision }, chatController.signal);
       const latest = getState();
       if (ticket !== chatRequest || latest.personId !== personId || latest.view.revision !== view.revision || latest.busy) return;
       thread.messages.push({ role: 'assistant', text: reply.text }); thread.messages = thread.messages.slice(-10);
@@ -110,9 +73,6 @@ export function createAgentUI({ getState, navigate, executeAction, onStale, noti
       if (ticket === chatRequest) { discardPendingQuestion(); chatPending = false; drawChat(); log.scrollTop = log.scrollHeight; }
     }
   }
-  $('#guide-rethink').addEventListener('click', () => askGuide());
-  $('#guide-form').addEventListener('submit', event => { event.preventDefault(); const text = $('#guide-question').value.trim(); if (text) askGuide(text); });
-  $('#guide-followups').addEventListener('click', event => { const button = event.target.closest('[data-guide-question]'); if (button && guideReply) askGuide(guideReply.followUps[Number(button.dataset.guideQuestion)]); });
   $('#agent-chat-form').addEventListener('submit', event => { event.preventDefault(); talk($('#agent-chat-input').value.trim()); });
   $('#agent-chat-input').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); $('#agent-chat-form').requestSubmit(); } });
   $('#agent-chat-followups').addEventListener('click', event => { const button = event.target.closest('[data-chat-question]'); const thread = threads.get(getState().personId); if (button && thread?.reply) talk(thread.reply.followUps[Number(button.dataset.chatQuestion)]); });
@@ -125,12 +85,7 @@ export function createAgentUI({ getState, navigate, executeAction, onStale, noti
     if (choice?.action) executeAction(choice.action);
   });
   return {
-    guideChanged, personChanged, talk,
-    track() {
-      const { view } = getState();
-      if (!guideReply || guideReply.revision !== view.revision) return false;
-      navigate(guideReply.suggestions[0]?.target || 'events'); return true;
-    },
-    reset() { discardPendingQuestion(); threads.clear(); guideKey = ''; guideReply = null; guideRequest++; chatRequest++; guideController?.abort(); chatController?.abort(); chatPending = false; }
+    personChanged, talk,
+    reset() { discardPendingQuestion(); threads.clear(); chatRequest++; chatController?.abort(); chatPending = false; }
   };
 }

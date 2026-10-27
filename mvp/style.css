@@ -123,8 +123,9 @@ button:disabled{opacity:.42;cursor:not-allowed}
 .opportunity-chip>span{font-size:10px}.opportunity-chip strong{font-family:"Songti SC",serif;font-size:19px;margin:7px 0}.opportunity-chip small{font-size:10px}
 .journey-card{position:absolute;z-index:3;left:24px;top:205px;width:270px;padding:16px 18px;background:linear-gradient(120deg,#152b23ea,#13251bd9);border:1px solid #9caa7c6e;box-shadow:0 12px 35px #0003;backdrop-filter:blur(8px)}
 .journey-heading{display:flex;justify-content:space-between;align-items:center}.journey-heading>span:last-child{font-size:11px;color:#a4b899}
-.route-tabs{display:flex;gap:4px;margin:12px 0}.route-tabs button{flex:1;padding:5px 4px;color:#b6c6aa;border:1px solid #64785e;background:#213528;font-size:11px}
-.route-tabs button[aria-pressed=true]{color:#17271c;background:#c6b37f;border-color:#d7c28b}
+.plan-options{display:grid;gap:6px;margin:12px 0}.plan-options button{text-align:left;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px;color:#b6c6aa;border:1px solid #64785e;background:#213528;font-size:11px}.plan-options strong{font-weight:500}.plan-options small{font-size:9px;white-space:nowrap}
+.plan-options button[aria-pressed=true]{color:#17271c;background:#c6b37f;border-color:#d7c28b}
+.journey-card .plan-risk{color:#d0b68e;font-size:10px;margin-bottom:6px}.plan-forecast{display:block;color:#bed1b2;font-size:10px;line-height:1.7;margin-bottom:8px}.quest-step:disabled{cursor:default;opacity:.6}
 .journey-card h2{font-family:"Songti SC",serif;font-weight:500;font-size:20px;margin:8px 0}.journey-card p{font-size:11px;line-height:1.65;color:#b7c8ac;margin:8px 0 14px}
 .journey-card>button{display:flex;justify-content:space-between;width:100%;padding:8px 0 0;border:0;border-top:1px solid #6b7b5c6e;background:transparent;color:#dfc887;font-size:11px}
 .map-nav{top:auto;bottom:151px;transform:none;flex-direction:row;gap:7px;left:24px}
@@ -169,7 +170,7 @@ button:disabled{opacity:.42;cursor:not-allowed}
  .topbar{height:63px;padding:0 10px}.brand strong{font-size:17px}.brand-mark{width:31px;height:31px;font-size:20px}.top-actions{gap:6px}.turn-card{padding:5px 8px}.turn-card span{font-size:14px}.compact{min-height:38px;font-size:10px}
  .resource-strip{position:absolute;top:68px;left:12px;right:12px;justify-content:space-between;font-size:11px;pointer-events:none}.resource-strip small{font-size:9px}.realm-chip{display:flex!important;border:0;padding:0;font-size:11px}.health-track{width:60px}.reputation-resource{display:none!important}
  .world-top{top:108px;left:12px}.world-top strong{font-size:25px}.world-hint{max-width:177px;font-size:9px}.world-top .eyebrow{font-size:9px}.opportunity-chip{top:108px;right:10px;width:151px;padding:10px}.opportunity-chip strong{font-size:13px}.opportunity-chip small{font-size:9px}.opportunity-chip>span{font-size:9px}
- .journey-card{top:220px;left:10px;width:179px;padding:10px 12px}.journey-heading .eyebrow{font-size:9px}.journey-card h2{font-size:16px;margin:8px 0}.journey-card p{display:none}.journey-card>button{font-size:10px}.route-tabs{gap:3px;margin:8px 0}.route-tabs button{font-size:9px;padding:4px}
+ .journey-card{top:220px;left:10px;width:179px;padding:10px 12px}.journey-heading .eyebrow{font-size:9px}.journey-card h2{font-size:16px;margin:8px 0}.journey-card p{display:none}.journey-card>button{font-size:10px}
  .mini-map-panel{top:220px;right:10px;bottom:auto;width:158px;padding:6px}.mini-map-panel canvas{height:75px}.mini-map-panel>div:first-child{font-size:9px;padding-bottom:4px}.mini-map-panel small{font-size:8px}.camera-controls{gap:3px;margin-top:4px}.camera-controls button{height:24px;font-size:13px}
  .world-person{left:8px;right:8px;top:auto;bottom:185px;width:auto;max-height:calc(100dvh - 310px);padding:17px;z-index:7}.character-heading{margin-bottom:10px}.person-seal{width:40px;height:40px;flex-basis:40px;font-size:22px}.world-person .character-heading strong{font-size:23px}.world-person>p{font-size:10px;margin:0 0 12px}.world-person .context-action{padding:9px 10px}
  .map-nav{left:8px;right:8px;top:auto;bottom:129px;gap:5px}.map-nav button{flex:1;width:auto;height:48px;font-size:10px}.map-nav i{font-size:16px;margin-bottom:3px}
@@ -235,3 +236,5 @@ button:disabled{opacity:.42;cursor:not-allowed}
 .command-conversation .agent-chat-log{max-height:160px}.command-conversation .agent-chat-log p{font-size:12px;margin:5px 0;padding:6px 9px}
 .command-conversation .agent-followups{margin-top:5px}.command-conversation .agent-chat-log .user{margin-left:30px}
 @media(max-width:700px){.journey-card{max-height:245px}.journey-card #quest-detail{display:block;font-size:10px;margin-bottom:8px}.agent-source-row{font-size:8px}.quest-objective{font-size:8px}.guide-inquiry{font-size:9px}.agent-chat-log{max-height:180px}.agent-chat-log p{font-size:12px}#guide-form{flex-wrap:wrap}#guide-send{margin-left:auto}}
+
+.plan-options strong{min-width:0;overflow-wrap:anywhere}.journey-card #plan-risk{display:block}

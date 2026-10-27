@@ -7,6 +7,7 @@ import { combatAction, inventoryAction, ensureExploration } from './combat.js';
 import { agentContext, createStoryAgent, createAgentModel } from './story-agent.js';
 import { createModelClient } from './model-client.js';
 import { gameModelConfig } from './game-model.js';
+import { createRoutePlanner } from './route-planner.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const savePath = process.env.SAVE_PATH || join(root, '.data', 'save.json');
@@ -16,6 +17,7 @@ const modelEnabled = Boolean(modelConfig);
 const modelName = modelConfig?.model || null;
 const completeAction = modelEnabled ? createModelClient(modelConfig) : null;
 const storyAgent = createStoryAgent({ modelName, generate: modelEnabled ? createAgentModel(modelConfig) : null });
+const routePlanner = createRoutePlanner({ modelName, generate: modelEnabled ? messages => completeAction(messages, { temperature: .65, maxTokens: 2600 }) : null });
 let game;
 let locked = false;
 
@@ -92,7 +94,7 @@ async function modelAction(text, { allowReply = false, snapshot = game } = {}) {
 
 async function commandIntent(view, input, snapshot) {
   if (typeof input.text !== 'string' || !input.text.trim() || input.text.length > 280) throw new GameError('请输入 1～280 字的问话或行动。');
-  const inquiry = { mode: 'guide', route: input.route, text: input.text, history: input.history };
+  const inquiry = { mode: 'guide', plan: input.plan, route: input.route, text: input.text, history: input.history };
   agentContext(view, inquiry);
   // 提问、商量和否定表达不能被“买丹 / 举报”等局部关键词执行成行动。
   const asking = /[？?]|怎么|如何|为何|为什么|什么|多少|哪里|哪[个些种条位里]|谁|是否|能否|可否|有没有|能不能|可不可以|要不要|该不该|吗|么|建议|办法|解释|想问|想了解|想知道|介绍|咨询|请教|说说|聊聊|打听|不(?:想|要|打算|需要|愿|准备|会|能|用|必)|先不|别/.test(input.text);
@@ -112,6 +114,7 @@ const files = {
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
   '/agent-ui.js': ['agent-ui.js', 'text/javascript; charset=utf-8'],
   '/command-ui.js': ['command-ui.js', 'text/javascript; charset=utf-8'],
+  '/plan-ui.js': ['plan-ui.js', 'text/javascript; charset=utf-8'],
   '/scenery.js': ['scenery.js', 'text/javascript; charset=utf-8'],
   '/navigation.js': ['navigation.js', 'text/javascript; charset=utf-8'],
   '/combat-data.js': ['combat-data.js', 'text/javascript; charset=utf-8'],
@@ -140,15 +143,15 @@ async function handle(req, res) {
     return;
   }
   // 叙事请求不占用行动锁，也不写存档；模型等待期间可以继续游戏。
-  if (req.method === 'POST' && ['/api/agent', '/api/intent'].includes(path)) {
+  if (req.method === 'POST' && ['/api/agent', '/api/intent', '/api/plans'].includes(path)) {
     if (!req.headers['content-type']?.startsWith('application/json')) { json(res, 415, { error: '请求必须使用 application/json。' }); return; }
     try {
       const input = await body(req, 8192);
-      if ((path === '/api/agent' || input.expectedRevision !== undefined) && !Number.isSafeInteger(input.expectedRevision)) throw new GameError('请携带当前局势版本。');
+      if ((path !== '/api/intent' || input.expectedRevision !== undefined) && !Number.isSafeInteger(input.expectedRevision)) throw new GameError('请携带当前局势版本。');
       const snapshot = game;
       if (input.expectedRevision !== undefined && input.expectedRevision !== (snapshot.revision || 0)) { json(res, 409, { error: '局势已经变化，请根据最新线索重新交谈。', view: getView(game), modelName }); return; }
       const view = getView(snapshot);
-      const reply = path === '/api/intent' ? await commandIntent(view, input, snapshot) : await storyAgent.respond(view, input);
+      const reply = path === '/api/intent' ? await commandIntent(view, input, snapshot) : path === '/api/plans' ? await routePlanner.respond(snapshot, input) : await storyAgent.respond(view, input);
       if (snapshot !== game) { json(res, 409, { error: '交谈期间局势已变化，旧建议已作废。', view: getView(game), modelName }); return; }
       json(res, 200, path === '/api/intent' ? { ...reply, view, modelName } : { ...reply, revision: snapshot.revision || 0 });
     } catch (error) {

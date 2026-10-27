@@ -42,31 +42,3 @@ export const PERSON_DETAILS = {
   han: { color: '#c9937e', realm: '炼气九层', bio: '黑衣融入树影。林道上的车辙和脚印，比传闻更能引起他的兴趣。' },
   ning: { color: '#d6c39b', realm: '炼气六层', bio: '一筒传音符系在腰间。她游走于坊市各处，靠消息的可信度维持生意。' }
 };
-
-export function questSteps(view, route = 'trade') {
-  const w = view.world;
-  const won = view.pill.ownerId === 'player' || w.breakthrough;
-  const routes = {
-    trade: [
-      ['核验丹药', view.player.clues.includes('authentic'), 'bai', '取得药师印记，才有说服徐宁的凭据。'],
-      ['与徐宁合资', w.partnered, 'xu', '合资有期限，也有还款承诺。'],
-      ['筹足灵石', view.player.stones >= (view.pill.price ?? 280), 'bai', '将灵草换成灵石，留意商人当前要价。'],
-      ['取得筑基丹', won, view.pill.ownerId === 'lu' ? 'lu' : 'shen', '买家也在筹钱，切勿空等太久。']
-    ],
-    report: [
-      ['查清货道', view.player.clues.includes('smuggling'), 'ning', '向宁素索取可核对的车号与时间。'],
-      ['向执事递交证词', w.reportFiled, 'lu', '有证词，执事才会调查。'],
-      ['等待查验', view.pill.ownerId === 'lu', 'advance', '推进一旬，观察查封结果。'],
-      ['取得筑基丹', won, 'lu', '公售价为 150 灵石。']
-    ],
-    ambush: [
-      ['邀丹商出城', w.meetingPlanned, 'shen', '沈秋会在下旬与魏守一同赴约。'],
-      ['林中布阵', w.trapReady, 'formation', '穿过界门，在天雷阵位埋下符箓。'],
-      ['等待携丹者', view.people.find(p => p.id === 'shen').place === 'woods', 'advance', '推进一旬，让约定成为现实。'],
-      ['取得筑基丹', won, 'formation', '有阵仍会受伤、失去声望，并被追查。']
-    ]
-  };
-  // 已经取得机缘时，旧路线的前置步骤不再阻挡最终修炼目标。
-  const steps = (routes[route] || routes.trade).map(([title, done, target, detail]) => ({ title, done, target, detail, skipped: won && !done }));
-  return [...steps, { title: '听雨亭服丹筑基', done: w.breakthrough, target: 'camp', detail: '气血至少 60。突破不会抹去欠款与仇怨。', skipped: false }];
-}

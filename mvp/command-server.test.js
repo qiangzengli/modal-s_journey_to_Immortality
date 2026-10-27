@@ -54,9 +54,9 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
       assert.equal(result.view.revision, 0);
     }
     const history = [{ role: 'user', text: '我接下来该怎么做？' }, { role: 'assistant', text: '先核验丹药。' }];
-    const followup = await intent('为什么要这样做？', { route: 'report', history });
+    const followup = await intent('为什么要这样做？', { plan: '采草换石后议价', history });
     assert.equal(followup.reply.source, 'model');
-    assert.equal(contexts.at(-1).facts.route, '借势');
+    assert.equal(contexts.at(-1).facts.selectedPlan, '采草换石后议价');
     assert.deepEqual(contexts.at(-1).history, history);
     assert.equal((await intent('我有些拿不定主意')).reply.source, 'model');
     assert.deepEqual((await intent('请白芷验丹')).action, { type: 'inspect_pill' });

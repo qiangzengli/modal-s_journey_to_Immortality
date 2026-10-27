@@ -18,14 +18,15 @@
   <button id="nearby-interact" class="nearby-interact" type="button" hidden><kbd>F</kbd><span id="nearby-name"></span><small>交互</small></button>
 
   <section class="journey-card" aria-label="机缘指引">
-    <div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">0 / 5</span></div>
-    <div class="route-tabs"><button data-route="trade" type="button">交易</button><button data-route="report" type="button">借势</button><button data-route="ambush" type="button">夺宝</button></div>
+    <div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">动态规划</span></div>
+    <div id="plan-options" class="plan-options" aria-label="模型设计的取丹方案"></div>
     <small id="quest-objective" class="quest-objective"></small>
     <h2 id="quest-title">正在梳理线索</h2><p id="quest-detail" aria-live="polite"></p>
+    <p id="plan-risk" class="plan-risk"></p><small id="plan-forecast" class="plan-forecast"></small>
     <small id="quest-facts" class="quest-objective"></small>
-    <div class="agent-source-row"><span id="agent-guide-source" role="status">正在推敲线索…</span><button id="guide-rethink" type="button" aria-label="重新解读线索">↻</button></div>
-    <button id="quest-track" type="button">追踪目标 ◇</button>
-    <details class="guide-inquiry"><summary>追问这条线索</summary><div id="guide-followups" class="agent-followups"></div><form id="guide-form"><label class="sr-only" for="guide-question">向手札追问</label><input id="guide-question" maxlength="280" placeholder="灵石不够，还有什么办法？" required><button id="guide-send" type="submit">推敲</button></form></details>
+    <div class="agent-source-row"><span id="agent-guide-source" role="status">正在设计方案…</span><button id="guide-rethink" type="button" aria-label="重新设计取丹方案">↻</button></div>
+    <button id="quest-track" type="button" disabled>等待可行方案</button>
+    <details class="guide-inquiry"><summary>提出偏好 · 重新设计</summary><div id="guide-followups" class="agent-followups"></div><form id="guide-form"><label class="sr-only" for="guide-question">取丹方案偏好</label><input id="guide-question" maxlength="280" placeholder="例如：不欠人情，尽量不动武"><button id="guide-send" type="submit">重想</button></form></details>
   </section>
 
   <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>机缘 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small id="opportunity-hint">金色光环标记持丹者 ↗</small></button>

@@ -1,23 +1,20 @@
-import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, questSteps } from './content.js';
+import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS } from './content.js';
 import { GameError } from './errors.js';
 import { createModelClient } from './model-client.js';
 
-const routes = { trade: '交易', report: '借势', ambush: '夺宝' };
 const definitions = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action]));
 const locations = { herbs: '灵草坡', formation: '天雷阵位', camp: '听雨亭', advance: '推进一旬', events: '因果账本' };
 
 // 此模块只接收公开视图；既不持有存档，也不调用行动结算器。
 export function agentContext(view, input) {
   if (!['guide', 'dialogue'].includes(input.mode)) throw new GameError('请选择手札解读或人物交谈。');
-  if (input.route !== undefined && (typeof input.route !== 'string' || !Object.hasOwn(routes, input.route))) throw new GameError('未知的修行路线。');
+  if (input.route !== undefined && (typeof input.route !== 'string' || input.route.length > 80)) throw new GameError('方案名称格式无效。');
+  if (input.plan !== undefined && (typeof input.plan !== 'string' || input.plan.length > 280)) throw new GameError('方案描述过长。');
   if (view.battle) throw new GameError('请先结束斗法，再推敲线索。');
   const text = input.text ?? '';
   if (typeof text !== 'string' || text.length > 280 || (input.mode === 'dialogue' && !text.trim())) throw new GameError('请写下 1～280 字的问话。');
   const history = input.history ?? [];
   if (!Array.isArray(history) || history.length > 6 || history.some(item => !item || !['user', 'assistant'].includes(item.role) || typeof item.text !== 'string' || item.text.length > 400)) throw new GameError('交谈记录格式无效。');
-  const route = input.route || 'trade';
-  const steps = questSteps(view, route);
-  const next = view.pill.ownerId === 'xu' ? null : steps.find(step => !step.done && !step.skipped);
   const person = input.mode === 'dialogue' && view.people.find(person => person.id === input.personId);
   if (input.mode === 'dialogue' && (!person || person.place !== view.player.place)) throw new GameError('请先走到这位人物所在的区域再交谈。');
   const targetName = target => view.people.find(person => person.id === target)?.name || locations[target];
@@ -30,24 +27,14 @@ export function agentContext(view, input) {
       return { id, label: def.title, cost: def.cost, detail: def.detail, available: state.available, reason: state.reason, budgetNote, action: { type: id } };
     });
   } else {
-    const targets = new Set([next?.target || 'events']);
-    // 允许 AI 提出当前路线旁的筹资、履约、伤势处理等建议，不能发明任务。
-    if (view.pill.partnerDebt) targets.add('xu');
-    if (view.player.hp < 60) targets.add('camp');
-    if (view.player.stones < (view.pill.price ?? 0)) {
-      targets.add(view.player.herbs > 0 ? 'bai' : view.world.herbsRemaining > 0 ? 'herbs' : 'qing');
-    }
-    for (const event of view.events.slice(0, 3)) {
-      const witness = view.people.find(person => person.name === event.actor);
-      if (witness) targets.add(witness.id);
-    }
+    const targets = new Set([...view.people.map(person => person.id), ...Object.keys(locations)]);
     candidates = [...targets].map(target => ({ id: target, label: target === 'advance' ? '推进一旬 · 结算世界动向' : target === 'events' ? '查看因果账本' : `前往${targetName(target)}`, available: true, target }));
   }
   const facts = {
-    turn: view.turn, route: routes[route], player: { place: view.player.place, stones: view.player.stones, hp: view.player.hp, herbs: view.player.herbs, talismans: view.player.talismans, clues: view.player.clues },
-    pill: view.pill, world: view.world, objective: next ? { title: next.title, detail: next.detail } : { title: view.world.breakthrough ? '筑基已成' : '机缘已有归属', detail: view.outcome },
+    turn: view.turn, selectedPlan: input.plan || '', player: { place: view.player.place, stones: view.player.stones, hp: view.player.hp, herbs: view.player.herbs, talismans: view.player.talismans, clues: view.player.clues },
+    pill: view.pill, world: view.world, objective: { title: view.world.breakthrough ? '筑基已成' : view.pill.ownerId === 'player' ? '筑基丹已取得' : '取得筑基丹', detail: view.outcome || `现有 ${view.player.stones} 灵石，丹药由${view.pill.owner}持有。可在修行手札请模型设计取丹方案。` },
     purchase: { canBuyNow: view.actionOptions.buy_pill.available, reason: view.actionOptions.buy_pill.reason, shortfall: view.pill.price === null ? null : Math.max(0, view.pill.price - view.player.stones) },
-    actionRules: (person ? candidates : ACTION_DEFS.filter(action => ['inspect_pill', 'partner', 'honor_partner', 'sell_herbs', 'buy_pill', 'rest', 'breakthrough'].includes(action.type)).map(action => ({ label: action.title, cost: action.cost, detail: action.detail, ...view.actionOptions[action.type] }))).map(({ label, cost, detail, available, reason }) => ({ label, cost, detail, available, reason })),
+    actionRules: (person ? candidates : ACTION_DEFS.map(action => ({ label: action.title, cost: action.cost, detail: action.detail, ...view.actionOptions[action.type] }))).map(({ label, cost, detail, available, reason }) => ({ label, cost, detail, available, reason })),
     // 不把全图人物的私人目标或尚未发生的事件交给模型。
     people: person ? [{ id: person.id, name: person.name, role: person.role, goal: person.goal, trust: person.trust, greeting: person.greeting, persona: PERSON_DETAILS[person.id].bio, memories: person.memories }] : view.people.map(({ id, name, place, goal }) => ({ id, name, place, goal })),
     recentEvents: (person ? person.memories : view.events.slice(0, 5)).map(({ turn, text }) => ({ turn, text }))

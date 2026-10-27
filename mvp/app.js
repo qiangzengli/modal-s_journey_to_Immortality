@@ -1,8 +1,9 @@
 import { createWorld } from './world.js';
-import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES, questSteps } from './content.js';
+import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES } from './content.js';
 import { createCombatUI, roamerActions } from './combat-ui.js';
 import { createAgentUI } from './agent-ui.js';
 import { createCommandUI } from './command-ui.js';
+import { createPlanUI } from './plan-ui.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -15,9 +16,6 @@ let busy = false;
 let selectedPerson = null;
 let selectedSite = null;
 let activePanel = null;
-let chosenRoute = 'trade';
-try { const route=localStorage.getItem('niminglu-route'); if(['trade','report','ambush'].includes(route)) chosenRoute=route; } catch {}
-let currentSteps = [];
 let newsCount = 0;
 let summaryTimer;
 let nearbyTarget = null;
@@ -26,15 +24,9 @@ let commandGeneration = 0;
 let commandPending = false;
 let commandController = null;
 let agentUI;
+let planUI;
 let commandUI;
 let currentModelName = null;
-function chooseRoute(route) {
-  if(route!==chosenRoute)cancelPendingCommand();
-  chosenRoute=route;
-  try { localStorage.setItem('niminglu-route',route); } catch {}
-  if(current)updateQuest();
-  commandUI?.refresh();
-}
 function actionTarget(action, view=current) {
   if(action.type==='ask')return action.target;
   if(action.type==='negotiate')return 'shen';
@@ -52,7 +44,7 @@ function updateInteractionResult() {
   $('#world-goal').hidden=!$('#interaction-result').hidden;
   $('#person-dialogue').hidden=Boolean(selectedSite)||!$('#interaction-result').hidden;
   if(!$('#interaction-result').hidden)$('#interaction-result-copy').textContent=lastInteraction.text;
-  const next=currentSteps.find(step=>!step.done&&!step.skipped);
+  const next=planUI?.next();
   $('#interaction-next').hidden=!next||!lastInteraction||lastInteraction.target!==id;
   $('#interaction-next').textContent=next?.target==='advance'?'等候下一旬 →':`接下来 · ${next?.title || ''} →`;
 }
@@ -185,31 +177,26 @@ const world=createWorld($('#world-canvas'), {
 });
 const combatUI=createCombatUI({request:call,navigate,openInventory:()=>openPanel('self')});
 agentUI=createAgentUI({
-  getState:()=>({view:current,route:chosenRoute,personId:selectedPerson,busy}),
-  navigate:target=>target==='events'?openPanel('events'):navigate(target),
+  getState:()=>({view:current,plan:planUI?.context()||'',personId:selectedPerson,busy}),
   executeAction, notice,
   onStale:data=>{if(!busy&&data.view.revision!==current?.revision)render(data.view,data.modelName);}
 });
 commandUI=createCommandUI({
-  getState:()=>({view:current,route:chosenRoute,busy:busy||commandPending}),
+  getState:()=>({view:current,plan:planUI?.context()||'',busy:busy||commandPending}),
   submit:submitCommand,
   navigate:target=>target==='events'?openPanel('events'):navigate(target),
   notice
 });
 
+planUI=createPlanUI({
+  getState:()=>({view:current,busy}), executeAction, advance:()=>call('/api/advance'), notice,
+  onStale:data=>{if(!busy)render(data.view,data.modelName);},
+  onChange:()=>{updateInteractionResult();commandUI?.refresh();}
+});
+
 function updateQuest() {
-  currentSteps=questSteps(current,chosenRoute);
-  const done=currentSteps.filter(step=>step.done||step.skipped).length;
-  const next=currentSteps.find(step=>!step.done&&!step.skipped);
-  $('#quest-progress').textContent=`${done} / ${currentSteps.length}`;
-  $('#quest-objective').textContent=`既定目标 · ${current.pill.ownerId==='xu'?'机缘已有归属':next?.title || '筑基已成'}`;
-  $('#quest-facts').textContent=current.pill.price!==null?`现有 ${current.player.stones} 灵石 · 丹价 ${current.pill.price}${current.player.stones<current.pill.price?` · 尚差 ${current.pill.price-current.player.stones}`:''}`:current.pill.partnerDebt?`合资未偿 · ${current.pill.partnerDebt} 灵石`:current.outcome;
-  $('#quest-title').textContent=next?.title || '筑基已成';
-  $('#quest-detail').textContent=current.pill.ownerId==='xu'?'徐宁已经取得这枚丹。可在邸报复盘因果，重开尝试另一条路。':next?.detail || '道途继续，兑现承诺，或看看世界如何回应你。';
-  $('#quest-track').textContent=current.pill.ownerId==='xu'?'查看因果账本':next?`追踪目标 ◇`:'查看未了因果';
-  document.querySelectorAll('[data-route]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.route===chosenRoute)));
-  $('#quest-steps').innerHTML=currentSteps.map((step,index)=>`<button type="button" data-quest-step="${index}" class="quest-step ${step.done||step.skipped?'done':''}"><b>${step.skipped?'—':step.done?'✓':index+1}</b><span><strong>${esc(step.title)}</strong><small>${step.skipped?'已取得机缘，此前置不再需要。':esc(step.detail)}</small></span></button>`).join('');
-  agentUI?.guideChanged();
+  $('#quest-facts').textContent=current.pill.price!==null?`现有 ${current.player.stones} 灵石 · 丹价 ${current.pill.price}`:current.outcome;
+  planUI?.changed();
 }
 async function navigate(target) {
   if(busy||current?.battle)return false;
@@ -221,8 +208,6 @@ async function navigate(target) {
 async function executeAction(action) {
   if(busy||!current||current.battle)return false;
   cancelPendingCommand();
-  const routes={inspect_pill:'trade',partner:'trade',investigate_route:'report',report:'report',lure:'ambush',prepare_trap:'ambush',ambush:'ambush'};
-  if(routes[action.type]&&!current.world.breakthrough)chooseRoute(routes[action.type]);
   closePanel();
   if(action.type==='travel_woods'||action.type==='travel_market') {
     const place=action.type==='travel_woods'?'woods':'market';
@@ -237,15 +222,15 @@ async function executeAction(action) {
 async function submitCommand(text) {
   if(busy||commandPending||!current||current.battle)return;
   const ticket=++commandGeneration;
-  const revision=current.revision,route=chosenRoute;
+  const revision=current.revision,plan=planUI?.context()||'';
   const controller=new AbortController();commandController=controller;commandPending=true;
   commandUI.refresh();updateCommandStatus();
   try {
-    const response=await fetch('/api/intent',{method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({text,route,history:commandUI.history(),expectedRevision:revision})});
+    const response=await fetch('/api/intent',{method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({text,plan,history:commandUI.history(),expectedRevision:revision})});
     const planned=await response.json();
     if(ticket!==commandGeneration)return;
     if(!response.ok){if(planned.view&&!busy)render(planned.view,planned.modelName);throw new Error(planned.error||'问计暂未完成。');}
-    if(current.revision!==revision||chosenRoute!==route||busy)return;
+    if(current.revision!==revision||busy)return;
     commandPending=false;commandController=null;
     currentModelName=planned.modelName;
     if(planned.reply){
@@ -335,13 +320,14 @@ async function call(path,payload={}) {
   const before=current;
   busy=true;world.setBusy(true);updateNearbyPrompt();document.body.classList.add('busy');$('#command-form').setAttribute('aria-busy','true');
   commandUI.refresh();
+  planUI.refresh();
   for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=true;
   $('#command-status').textContent=path==='/api/intent'?'正在推敲你的计策……':'正在结算……';
   try {
     const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,expectedRevision:current.revision})});
     const data=await response.json();
     if(!response.ok){if(data.view)render(data.view,data.modelName);throw new Error(data.error||'行动未能执行');}
-    if(path==='/api/reset'){world.reset();agentUI.reset();commandUI.reset();chooseRoute('trade');lastInteraction=null;}
+    if(path==='/api/reset'){world.reset();agentUI.reset();commandUI.reset();planUI.reset();lastInteraction=null;}
     if(path==='/api/advance')lastInteraction=null;
     if(path==='/api/combat'&&payload.type==='turn') {
       world.sync(data.view);
@@ -373,7 +359,7 @@ async function call(path,payload={}) {
     return false;
   }
   finally{
-    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();
+    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();
     for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=Boolean(current?.battle);
   }
 }
@@ -401,9 +387,6 @@ $('#trade-form').addEventListener('submit',event=>{event.preventDefault();execut
 $('#actions').addEventListener('click',event=>{const button=event.target.closest('[data-locate-action]');if(button){const def=defs[button.dataset.locateAction];executeAction({type:def.type});}});
 $('#people').addEventListener('click',event=>{const button=event.target.closest('[data-person]');if(button)navigate(button.dataset.person);});
 document.querySelectorAll('[data-open-panel]').forEach(button=>button.addEventListener('click',()=>openPanel(button.dataset.openPanel)));
-document.querySelectorAll('[data-route]').forEach(button=>button.addEventListener('click',()=>{commandGeneration++;world.cancel();chooseRoute(button.dataset.route);}));
-$('#quest-track').addEventListener('click',()=>{if(agentUI.track())return;const next=currentSteps.find(step=>!step.done&&!step.skipped);if(current.pill.ownerId==='xu'||!next)openPanel('events');else navigate(next.target);});
-$('#quest-steps').addEventListener('click',event=>{const button=event.target.closest('[data-quest-step]');if(button)navigate(currentSteps[Number(button.dataset.questStep)].target);});
 $('#panel-close').addEventListener('click',closePanel);
 $('#person-close').addEventListener('click',()=>world.clearSelection());
 $('#advance').addEventListener('click',()=>{world.cancel();call('/api/advance');});
@@ -414,7 +397,7 @@ $('#summary-close').addEventListener('click',()=>{$('#turn-summary').hidden=true
 $('#summary-continue').addEventListener('click',()=>{$('#turn-summary').hidden=true;openPanel('events');});
 $('#navigation-cancel').addEventListener('click',()=>{cancelPendingCommand();commandGeneration++;world.cancel();});
 $('#nearby-interact').addEventListener('click',()=>world.interact());
-$('#interaction-next').addEventListener('click',()=>{const next=currentSteps.find(step=>!step.done&&!step.skipped);if(next)navigate(next.target);});
+$('#interaction-next').addEventListener('click',()=>planUI.run());
 $('#ending-close').addEventListener('click',()=>$('#ending').close());
 $('#help-toggle').addEventListener('click',()=>{$('#help-card').hidden=!$('#help-card').hidden;});
 $('#camera-left').addEventListener('click',()=>world.rotate(-Math.PI/6));$('#camera-right').addEventListener('click',()=>world.rotate(Math.PI/6));

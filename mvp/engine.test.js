@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GameError, advanceTurn, applyAction, createGame, getView, parseLocal } from './engine.js';
-import { questSteps } from './content.js';
 
 function act(game, type, target) { return applyAction(game, { type, target }).game; }
 function next(game) { return advanceTurn(game).game; }
@@ -37,21 +36,6 @@ test('不限行动次数仍按实际资源收费，资源不足的行动不会�
   assert.throws(() => act(game, 'buy_talisman'), /灵石不足/);
   assert.deepEqual(game, snapshot);
   assert.equal(getView(game).actionOptions.buy_talisman.available, false);
-});
-
-test('跨路线获得丹药后，指引跳过无用前置但不误报已完成', () => {
-  let game = act(createGame(), 'investigate_route');
-  game = act(game, 'report');
-  game = act(next(game), 'buy_pill');
-  for (const route of ['trade', 'report', 'ambush']) {
-    assert.equal(questSteps(getView(game), route).find(step => !step.done && !step.skipped).target, 'camp');
-  }
-  const partnerStep = questSteps(getView(game), 'trade')[1];
-  assert.equal(partnerStep.done, false);
-  assert.equal(partnerStep.skipped, true);
-  game = act(game, 'travel_woods');
-  game = act(game, 'breakthrough');
-  assert.ok(questSteps(getView(game), 'ambush').every(step => step.done || step.skipped));
 });
 
 test('交易路线：鉴定、合资、购买，履约记录会持续存在', () => {
