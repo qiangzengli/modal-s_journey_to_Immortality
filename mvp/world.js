@@ -4,6 +4,7 @@ import { createNavigator } from './navigation.js';
 import { SITES } from './content.js';
 import { WANDERERS } from './combat-data.js';
 import { createBattleWorld } from './battle-world.js';
+import { createGardenWorld } from './garden-world.js';
 
 const NPC_SPOTS = {
   shen: { market: [-15, -4], woods: [12, -3] },
@@ -374,6 +375,8 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const siteTargets = [];
   const obstacleTargets = [];
   const terrain = createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleTargets);
+  const gardenWorld = createGardenWorld(scene, siteTargets, ...SITE_SPOTS.herbs);
+  const gardenReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const scenery = decorateWorld(scene);
   const obstacleMeshes = [];
   for(const root of obstacleTargets)root.traverse(object=>{
@@ -527,6 +530,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     const firstLoad=!initialized;
     view = nextView;
     battleWorld.sync(nextView);
+    gardenWorld.sync(nextView.garden);
     if (!initialized || place !== nextView.player.place) {
       const first = !initialized;
       initialized = true;
@@ -862,6 +866,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     pillAura.visible = Boolean(bearer);
     if (bearer) { pillAura.position.set(bearer.position.x, 2.65 + Math.sin(elapsed * 2) * 0.1, bearer.position.z); pillAura.rotation.set(Math.PI / 2, 0, elapsed * 0.5); }
     if (view?.world.trapReady) { terrain.arrayRing.rotation.z = elapsed * 0.3; terrain.arrayRing.material.opacity = 0.65 + Math.sin(elapsed * 3) * 0.3; }
+    gardenWorld.update(elapsed, gardenReducedMotion.matches);
     scenery.update(elapsed, dt);
     mapTimer += dt;
     if (mapTimer > 0.12) { drawMiniMap(); updateNearby(); updateOcclusion(); mapTimer = 0; }

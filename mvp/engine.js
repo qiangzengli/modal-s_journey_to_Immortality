@@ -1,4 +1,5 @@
 import { ACTION_DEFS } from './content.js';
+import { GARDEN_ACTIONS, ensureGarden, applyGardenAction, advanceGarden, getGardenView } from './garden.js';
 import { GameError } from './errors.js';
 import { assertPeace, ensureExploration, getCombatView } from './combat.js';
 export { GameError } from './errors.js';
@@ -76,7 +77,7 @@ export function createGame() {
   know(game, 'xu', 'pill', 1);
   know(game, 'qing', 'pill', 1);
   know(game, 'wei', 'pill', 1);
-  return ensureExploration(game);
+  return ensureGarden(ensureExploration(game));
 }
 
 export const ACTIONS = ['ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
@@ -132,6 +133,7 @@ export function applyAction(source, action) {
   const type = action.type;
   const target = action.target;
   let result = '';
+  if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 
   switch (type) {
     case 'ask': {
@@ -494,6 +496,7 @@ export function advanceTurn(source) {
     note(game, '徐宁', `徐宁提醒你：合资承诺中的 ${game.flags.partnerDebt} 灵石还未结清。`);
   }
 
+  advanceGarden(game);
   game.player.hp = Math.min(100, game.player.hp + 5);
   return { game, result: `进入第 ${game.turn} 旬。${game.events.length - started} 条新动向写入因果账本。` };
 }
@@ -507,6 +510,7 @@ export function getView(game) {
   const pillOwner = game.pill.owner;
   return {
     ...getCombatView(game),
+    garden: getGardenView(game),
     turn: game.turn,
     ap: null,
     revision: game.revision || 0,
@@ -547,6 +551,15 @@ export function getView(game) {
 export function parseLocal(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_COMMAND) throw new GameError('请输入 1～280 字的行动描述。');
   const input = text.trim();
+  if (/认主.*小绿瓶|寻.*小绿瓶/.test(input)) return { type: 'discover_bottle' };
+  if (/炼.*息壤|扩建.*灵圃/.test(input)) return { type: 'buy_spirit_soil' };
+  if (/收取.*灵草|收取.*灵圃|收获.*灵草/.test(input)) return { type: 'harvest_garden' };
+  if (/栽种.*灵草|种植.*灵草/.test(input)) return { type: 'plant_herb' };
+  if (/暂停自动浇灌|关闭自动浇灌/.test(input)) return { type: 'disable_auto_water' };
+  if (/开启自动浇灌/.test(input)) return { type: 'enable_auto_water' };
+  if (/暂停.*续种|关闭.*续种/.test(input)) return { type: 'disable_auto_plant' };
+  if (/开启.*续种/.test(input)) return { type: 'enable_auto_plant' };
+  if (/灵液催熟|手动浇灌/.test(input)) return { type: 'water_herb' };
   if (/服丹|冲击筑基|闭关突破|炼化筑基丹/.test(input)) return { type: 'breakthrough' };
   if (/调息|疗伤|休息/.test(input)) return { type: 'rest' };
   if (/买.*天雷符|购.*天雷符|补充.*符/.test(input)) return { type: 'buy_talisman' };

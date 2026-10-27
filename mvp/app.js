@@ -1,6 +1,7 @@
 import { createWorld } from './world.js';
 import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES } from './content.js';
 import { createCombatUI, roamerActions } from './combat-ui.js';
+import { createGardenUI } from './garden-ui.js';
 import { createAgentUI } from './agent-ui.js';
 import { createCommandUI } from './command-ui.js';
 import { createPlanUI } from './plan-ui.js';
@@ -24,6 +25,7 @@ let commandGeneration = 0;
 let commandPending = false;
 let commandController = null;
 let agentUI;
+let gardenUI;
 let planUI;
 let commandUI;
 let currentModelName = null;
@@ -80,6 +82,7 @@ function closePerson() {
   document.body.classList.remove('interacting');
   updateNearbyPrompt();
   agentUI?.personChanged();
+  gardenUI?.render();
 }
 function actionMarkup(type) {
   const state = type === 'ask' ? { available: true, reason: '' } : current.actionOptions[type];
@@ -117,6 +120,7 @@ function showPerson(id, focusUI = true) {
   if (focusUI) $('#world-person').scrollTop=0;
   $('#world-hint').textContent=`正在与${person.name}交谈。`;
   agentUI?.personChanged();
+  gardenUI?.render();
 }
 function showRoamer(enemy, focusUI = true) {
   selectedPerson=enemy.id;selectedSite=null;
@@ -136,6 +140,7 @@ function showRoamer(enemy, focusUI = true) {
   $('#world-hint').textContent=enemy.defeated?'储物袋就在脚边。':`已靠近${enemy.name}。可观察后再决定是否斗法。`;
   updateNearbyPrompt();
   agentUI?.personChanged();
+  gardenUI?.render();
 }
 function showSite(id, focusUI = true) {
   const site=SITES[id];
@@ -148,7 +153,7 @@ function showSite(id, focusUI = true) {
   $('#person-seal').textContent=id==='herbs'?'草':id==='camp'?'静':'阵';
   $('#world-role').textContent=site.role;
   $('#world-name').textContent=site.name;
-  $('#world-goal').textContent=site.detail;
+  $('#world-goal').textContent=id==='herbs'&&current.garden.bottle?'小绿瓶在月华中凝液，灵圃会随旬数自行生长。成熟的灵草留在此地，等你游历归来收取。':site.detail;
   const state=id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
   $('#person-meta').innerHTML=`<span>${esc(state)}</span>`;
   $('#person-dialogue').hidden=true;$('#person-memory').hidden=true;$('#trade-form').hidden=true;
@@ -157,6 +162,7 @@ function showSite(id, focusUI = true) {
   if (focusUI) $('#world-person').scrollTop=0;
   $('#world-hint').textContent=`已到达${site.name}。${state}。`;
   agentUI?.personChanged();
+  gardenUI?.render();
 }
 
 const world=createWorld($('#world-canvas'), {
@@ -176,6 +182,7 @@ const world=createWorld($('#world-canvas'), {
   onHint: text=>{ $('#world-hint').textContent=text; notice(text); }
 });
 const combatUI=createCombatUI({request:call,navigate,openInventory:()=>openPanel('self')});
+gardenUI=createGardenUI({getState:()=>({view:current,site:selectedSite,busy}),executeAction,navigate});
 agentUI=createAgentUI({
   getState:()=>({view:current,plan:planUI?.context()||'',personId:selectedPerson,busy}),
   executeAction, notice,
@@ -276,14 +283,16 @@ function render(view, modelName) {
   $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与徐宁的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
   $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${p.place==='market'?'坊市':'林中'} ↗</span></button>`).join('');
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
-  $('#actions').innerHTML=ACTION_DEFS.filter(def=>def.place===view.player.place).map(def=>{
+  $('#actions').innerHTML=ACTION_DEFS.filter(def=>def.place===view.player.place&&!def.garden).map(def=>{
     const state=view.actionOptions[def.type];
     return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button" ${state.available?'':'disabled'}><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');
+  $('#actions').insertAdjacentHTML('afterbegin','<button type="button" class="action" data-garden-open><strong>照看灵圃 ↗</strong><span>小绿瓶 · 自动培养</span><small>前往灵草坡认主神器、栽种或收取灵草</small></button>');
   updateQuest();
   if(!view.roamers.some(enemy=>enemy.id===selectedPerson))updateInteractionResult();
   combatUI.render(view);
   agentUI?.personChanged();
+  gardenUI?.render();
   $('#advance').disabled=busy||Boolean(view.battle);
   $('#command').disabled=Boolean(view.battle);
 }
@@ -341,7 +350,7 @@ async function call(path,payload={}) {
       const target=actionTarget({...payload,type:data.actionType},before);
       lastInteraction={target,text:data.result}; updateInteractionResult();
       world.speak(target,data.result);
-      $('#world-person').scrollTop=0;
+      if(!defs[data.actionType]?.garden)$('#world-person').scrollTop=0;
     }
     world.react(data.actionType,before,data.view);
     if(path==='/api/command')$('#command').value='';
@@ -359,7 +368,7 @@ async function call(path,payload={}) {
     return false;
   }
   finally{
-    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();
+    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();gardenUI.render();
     for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=Boolean(current?.battle);
   }
 }

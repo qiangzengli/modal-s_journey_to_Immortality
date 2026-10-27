@@ -33,6 +33,8 @@ export function agentContext(view, input) {
   const facts = {
     turn: view.turn, selectedPlan: input.plan || '', player: { place: view.player.place, stones: view.player.stones, hp: view.player.hp, herbs: view.player.herbs, talismans: view.player.talismans, clues: view.player.clues },
     pill: view.pill, world: view.world, objective: { title: view.world.breakthrough ? '筑基已成' : view.pill.ownerId === 'player' ? '筑基丹已取得' : '取得筑基丹', detail: view.outcome || `现有 ${view.player.stones} 灵石，丹药由${view.pill.owner}持有。可在修行手札请模型设计取丹方案。` },
+    garden: view.garden,
+    cultivationRules: '小绿瓶须先在灵草坡认主，附一株幼苗；每推进一旬凝液1滴，上限3，每畦自然生长1点，自动浇灌每旬最多额外催生1点。满4点成熟，普通产3株，息壤盆产4株；开启续种时留1株，其余待取。培养不会暂停坊市机缘与欠款。问答不能认主、收取或跳过等待。',
     purchase: { canBuyNow: view.actionOptions.buy_pill.available, reason: view.actionOptions.buy_pill.reason, shortfall: view.pill.price === null ? null : Math.max(0, view.pill.price - view.player.stones) },
     actionRules: (person ? candidates : ACTION_DEFS.map(action => ({ label: action.title, cost: action.cost, detail: action.detail, ...view.actionOptions[action.type] }))).map(({ label, cost, detail, available, reason }) => ({ label, cost, detail, available, reason })),
     // 不把全图人物的私人目标或尚未发生的事件交给模型。

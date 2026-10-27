@@ -1,4 +1,13 @@
 export const ACTION_DEFS = [
+  { type: 'discover_bottle', title: '寻得小绿瓶', detail: '认主古瓶并安置一株幼苗，每旬自动凝液催生', cost: '奇遇 · 每局一次', place: 'woods', site: 'herbs', garden: true },
+  { type: 'plant_herb', title: '栽种一株灵草', detail: '种入空畦，自然生长 4 旬，灵液可加速', cost: '灵草 1', place: 'woods', site: 'herbs', garden: true },
+  { type: 'water_herb', title: '灵液催熟', detail: '为长势最好的一畦增加 1 点生长', cost: '灵液 1 滴', place: 'woods', site: 'herbs', garden: true },
+  { type: 'harvest_garden', title: '收取灵圃灵草', detail: '将全部待取产物收入行囊', cost: '无资源消耗', place: 'woods', site: 'herbs', garden: true },
+  { type: 'buy_spirit_soil', title: '炼制息壤盆', detail: '增至两畦，每畦产量由 3 株提高到 4 株', cost: '120 灵石 · 一次投入', place: 'woods', site: 'herbs', garden: true },
+  { type: 'enable_auto_water', title: '开启自动浇灌', detail: '每旬凝液后自动使用最多一滴', cost: '不消耗资源', place: 'woods', site: 'herbs', garden: true },
+  { type: 'disable_auto_water', title: '暂停自动浇灌', detail: '自然生长继续，留存灵液用于手动催熟', cost: '不消耗资源', place: 'woods', site: 'herbs', garden: true },
+  { type: 'enable_auto_plant', title: '开启留种续种', detail: '成熟时每畦留一株再种，其余产物待取', cost: '每次留种 1 株', place: 'woods', site: 'herbs', garden: true },
+  { type: 'disable_auto_plant', title: '暂停留种续种', detail: '下次成熟时全部产物待取，灵畦留空', cost: '不消耗资源', place: 'woods', site: 'herbs', garden: true },
   { type: 'inspect_pill', title: '请白芷验丹', detail: '拿到可核对的真丹鉴定', cost: '10 灵石', place: 'market', person: 'bai' },
   { type: 'investigate_route', title: '查禁运货道', detail: '取得车号与时间证词', cost: '无资源消耗', place: 'market', person: 'ning' },
   { type: 'partner', title: '商议合资', detail: '凭真丹鉴定借入 100 灵石，承诺返还 120', cost: '形成欠款', place: 'market', person: 'xu' },
@@ -27,7 +36,7 @@ export const PERSON_ACTIONS = {
 };
 
 export const SITES = {
-  herbs: { name: '灵草坡', role: '黑风林 · 采集', detail: '林间灵草可用于药师炼丹，也能换来购买机缘的灵石。', actions: ['gather_herbs'] },
+  herbs: { name: '灵草坡', role: '黑风林 · 采集与灵圃', detail: '野生灵草旁的旧石龛透出青光。一只古瓶仍在吸纳月华，或许能培育新的灵草。', actions: ['gather_herbs'] },
   formation: { name: '天雷阵位', role: '黑风林 · 设伏', detail: '古阵仍能聚气。护商修士会对贸然进攻作出反击。', actions: ['prepare_trap', 'ambush'] },
   camp: { name: '听雨亭', role: '黑风林 · 调息', detail: '山林间的一处静地。调息疗伤，或服下筑基丹冲破瓶颈。', actions: ['rest', 'breakthrough'] }
 };

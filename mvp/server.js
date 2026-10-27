@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ACTIONS, GameError, PEOPLE, advanceTurn, applyAction, createGame, getView, parseLocal } from './engine.js';
 import { combatAction, inventoryAction, ensureExploration } from './combat.js';
+import { ensureGarden } from './garden.js';
 import { agentContext, createStoryAgent, createAgentModel } from './story-agent.js';
 import { createModelClient } from './model-client.js';
 import { gameModelConfig } from './game-model.js';
@@ -29,7 +30,7 @@ async function loadGame() {
       saved.flags.playerBreakthrough ??= 0;
       saved.revision ??= 0;
       saved.ap = null;
-      return ensureExploration(saved);
+      return ensureGarden(ensureExploration(saved));
     }
   } catch (error) {
     if (error.code !== 'ENOENT') console.warn('存档未能读取，已开始新局：', error.message);
@@ -98,7 +99,7 @@ async function commandIntent(view, input, snapshot) {
   agentContext(view, inquiry);
   // 提问、商量和否定表达不能被“买丹 / 举报”等局部关键词执行成行动。
   const asking = /[？?]|怎么|如何|为何|为什么|什么|多少|哪里|哪[个些种条位里]|谁|是否|能否|可否|有没有|能不能|可不可以|要不要|该不该|吗|么|建议|办法|解释|想问|想了解|想知道|介绍|咨询|请教|说说|聊聊|打听|不(?:想|要|打算|需要|愿|准备|会|能|用|必)|先不|别/.test(input.text);
-  const explicit = /^(?:(?:我(?:要|想|准备|决定)?|请|帮我|替我|现在|直接|马上|先|去)\s*)?(?:请|找|向|与|和|拿|用|以|将|买|购|卖|出售|验|鉴定|合资|借|还|结清|履约|举报|告发|递交|调查|查|约|引|诱|布|设伏|埋伏|伏击|偷袭|夺|抢|攻击|回|前往|入|进|采|服丹|冲击|闭关|炼化|调息|疗伤|休息|伪造|造谣|放出|补充|出价|报价)/.test(input.text.trim());
+  const explicit = /^(?:(?:我(?:要|想|准备|决定)?|请|帮我|替我|现在|直接|马上|先|去)\s*)?(?:请|找|向|与|和|拿|用|以|将|买|购|卖|出售|验|鉴定|合资|借|还|结清|履约|举报|告发|递交|调查|查|约|引|诱|布|设伏|埋伏|伏击|偷袭|夺|抢|攻击|回|前往|入|进|采|服丹|冲击|闭关|炼化|调息|疗伤|休息|伪造|造谣|放出|补充|出价|报价|炼制|认主|寻得|栽种|种植|收取|收获|开启|关闭|暂停|扩建|手动浇灌|灵液催熟)/.test(input.text.trim());
   if (!asking && explicit) {
     const parsed = await modelAction(input.text, { allowReply: true, snapshot });
     if (parsed.action) return { action: parsed.action, parserSource: parsed.source, parserModelName: parsed.modelName || null };
@@ -109,6 +110,8 @@ async function commandIntent(view, input, snapshot) {
 
 const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
+  '/garden-ui.js': ['garden-ui.js', 'text/javascript; charset=utf-8'],
+  '/garden-world.js': ['garden-world.js', 'text/javascript; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/world.js': ['world.js', 'text/javascript; charset=utf-8'],
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
