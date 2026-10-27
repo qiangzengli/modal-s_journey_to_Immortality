@@ -124,7 +124,7 @@ export function createStoryAgent({ generate, modelName = null } = {}) {
   };
 }
 
-export function createAgentModel({ baseURL, model, apiKey, timeoutMs = 30000, fallback }) {
-  const complete = createModelClient([{ baseURL, model, apiKey, timeoutMs }, fallback].filter(Boolean));
+export function createAgentModel({ baseURL, model, apiKey, timeoutMs = 30000 }) {
+  const complete = createModelClient({ baseURL, model, apiKey, timeoutMs });
   return (messages, validate) => complete(messages, { temperature: .55, maxTokens: 600, validate });
 }

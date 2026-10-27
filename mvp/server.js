@@ -6,17 +6,16 @@ import { ACTIONS, GameError, PEOPLE, advanceTurn, applyAction, createGame, getVi
 import { combatAction, inventoryAction, ensureExploration } from './combat.js';
 import { agentContext, createStoryAgent, createAgentModel } from './story-agent.js';
 import { createModelClient } from './model-client.js';
+import { gameModelConfig } from './game-model.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const savePath = process.env.SAVE_PATH || join(root, '.data', 'save.json');
 const port = Number(process.env.PORT || 4177);
-const modelEnabled = Boolean(process.env.LLM_BASE_URL && process.env.LLM_MODEL);
-const modelName = modelEnabled ? process.env.LLM_MODEL : process.env.LLM_FALLBACK_BASE_URL && process.env.LLM_FALLBACK_MODEL || null;
-const modelTimeoutMs = Number(process.env.LLM_TIMEOUT_MS || 30000);
-const fallbackModel = process.env.LLM_FALLBACK_BASE_URL && process.env.LLM_FALLBACK_MODEL ? { baseURL: process.env.LLM_FALLBACK_BASE_URL, model: process.env.LLM_FALLBACK_MODEL, apiKey: process.env.LLM_FALLBACK_API_KEY, timeoutMs: Number(process.env.LLM_FALLBACK_TIMEOUT_MS || 30000) } : null;
-const primaryModel = { baseURL: process.env.LLM_BASE_URL, model: modelName, apiKey: process.env.LLM_API_KEY, timeoutMs: modelTimeoutMs };
-const completeAction = createModelClient([...(modelEnabled ? [primaryModel] : []), fallbackModel].filter(Boolean));
-const storyAgent = createStoryAgent({ modelName: modelName || fallbackModel?.model, generate: modelEnabled || fallbackModel ? createAgentModel({ ...(modelEnabled ? primaryModel : fallbackModel), fallback: modelEnabled ? fallbackModel : null }) : null });
+const modelConfig = gameModelConfig();
+const modelEnabled = Boolean(modelConfig);
+const modelName = modelConfig?.model || null;
+const completeAction = modelEnabled ? createModelClient(modelConfig) : null;
+const storyAgent = createStoryAgent({ modelName, generate: modelEnabled ? createAgentModel(modelConfig) : null });
 let game;
 let locked = false;
 
@@ -67,7 +66,7 @@ async function modelAction(text, { allowReply = false, snapshot = game } = {}) {
   try { return { action: parseLocal(text), source: 'local' }; }
   catch (error) {
     if (!(error instanceof GameError) || !error.message.startsWith('这条计策暂时无法执行')) throw error;
-    if (!modelEnabled && !fallbackModel) {
+    if (!modelEnabled) {
       if (allowReply) return { source: 'local' };
       throw error;
     }
@@ -207,5 +206,5 @@ createServer((req, res) => { handle(req, res).catch(error => {
   else res.end();
 }); }).listen(port, '127.0.0.1', () => {
   console.log(`逆命录 MVP 已启动：http://127.0.0.1:${port}`);
-  console.log(modelName ? `自然语言解析：${modelName}${modelEnabled && fallbackModel ? `；备用：${fallbackModel.model}` : ''}` : '自然语言解析：离线规则模式');
+  console.log(modelName ? `自然语言解析：${modelName}` : '自然语言解析：离线规则模式');
 });

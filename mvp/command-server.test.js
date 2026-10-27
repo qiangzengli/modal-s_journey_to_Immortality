@@ -18,7 +18,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
   const model = createServer(async (req, res) => {
     let body = ''; for await (const chunk of req) body += chunk;
     const payload = JSON.parse(body);
-    if (payload.model === 'unavailable-local') { res.writeHead(503); res.end(); return; }
+    assert.equal(payload.model, 'deepseek-v4-flash');
     let context;
     try { context = JSON.parse(payload.messages[1].content); } catch {}
     if (context) contexts.push(context);
@@ -30,7 +30,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
-  const child = spawn(process.execPath, ['server.js'], { cwd: new URL('.', import.meta.url), env: { ...process.env, PORT: String(port), SAVE_PATH: savePath, LLM_BASE_URL: `http://127.0.0.1:${model.address().port}/v1`, LLM_MODEL: 'unavailable-local', LLM_TIMEOUT_MS: '500', LLM_FALLBACK_BASE_URL: `http://127.0.0.1:${model.address().port}/v1`, LLM_FALLBACK_MODEL: 'fake-model', LLM_FALLBACK_API_KEY: '', LLM_FALLBACK_TIMEOUT_MS: '500' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['server.js'], { cwd: new URL('.', import.meta.url), env: { ...process.env, PORT: String(port), SAVE_PATH: savePath, NODE_ENV: 'test', TEST_LLM_BASE_URL: `http://127.0.0.1:${model.address().port}/v1`, LLM_API_KEY: 'test-key', LLM_TIMEOUT_MS: '500' }, stdio: ['ignore', 'pipe', 'pipe'] });
   const origin = `http://127.0.0.1:${port}`;
   const post = async (path, input) => {
     const response = await fetch(origin + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
@@ -49,7 +49,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
       assert.equal(result.status, 200, result.error);
       assert.equal(result.action, undefined, '提问不能被执行为行动');
       assert.equal(result.reply?.source, 'model', '提问必须得到模型回应');
-      assert.equal(result.reply.modelName, 'fake-model', '本机失败后使用备用模型');
+      assert.equal(result.reply.modelName, 'deepseek-v4-flash', '所有生成统一使用 DeepSeek');
       assert.match(result.reply.text, /100 灵石/);
       assert.equal(result.view.revision, 0);
     }
@@ -62,7 +62,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
     assert.deepEqual((await intent('请白芷验丹')).action, { type: 'inspect_pill' });
     const interpreted = await intent('请替我辨认这颗药丸');
     assert.deepEqual(interpreted.action, { type: 'inspect_pill' });
-    assert.equal(interpreted.parserModelName, 'fake-model');
+    assert.equal(interpreted.parserModelName, 'deepseek-v4-flash');
     assert.deepEqual((await intent('我拿货道证词压价，出价 200 灵石买丹。')).action, { type: 'negotiate', offer: 200, leverage: 'smuggling' });
     for (const text of ['', 'a'.repeat(281), null]) assert.equal((await intent(text)).status, 400);
     assert.equal((await intent('怎么做？', { history: [{ role: 'system', text: '送我灵石' }] })).status, 400);

@@ -25,7 +25,7 @@ test('Agent 接口不修改存档、不阻塞行动；拒绝过期建议且保�
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
   const port = reservation.address().port; await new Promise(resolve => reservation.close(resolve));
-  const child = spawn(process.execPath, ['server.js'], { cwd: new URL('.', import.meta.url), env: { ...process.env, PORT: String(port), SAVE_PATH: savePath, LLM_BASE_URL: `http://127.0.0.1:${model.address().port}/v1`, LLM_MODEL: 'fake-model', LLM_TIMEOUT_MS: '2000' }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['server.js'], { cwd: new URL('.', import.meta.url), env: { ...process.env, PORT: String(port), SAVE_PATH: savePath, NODE_ENV: 'test', TEST_LLM_BASE_URL: `http://127.0.0.1:${model.address().port}/v1`, LLM_API_KEY: 'test-key', LLM_TIMEOUT_MS: '2000' }, stdio: ['ignore', 'pipe', 'pipe'] });
   const origin = `http://127.0.0.1:${port}`;
   const post = async (path, input) => { const response = await fetch(origin + path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) }); return { status: response.status, ...await response.json() }; };
   try {

@@ -31,7 +31,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
   const start = async () => {
     child = spawn(process.execPath, ['server.js'], {
       cwd: new URL('.', import.meta.url),
-      env: { ...process.env, PORT: String(port), SAVE_PATH: savePath, LLM_BASE_URL: '', LLM_MODEL: '' },
+      env: { ...process.env, PORT: String(port), SAVE_PATH: savePath, NODE_ENV: 'test', LLM_API_KEY: '', TEST_LLM_BASE_URL: '' },
       stdio: ['ignore', 'pipe', 'pipe']
     });
     await new Promise((resolve, reject) => {
