@@ -320,7 +320,7 @@ function showTurnSummary(before,after) {
 }
 function updateCommandStatus() {
   $('#command-status').textContent=commandPending?'正在问计 · 可继续探索':busy?'正在结算…':currentModelName?'AI 问计 · 行动不限':'离线规则 · 模型未连接';
-  $('#command-status').title=currentModelName||'使用 npm run start:ollama 启用本机模型';
+  $('#command-status').title=currentModelName||'在 .env.local 配置 DeepSeek 密钥后运行 npm start';
   $('#command-submit').disabled=busy||commandPending||Boolean(current?.battle);
   $('#command-form').setAttribute('aria-busy',String(busy||commandPending));
 }

@@ -1,4 +1,4 @@
-// 服务端专用：每次请求优先本机模型，失败后按配置顺序尝试备用服务。
+// 服务端专用：按配置顺序调用模型服务，返回实际提供回答的模型。
 export function createModelClient(providers) {
   return async (messages, { temperature = 0, maxTokens = 600, validate = () => {} } = {}) => {
     let failure = new Error('model_unavailable');

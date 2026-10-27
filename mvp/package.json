@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "start": "node --env-file-if-exists=.env.local server.js",
-    "start:ollama": "LLM_BASE_URL=http://127.0.0.1:11434/v1 LLM_MODEL=qwen2.5-coder:14b node --env-file-if-exists=.env.local server.js",
     "test": "node --test"
   },
   "engines": {
