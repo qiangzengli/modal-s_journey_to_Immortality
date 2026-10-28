@@ -23,6 +23,9 @@ export const ITEMS = {
 };
 
 export const WANDERERS = [
+  { id:'duheng',name:'杜衡',role:'渡口独行客',place:'river',realm:'炼气八层',spot:[49,-8],color:'#79a8b4',hp:86,attack:14,defense:2,escape:.65,bio:'曾替药船押运，离开商盟后独自在浅滩练剑。可先交谈，也可切磋夺袋。',quote:'路可以借过，剑谱不能白拿。',loot:{stones:45,herbs:2,items:{green_sword:1,wind_manual:1,healing_pill:2}}},
+  { id:'chisong',name:'赤松',role:'矿场护契修士',place:'quarry',realm:'炼气圆满',spot:[111,6],color:'#c28768',hp:120,attack:18,defense:4,escape:.5,bio:'靠护矿换取修炼资粮，对闯入者保持戒心。绕开斗法仍可调查矿场。',quote:'矿契之外，我也有自己的活法。',loot:{stones:70,herbs:2,items:{flame_sword:1,fire_manual:1,healing_pill:3,thunder_array:1}}},
+  { id:'shouque',name:'守阙',role:'遗府试剑人',place:'ruins',realm:'筑基初期',spot:[155,8],color:'#a9aed2',hp:150,attack:22,defense:5,escape:.45,bio:'受邀守护碑林的剑修。他检验来者的修为，却并不掌握石门钥匙；斗法是可选挑战。',quote:'破门不必先破我的剑，想试修为便来。',loot:{stones:95,herbs:3,items:{thunder_blade:1,thunder_manual:1,healing_pill:3,binding_array:2}}},
   { id: 'luohu', name: '罗槐', role: '落魄剑修', realm: '炼气六层', spot: [7, 2], color: '#aabb8b', hp: 66, attack: 11, defense: 1, escape: 0.7,
     bio: '守着入林的小径磨剑，腰间的储物袋露出一角剑谱。他会根据交锋形势选择攻守。', quote: '想带走我的剑谱？先接住我的剑。',
     loot: { stones: 28, herbs: 1, items: { green_sword: 1, wind_manual: 1, healing_pill: 2 } } },

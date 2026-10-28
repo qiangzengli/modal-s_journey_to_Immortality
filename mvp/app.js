@@ -6,13 +6,15 @@ import { createGardenUI } from './garden-ui.js';
 import { createAgentUI } from './agent-ui.js';
 import { createCommandUI } from './command-ui.js';
 import { createPlanUI } from './plan-ui.js';
+import { createCampaignUI } from './campaign-ui.js';
+import { REGIONS, regionName } from './regions.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const names = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action.title]));
 names.ask = '探问近况';
 const defs = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action]));
-const titles = { opportunity: '筑基丹去向', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
+const titles = { campaign: '天下与游历', opportunity: '筑基丹去向', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
 let current;
 let busy = false;
 let selectedPerson = null;
@@ -32,8 +34,10 @@ let navigatingNow=false;
 let planUI;
 let commandUI;
 let currentModelName = null;
+let campaignUI;
 function actionTarget(action, view=current) {
   if(action.type==='ask')return action.target;
+  if(action.type==='frontier_rest')return ({quarry:'workers',ruins:'memorial'})[view.player.place] || 'infirmary';
   if(action.type==='negotiate')return 'shen';
   if(action.type==='buy_pill')return view.pill.ownerId==='lu'?'lu':'shen';
   const def=defs[action.type];
@@ -161,11 +165,11 @@ function showSite(id, focusUI = true) {
   $('#world-person').hidden=false;
   document.body.classList.add('interacting');
   $('#world-person').style.setProperty('--person-color', '#c9bb82');
-  $('#person-seal').textContent=id==='herbs'?'草':id==='camp'?'静':'阵';
+  $('#person-seal').textContent=site.seal || (id==='herbs'?'草':id==='camp'?'静':'阵');
   $('#world-role').textContent=site.role;
   $('#world-name').textContent=site.name;
   $('#world-goal').textContent=id==='herbs'&&current.garden.bottle?'小绿瓶在月华中凝液，灵圃会随旬数自行生长。成熟的灵草留在此地，等你游历归来收取。':site.detail;
-  const state=id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
+  const state=site.place!=='woods'?`${regionName(site.place)} · 灵矿 ${current.campaign.ore} · 灵草 ${current.player.herbs}`:id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
   $('#person-meta').innerHTML=`<span>${esc(state)}</span>`;
   $('#person-dialogue').hidden=true;$('#person-memory').hidden=true;$('#trade-form').hidden=true;$('#npc-activity').hidden=true;
   $('#world-actions').innerHTML=site.actions.map(actionMarkup).join('');
@@ -188,8 +192,8 @@ const world=createWorld($('#world-canvas'), {
   },
   onNearby: target => { nearbyTarget=target; updateNearbyPrompt(); },
   onTravel: async place => {
-    const arrived=await call('/api/action', { type:place==='woods'?'travel_woods':'travel_market' });
-    if(arrived) $('#world-hint').textContent=place==='woods'?'散修出没于林道。点击人物观察，可斗法夺宝或去听雨亭调息。':'已回到地下坊市。交易与消息仍在继续。';
+    const arrived=await call('/api/action', { type:'travel_region',place });
+    if(arrived) $('#world-hint').textContent=REGIONS[place].description;
     return arrived;
   },
   onHint: text=>{ $('#world-hint').textContent=text; notice(text); }
@@ -220,6 +224,8 @@ societyUI=createSocietyUI({
   sync:data=>{const before=current;render(data.view,data.modelName);if(before&&data.view.turn>before.turn)showTurnSummary(before,data.view);}
 });
 
+campaignUI=createCampaignUI({getState:()=>({view:current,busy}),navigate,executeAction});
+
 function updateQuest() {
   $('#quest-facts').textContent=current.pill.price!==null?`现有 ${current.player.stones} 灵石 · 丹价 ${current.pill.price}`:current.outcome;
   planUI?.changed();
@@ -235,14 +241,15 @@ async function executeAction(action) {
   if(busy||!current||current.battle)return false;
   cancelPendingCommand();
   closePanel();
-  if(action.type==='travel_woods'||action.type==='travel_market') {
-    const place=action.type==='travel_woods'?'woods':'market';
+  if(['travel_woods','travel_market','travel_region'].includes(action.type)) {
+    const place=action.type==='travel_region'?(action.place||action.target):action.type==='travel_woods'?'woods':'market';
     if(current.player.place===place){notice('你已经在这里。');return false;}
-    return world.goTo({kind:'gate',place,name:place==='woods'?'黑风林':'地下坊市'});
+    return world.goTo({kind:'gate',place,name:regionName(place)});
   }
   const target=actionTarget(action);
   if(!target){notice('这项行动暂时没有对应的地图目标。',true);return false;}
   if(!await world.goTo(target))return false;
+  if(['restore_flow','lease_core','seal_core'].includes(action.type)&&!confirm(`${defs[action.type].title}：${defs[action.type].detail}。\n代价：${defs[action.type].cost}。\n本卷结局只能选择一次，确定落下这一笔吗？`))return false;
   return call('/api/action',action);
 }
 async function submitCommand(text) {
@@ -280,9 +287,9 @@ function render(view, modelName) {
   commandUI?.refresh();
   if(!busy)updateCommandStatus();
   world.sync(view);
-  $('#world-location').textContent=view.player.place==='market'?'地下坊市':'黑风林';
+  $('#world-location').textContent=regionName(view.player.place);
   if(view.battle) { closePanel(); closePerson(); }
-  if((selectedPerson&&[...view.people,...view.roamers].find(p=>p.id===selectedPerson)?.place!==view.player.place)||(selectedSite&&view.player.place!=='woods'))closePerson();
+  if((selectedPerson&&[...view.people,...view.roamers].find(p=>p.id===selectedPerson)?.place!==view.player.place)||(selectedSite&&view.player.place!==SITES[selectedSite].place))closePerson();
   else if(selectedPerson)showPerson(selectedPerson,false);
   else if(selectedSite)showSite(selectedSite,false);
   $('#turn').textContent=`第 ${view.turn} 旬`;
@@ -297,22 +304,22 @@ function render(view, modelName) {
   $('#outcome').classList.toggle('won',view.pill.ownerId==='player'||view.world.breakthrough);
   $('#opportunity-hint').textContent=view.world.breakthrough?'此丹已化为你的修为':view.pill.ownerId==='player'?'已入行囊 · 可前往听雨亭':'金色光环标记持丹者 ↗';
   $('#mode').textContent=modelName?`自然语言模型：${modelName}。可在心念传音中问计、追问或下达行动。`:'离线规则模式：可使用按钮或常见中文行动；问计显示已知线索。';
-  const entries=[['境界',view.world.realm],['所在',view.player.place==='market'?'地下坊市':'黑风林'],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
+  const entries=[['境界',view.world.realm],['所在',regionName(view.player.place)],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
   $('#stats').innerHTML=entries.map(([key,value])=>`<div><span>${key}</span><strong>${esc(value)}</strong></div>`).join('');
   $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与徐宁的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
-  $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${p.place==='market'?'坊市':'林中'} ↗</span></button>`).join('');
+  $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${regionName(p.place)} ↗</span></button>`).join('');
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
-  $('#actions').innerHTML=ACTION_DEFS.filter(def=>def.place===view.player.place&&!def.garden).map(def=>{
+  $('#actions').innerHTML=ACTION_DEFS.filter(def=>(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins'].includes(view.player.place)))&&!def.garden).map(def=>{
     const state=view.actionOptions[def.type];
     return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button" ${state.available?'':'disabled'}><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');
   $('#actions').insertAdjacentHTML('afterbegin','<button type="button" class="action" data-garden-open><strong>照看灵圃 ↗</strong><span>小绿瓶 · 自动培养</span><small>前往灵草坡认主神器、栽种或收取灵草</small></button>');
   updateQuest();
+  campaignUI?.render();
   if(!view.roamers.some(enemy=>enemy.id===selectedPerson))updateInteractionResult();
   combatUI.render(view);
   agentUI?.personChanged();
   gardenUI?.render();
-  societyUI?.render();
   societyUI?.render();
   $('#command').disabled=Boolean(view.battle);
 }
@@ -388,7 +395,7 @@ async function call(path,payload={}) {
     return false;
   }
   finally{
-    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();gardenUI.render();societyUI.render();
+    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();gardenUI.render();societyUI.render();campaignUI.render();
     for(const id of ['#restart','#command-submit'])$(id).disabled=Boolean(current?.battle);
   }
 }

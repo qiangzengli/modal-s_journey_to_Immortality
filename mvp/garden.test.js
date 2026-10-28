@@ -93,7 +93,7 @@ test('无灵石、无灵草、未认主、重复认主和战斗中操作均不�
   assert.deepEqual(game, before);
   const unowned = act(createGame(), 'travel_woods');
   assert.throws(() => act(unowned, 'harvest_garden'), /先在灵草坡/);
-  game = combatAction(game, { type: 'start', enemyId: getView(game).roamers[0].id }).game;
+  game = combatAction(game, { type: 'start', enemyId: getView(game).roamers.find(npc=>npc.place===game.player.place).id }).game;
   const fighting = structuredClone(game);
   assert.throws(() => act(game, 'disable_auto_water'), /斗法/);
   assert.throws(() => advanceTurn(game), /斗法/);

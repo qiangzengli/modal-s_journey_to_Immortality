@@ -6,6 +6,8 @@ import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { WANDERERS } from './combat-data.js';
+import { FRONTIER_PEOPLE } from './campaign-data.js';
 import { createGame } from './engine.js';
 
 test('旧存档迁移保留进度，过期页面不能重复扣费，成功行动落盘后可恢复', async () => {
@@ -20,6 +22,8 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
   delete old.flags.playerBreakthrough;
   delete old.revision;
   delete old.exploration;
+  delete old.campaign;
+  for(const npc of FRONTIER_PEOPLE){delete old.people[npc.id];delete old.society.minds[npc.id];}
   await writeFile(savePath, JSON.stringify(old));
   const reservation = createServer();
   reservation.listen(0, '127.0.0.1');
@@ -62,8 +66,9 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.player.stones, 170);
     assert.deepEqual(initial.player.dialogues, {});
     assert.equal(initial.world.breakthrough, false);
-    assert.equal(initial.roamers.length,4);
+    assert.equal(initial.roamers.length,WANDERERS.length);
     assert.equal(initial.skills[0].id,'qi_bolt');
+    assert.equal(initial.people.length,14);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,5);
     for (const input of [null, [], 'invalid']) {
       assert.equal((await post('/api/combat',input)).status,400);
     }
@@ -97,14 +102,24 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
-    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/npc-layout.js', '/combat-data.js', '/combat-ui.js', '/equipment-ui.js', '/equipment-art.js', '/equipment.css', '/battle-world.js', '/battle-fx.js']) {
+    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/npc-layout.js', '/combat-data.js', '/combat-ui.js', '/equipment-ui.js', '/equipment-art.js', '/equipment.css', '/battle-world.js', '/battle-fx.js', '/regions.js', '/campaign-data.js', '/frontier-world.js', '/campaign-ui.js']) {
       assert.equal((await fetch(origin + file)).status, 200);
     }
     await stop();
     await start();
     const restored = (await (await fetch(origin + '/api/state')).json()).view;
     assert.deepEqual(restored, bought.view);
-    const entered = await post('/api/action',{type:'travel_woods',expectedRevision:1});
+    let revision=restored.revision;
+    const action=async input=>{const result=await post('/api/action',{...input,expectedRevision:revision});if(result.view)revision=result.view.revision;return result;};
+    assert.equal((await action({type:'travel_region',place:'ruins'})).status,400);
+    for(const place of ['woods','river'])assert.equal((await action({type:'travel_region',place})).status,200);
+    const evidence=await action({type:'sample_water'});assert.ok(evidence.view.campaign.flags.water);
+    const herbs=await action({type:'gather_reeds'});assert.equal(herbs.view.player.herbs,3);
+    const staleGather=await post('/api/action',{type:'gather_reeds',expectedRevision:evidence.view.revision});assert.equal(staleGather.status,409);assert.deepEqual(staleGather.view,herbs.view);
+    const savedEvidence=await readFile(savePath,'utf8');assert.equal((await action({type:'sample_water'})).status,400);assert.equal(await readFile(savePath,'utf8'),savedEvidence);
+    await stop();await start();assert.deepEqual((await(await fetch(origin+'/api/state')).json()).view,herbs.view);
+    await action({type:'travel_region',place:'woods'});await action({type:'travel_region',place:'market'});
+    const entered = await action({type:'travel_woods'});
     const started = await post('/api/combat',{type:'start',enemyId:'luohu',expectedRevision:entered.view.revision});
     assert.equal(started.status,200);
     const rejected=await post('/api/advance',{expectedRevision:started.view.revision});

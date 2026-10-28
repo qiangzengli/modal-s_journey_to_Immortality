@@ -1,10 +1,14 @@
+import { ensureCampaign } from './campaign.js';
 import { WANDERERS } from './combat-data.js';
 import { GameError } from './errors.js';
 import { stationOffset } from './npc-layout.js';
 
 export const STATIONS = {
   market: { square: [-11, 0], gate: [-4, 0], west: [-22, 0] },
-  woods: { trail: [8, 0], herbs: [18, 0], camp: [25, -3.5] }
+  woods: { trail: [8, 0], herbs: [18, 0], camp: [25, -3.5] },
+  river:{dock:[42,0],fields:[63,6],lodge:[69,-4]},
+  quarry:{shelter:[91,4],mine:[104,-4],sluice:[119,4]},
+  ruins:{door:[141,0],core:[162,-2],memorial:[171,4]}
 };
 const TEMPERAMENTS = {
   shen: '关心师弟生死，急于筹钱，但有尊严，会权衡风险', bai: '严谨、珍惜声誉，先核实再表态',
@@ -13,11 +17,12 @@ const TEMPERAMENTS = {
   han: '警惕而贪利，会试探，不盲目出手', ning: '关注消息可信度，担心假消息反噬自己'
 };
 export function ensureNpcState(game) {
+  ensureCampaign(game);
   game.society ??= { paused: false, epoch: 0, minds: {}, offers: [], nextOffer: 1 };
   for (const npc of [...Object.values(game.people), ...WANDERERS]) {
     game.society.minds[npc.id] ??= {
-      goal: npc.goal || `在黑风林生存，精进${npc.role}的技艺，保护自己的物品`,
-      temperament: TEMPERAMENTS[npc.id] || npc.bio,
+      goal: npc.goal || `在当地生存，精进${npc.role}的技艺，保护自己的物品`,
+      temperament: TEMPERAMENTS[npc.id] || npc.temperament || npc.bio,
       activity: '观察周围局势', speech: '', station: null, memories: [], conversation: [],
       decisionTurn: null, herbs: 0, stones: npc.loot?.stones || 0
     };
@@ -25,7 +30,7 @@ export function ensureNpcState(game) {
   return game;
 }
 export function npcActors(game) {
-  return [...Object.values(game.people), ...WANDERERS.filter(npc => !game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: 'woods', goal: game.society?.minds[npc.id]?.goal }))];
+  return [...Object.values(game.people), ...WANDERERS.filter(npc => !game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
 }
 export function npcPosition(game, id, place) {
   const station = game.society?.minds[id]?.station;

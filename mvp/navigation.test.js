@@ -98,3 +98,12 @@ test('过门动画中改选目标，动画结束后只继续最新目标', async
   assert.equal(await next, true);
   assert.deepEqual(visits, ['界门', '新目标', '交互:新目标']);
 });
+
+test('连续跨过四个区域后才在遗府交互，取消中途行程不会触发剩余区域',async()=>{
+  let place='market';const crossed=[],arrived=[];
+  let navigator=createNavigator({getPlace:()=>place,locate:()=>({kind:'site',name:'灵枢',place:'ruins',x:162,z:-6}),stop(){},walk:async()=>true,cross:async to=>{crossed.push(to);place=to;return true;},onChange(){},onArrive:g=>arrived.push(g.name)});
+  assert.equal(await navigator.go('core'),true);assert.deepEqual(crossed,['woods','river','quarry','ruins']);assert.deepEqual(arrived,['灵枢']);
+  place='market';crossed.length=0;arrived.length=0;
+  navigator=createNavigator({getPlace:()=>place,locate:()=>({kind:'site',name:'灵枢',place:'ruins',x:162,z:-6}),stop(){},walk:async()=>true,cross:async to=>{crossed.push(to);place=to;if(to==='river')navigator.cancel();return true;},onChange(){},onArrive:g=>arrived.push(g.name)});
+  assert.equal(await navigator.go('core'),false);assert.deepEqual(crossed,['woods','river']);assert.deepEqual(arrived,[]);
+});

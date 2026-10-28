@@ -1,11 +1,12 @@
+import { regionPath } from './regions.js';
 import { createHash } from 'node:crypto';
 import { ACTION_DEFS } from './content.js';
 import { applyAction, advanceTurn, getView, GameError } from './engine.js';
 
 const definitions = new Map(ACTION_DEFS.map(action => [action.type, action]));
-const allowed = new Set([...definitions.keys()].filter(type => type !== 'breakthrough'));
+const allowed = new Set([...definitions.keys()].filter(type => type !== 'breakthrough' && !definitions.get(type).campaign));
 allowed.add('negotiate');
-const goalReached = game => game.pill.owner === 'player' || Boolean(game.flags.playerBreakthrough);
+const goalReached = game => game.pill.owner === 'player' || Boolean(game.flags.playerBreakthrough) || Boolean(game.campaign?.alternatePill);
 const parse = raw => typeof raw === 'string' ? JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')) : raw;
 const bounded = (value, max) => typeof value === 'string' && value.trim() && value.length <= max;
 
@@ -38,7 +39,7 @@ export function previewPlan(source, proposed) {
     const target = action.type === 'advance' ? 'advance' : action.type === 'negotiate' ? 'shen' : action.type === 'buy_pill' ? game.pill.owner : def.person || def.site;
     const place = action.type === 'negotiate' ? 'market' : def?.place;
     const travel = action.type.startsWith('travel_');
-    if (place && !travel && game.player.place !== place) game = applyAction(game, { type: place === 'woods' ? 'travel_woods' : 'travel_market' }).game;
+    if (place && !travel && game.player.place !== place) for(const next of regionPath(game.player.place,place))game=applyAction(game,{type:'travel_region',place:next}).game;
     // 议价失败虽是合法行动，也不能被算成已取得丹药。
     const outcome = action.type === 'advance' ? advanceTurn(game) : applyAction(game, action);
     game = outcome.game;
@@ -121,8 +122,8 @@ export function createRoutePlanner({ generate, modelName = null } = {}) {
   return { async respond(game, input = {}) {
     const context = plannerContext(game, input);
     const empty = (reason, text) => ({ source: 'rules', reason, modelName, text, plans: [], followUps: [] });
-    if (goalReached(game)) return empty('complete', '筑基丹已取得，取丹目标已完成。可继续修炼、履行承诺或探索。');
-    if (!['shen', 'lu'].includes(game.pill.owner)) return empty('unavailable_goal', '丹药已归他人，当前没有可执行的转让机制。可以查看因果账本或重开此局。');
+    if (goalReached(game)) return empty('complete', '筑基机缘已备齐，可到听雨亭修炼、履行承诺或继续游历。');
+    if (!['shen', 'lu'].includes(game.pill.owner)) return empty('unavailable_goal', '这枚丹药已归他人。道途仍可继续：打开「天下与故事」，前往云渡药庐寻找归脉丹方。');
     if (!generate) return empty('offline', '模型未连接，暂时无法设计新方案。仍可在地图中查看人物与可用行动。');
     const key = JSON.stringify([game, context.preference, context.preferredPlan]);
     if (!input.refresh && cache.has(key)) return structuredClone(cache.get(key));

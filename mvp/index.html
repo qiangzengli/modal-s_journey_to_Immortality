@@ -8,7 +8,7 @@
 <main class="world-panel" aria-label="逆命录可探索地图">
   <div id="world-canvas" class="world-canvas"></div><div class="world-vignette" aria-hidden="true"></div>
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">逆</span><div><strong>逆命录</strong><small>一场机缘 · 众生因果</small></div></div>
+    <div class="brand"><span class="brand-mark">逆</span><div><strong>逆命录</strong><small>枯潮来信 · 众生因果</small></div></div>
     <div class="resource-strip"><span class="realm-chip" id="realm">炼气九层</span><span title="可用于买卖、调息与布置"><i>◆</i> <b id="hud-stones">180</b> <small>灵石</small></span><button id="garden-hud" type="button" class="garden-hud" title="前往灵草坡照看灵圃" hidden></button><span class="health-resource"><small>气血</small><span class="health-track"><i id="hp-fill"></i></span><b id="hud-hp">100</b></span><span class="reputation-resource"><small>声望</small> <b id="hud-reputation">50</b></span></div>
     <div class="top-actions"><div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b>不限</b></small></div><button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button></div>
   </header>
@@ -18,6 +18,7 @@
   <div id="navigation-status" class="navigation-status" role="status" hidden><span class="walking-dot"></span><span id="navigation-copy"></span><button id="navigation-cancel" type="button">停止</button></div>
   <button id="nearby-interact" class="nearby-interact" type="button" hidden><kbd>F</kbd><span id="nearby-name"></span><small>交互</small></button>
 
+  <button id="campaign-track" class="campaign-track" type="button" data-open-panel="campaign" hidden><span class="eyebrow">卷一 · 游历手记</span><strong></strong><small></small><em>展开天下与故事 →</em></button>
   <section class="journey-card" aria-label="机缘指引">
     <div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">动态规划</span></div>
     <div id="plan-options" class="plan-options" aria-label="模型设计的取丹方案"></div>
@@ -55,15 +56,16 @@
   <aside id="map-panel" class="map-panel" aria-label="地图信息" hidden>
     <div class="panel-heading"><div><span class="eyebrow">逆命录 / JOURNAL</span><h2 id="panel-title">机缘</h2></div><button id="panel-close" class="icon-close" type="button" aria-label="关闭信息面板">×</button></div>
     <div class="panel-scroll">
+      <section data-panel-content="campaign" hidden><div id="campaign-content"></div></section>
       <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>当前持有人</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>当前售价</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>传闻状态</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome"></p><div id="quest-steps" class="quest-steps"></div></section>
       <section data-panel-content="self" hidden><div id="equipment"></div><details class="equipment-resources"><summary>修行资源与灵圃</summary><div id="stats" class="stats"></div><div id="garden-summary" class="garden-summary"></div><div id="clues" class="clues"></div><p id="mode" class="panel-tip">离线规则模式</p></details><button id="restart" class="text-button" type="button">重开此局</button></section>
-      <section data-panel-content="people" hidden><h3>众生委托</h3><div id="society-offers"></div><h3>黑风林 · 散修</h3><p class="panel-tip">点击可一路追踪到散修身边。主动发起斗法，胜者取得储物袋。</p><div id="roamers"></div><h3>坊市众生</h3><p class="panel-tip">人物会记得你的承诺与手段。</p><div id="people" class="people"></div></section>
+      <section data-panel-content="people" hidden><h3>众生委托</h3><div id="society-offers"></div><h3>各地 · 散修</h3><p class="panel-tip">点击可一路追踪到散修身边。主动发起斗法，胜者取得储物袋。</p><div id="roamers"></div><h3>修真界众生</h3><p class="panel-tip">人物会记得你的承诺与手段。</p><div id="people" class="people"></div></section>
       <section data-panel-content="actions" hidden><p class="panel-tip">选择行动后会自动走到对应人物或地点执行；途中可按方向键或「停止」取消。</p><div id="actions" class="action-grid"></div></section>
       <section data-panel-content="events" hidden><div id="events" class="events"></div></section>
     </div>
   </aside>
 
-  <nav class="map-nav" aria-label="地图功能"><button type="button" data-open-panel="opportunity"><i>◇</i>机缘</button><button type="button" data-open-panel="self"><i>▧</i>行囊</button><button type="button" data-open-panel="people"><i>♧</i>人物</button><button type="button" data-open-panel="actions"><i>⚒</i>行动</button><button type="button" data-open-panel="events"><i>≋</i>邸报 <b id="news-count" hidden>0</b></button></nav>
+  <nav class="map-nav" aria-label="地图功能"><button type="button" data-open-panel="campaign"><i>◎</i>天下</button><button type="button" data-open-panel="opportunity"><i>◇</i>机缘</button><button type="button" data-open-panel="self"><i>▧</i>行囊</button><button type="button" data-open-panel="people"><i>♧</i>人物</button><button type="button" data-open-panel="actions"><i>⚒</i>行动</button><button type="button" data-open-panel="events"><i>≋</i>邸报 <b id="news-count" hidden>0</b></button></nav>
 
   <section class="command-dock" aria-label="自然语言问计与行动">
     <div class="command-caption"><span>心念传音</span><small id="command-status">正在连接……</small></div>
@@ -77,11 +79,11 @@
     <div id="message" class="message" role="status" aria-live="polite">写下疑问向 AI 问计，或直接说出要做的行动。</div>
   </section>
 
-  <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="坊市与黑风林导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
+  <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="当前区域导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
   <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击目标会自动绕路、经过界门并继续前往。靠近时按 F 交互，按方向键或 Esc 可取消寻路。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；前台探索约每 90 秒触发一次众生决策，也可点击「听候风声」。交谈、斗法或隐藏页面时暂停，可随时暂停演化。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
   <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
   <section id="combat-stage" class="combat-stage" aria-label="回合制斗法" hidden>
-    <header class="battle-heading"><span class="eyebrow">黑风林 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>
+    <header class="battle-heading"><span class="eyebrow">乱星海 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>
     <div class="duelist duelist-player"><small>你 · <span id="battle-weapon"></span></small><strong>守住这一线生机</strong><div class="duelist-stat"><span>气血</span><b id="battle-player-hp"></b></div><div class="battle-bar"><i id="battle-player-bar"></i></div><div class="duelist-stat"><span>真气</span><b id="battle-mana"></b></div><div class="battle-bar mana"><i id="battle-mana-bar"></i></div></div>
     <div class="duelist duelist-enemy"><small id="battle-enemy-realm"></small><strong id="battle-enemy"></strong><div class="duelist-stat"><span>气血</span><b id="battle-enemy-hp"></b></div><div class="battle-bar enemy"><i id="battle-enemy-bar"></i></div><p id="battle-intent"></p></div>
     <div class="battle-console"><div id="battle-log" class="battle-log" role="log" aria-live="polite"></div><details class="battle-history"><summary>查看交锋记录</summary><div id="battle-history"></div></details><p id="combat-error" class="combat-error" role="alert"></p><fieldset id="combat-inputs"><div id="combat-controls"><div id="combat-basics" class="combat-basics"></div><div id="combat-tabs" class="combat-tabs"></div><div id="combat-options" class="combat-options"></div></div><div id="combat-result" hidden></div></fieldset></div>

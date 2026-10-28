@@ -6,6 +6,9 @@ import { WANDERERS } from './combat-data.js';
 import { createBattleWorld } from './battle-world.js';
 import { createGardenWorld } from './garden-world.js';
 import { placeNpcs, arrangeNameplates } from './npc-layout.js';
+import { REGIONS, regionName, regionAt, regionExit, regionEntry } from './regions.js';
+import { FRONTIER_PEOPLE, FRONTIER_SITES } from './campaign-data.js';
+import { createFrontier, frontierWalkable, FRONTIER_BLOCKERS } from './frontier-world.js';
 
 const NPC_SPOTS = {
   shen: { market: [-15, -4], woods: [12, -3] },
@@ -17,9 +20,11 @@ const NPC_SPOTS = {
   han: { woods: [16, 5] },
   ning: { market: [-7, 5] }
 };
-for (const enemy of WANDERERS) NPC_SPOTS[enemy.id] = { woods: enemy.spot };
+for (const actor of [...FRONTIER_PEOPLE, ...WANDERERS]) NPC_SPOTS[actor.id] = { [actor.place || 'woods']: actor.spot };
+
 
 const SITE_SPOTS = { herbs: [20, 2], formation: [15, -6.5], camp: [25, -7] };
+for (const [id, site] of Object.entries(FRONTIER_SITES)) SITE_SPOTS[id] = site.spot;
 const FOREST_TREES = [
   [5, -10, 1], [8, -8, 1.25], [13, -10, 1.1], [19, -9, 1.4], [25, -10, 1],
   [4, 8, 1.2], [7, 10, 1.4], [12, 9, 1], [18, 10, 1.3], [24, 8, 1.1],
@@ -42,7 +47,8 @@ const COLORS = {
   han: { robe: 0x413e42, trim: 0xab6b55, skin: 0xb98d75, hair: 0x1d2020 },
   ning: { robe: 0xb1a486, trim: 0x70685e, skin: 0xe2bb9e, hair: 0x272926 }
 };
-for (const enemy of WANDERERS) COLORS[enemy.id] = { robe: Number(enemy.color.replace('#','0x')), trim: 0xd3c392, skin: 0xcfad8e, hair: 0x292b29 };
+for (const actor of [...FRONTIER_PEOPLE, ...WANDERERS]) COLORS[actor.id] = { robe: Number(actor.color.replace('#','0x')), trim: 0xd3c392, skin: 0xcfad8e, hair: 0x292b29 };
+
 
 const WOODS = 'woods';
 const MARKET = 'market';
@@ -295,6 +301,7 @@ function createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleT
   gate.traverse(child => { child.userData.isGate = true; });
   const gateHitbox = put(gate, new THREE.BoxGeometry(2.2, 5.8, 5.5), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }), 0, 2.9, 0);
   gateHitbox.castShadow = false;
+  gateHitbox.userData.regions = ['market', 'woods'];
   gateTargets.push(gateHitbox);
 
   FOREST_TREES.forEach(([x, z, size]) => obstacleTargets.push(makeTree(scene, x, z, size)));
@@ -379,13 +386,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   sun.shadow.camera.left = -37; sun.shadow.camera.right = 37;
   sun.shadow.camera.top = 26; sun.shadow.camera.bottom = -26;
   sun.shadow.normalBias = 0.02;
-  scene.add(sun);
+  scene.add(sun, sun.target);
 
   const clickSurfaces = [];
   const gateTargets = [];
   const siteTargets = [];
   const obstacleTargets = [];
   const terrain = createTerrain(scene, clickSurfaces, gateTargets, siteTargets, obstacleTargets);
+  const frontier = createFrontier(scene, { clickSurfaces, gateTargets, siteTargets, obstacleTargets }, { put, material, label, makeBuilding, makeTree });
   const gardenWorld = createGardenWorld(scene, siteTargets, ...SITE_SPOTS.herbs);
   const gardenReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const scenery = decorateWorld(scene);
@@ -402,7 +410,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const player = makePerson('player', '你');
   scene.add(player);
   const people = Object.fromEntries(Object.keys(NPC_SPOTS).map(id => {
-    const actor = makePerson(id, WANDERERS.find(enemy=>enemy.id===id)?.name || { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
+    const actor = makePerson(id, [...FRONTIER_PEOPLE, ...WANDERERS].find(actor=>actor.id===id)?.name || { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
     scene.add(actor);
     return [id, actor];
   }));
@@ -452,14 +460,15 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   function locate(target) {
     if (typeof target === 'object') return target;
-    if (target === 'gate') return { kind: 'gate', name: place === MARKET ? '黑风林' : '地下坊市', place: place === MARKET ? WOODS : MARKET };
+    if (target === 'gate') target = `region:${REGIONS[place].neighbors.at(-1)}`;
+    if (target.startsWith('region:') || target.startsWith('gate:')) { const to=target.split(':')[1]; return REGIONS[to] ? {kind:'gate',name:regionName(to),place:to} : null; }
     const person = view && [...view.people,...view.roamers].find(p => p.id === target && !p.looted);
     if (person) {
       const destination = people[target]?.userData.destination;
       if (!destination) return null;
       return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x: destination.x, z: destination.z };
     }
-    if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: WOODS, x, z }; }
+    if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: SITES[target].place || WOODS, x, z }; }
     return null;
   }
   function stopWalking() {
@@ -519,7 +528,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   resize();
 
   function positionFor(id, location) {
-    return NPC_SPOTS[id][location] || NPC_SPOTS[id].market || NPC_SPOTS[id].woods;
+    return NPC_SPOTS[id][location] || Object.values(NPC_SPOTS[id])[0];
   }
 
   function select(id) {
@@ -546,12 +555,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     view = nextView;
     battleWorld.sync(nextView);
     gardenWorld.sync(nextView.garden);
+    frontier.sync(nextView);
     if (!initialized || place !== nextView.player.place) {
       const first = !initialized;
       initialized = true;
+      const previousPlace = place;
       place = nextView.player.place;
-      const x = first ? (place === MARKET ? -17 : 4.5) : (place === MARKET ? -2.3 : 2.3);
-      const entry = new THREE.Vector3(x, 0, 0);
+      const [x, z] = first ? REGIONS[place].entry : regionEntry(place, previousPlace);
+      const entry = new THREE.Vector3(x, 0, z);
       stopWalking();
       if (!first && travelPending) {
         const transition = { from: player.position.clone(), to: entry, time: 0, resolve: null };
@@ -602,12 +613,13 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     }
   }
 
-  function bounds() { return place === MARKET ? [-27.3, -1.5] : [1.5, 27.3]; }
+  function bounds() { return REGIONS[place].bounds; }
 
   function walkableAt(location, x, z) {
-    const [minX, maxX, minZ, maxZ] = location === MARKET ? [-27.3, -1.5, -11.1, 11.1] : [1.5, 27.3, -11.1, 11.1];
+    const [minX, maxX, minZ, maxZ] = REGIONS[location].bounds;
     if (x < minX || x > maxX || z < minZ || z > maxZ) return false;
     if (location === MARKET) return !MARKET_BLOCKERS.some(([bx, bz, rx, rz]) => Math.abs(x - bx) < rx && Math.abs(z - bz) < rz);
+    if (location !== WOODS) return frontierWalkable(location, x, z);
     return !FOREST_TREES.some(([tx, tz, size]) => Math.hypot(x - tx, z - tz) < 0.67 * size)
       && !FOREST_ROCKS.some(([rx, rz]) => Math.hypot(x - rx, z - rz) < 1.18);
   }
@@ -627,9 +639,9 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function findRoute(target) {
-    const [minX, maxX] = place === MARKET ? [-27, -2] : [2, 27];
+    const [minX, maxX, minZ, maxZ] = bounds().map((value, index) => index % 2 ? Math.floor(value) : Math.ceil(value));
     const nodes = [];
-    for (let x = minX; x <= maxX; x++) for (let z = -11; z <= 11; z++) {
+    for (let x = minX; x <= maxX; x++) for (let z = minZ; z <= maxZ; z++) {
       if (walkable(x, z)) nodes.push({ x, z, key: `${x},${z}` });
     }
     const closest = point => nodes.reduce((best, node) => !best || Math.hypot(node.x - point.x, node.z - point.z) < Math.hypot(best.x - point.x, best.z - point.z) ? node : best, null);
@@ -679,7 +691,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   function walkTo(x, z, callback) {
     const allowed = bounds();
-    const target = new THREE.Vector3(THREE.MathUtils.clamp(x, allowed[0], allowed[1]), 0, THREE.MathUtils.clamp(z, -11.1, 11.1));
+    const target = new THREE.Vector3(THREE.MathUtils.clamp(x, allowed[0], allowed[1]), 0, THREE.MathUtils.clamp(z, allowed[2], allowed[3]));
     route = findRoute(target);
     destination = route.shift() || null;
     afterWalk = callback || null;
@@ -695,9 +707,9 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function moveBy(dx, dz) {
-    const [minX, maxX] = bounds();
+    const [minX, maxX, minZ, maxZ] = bounds();
     const x = THREE.MathUtils.clamp(player.position.x + dx, minX, maxX);
-    const z = THREE.MathUtils.clamp(player.position.z + dz, -11.1, 11.1);
+    const z = THREE.MathUtils.clamp(player.position.z + dz, minZ, maxZ);
     if (walkable(x, z)) player.position.set(x, 0, z);
     else if (walkable(x, player.position.z)) player.position.x = x;
     else if (walkable(player.position.x, z)) player.position.z = z;
@@ -727,7 +739,10 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       return;
     }
     const gateHit = raycaster.intersectObjects(gateTargets)[0];
-    if (gateHit) { goTo('gate'); return; }
+    if (gateHit) {
+      const regions = gateHit.object.userData.regions;
+      goTo(`region:${regions.find(id => id !== place)}`); return;
+    }
     const hits = raycaster.intersectObjects(Object.values(people), true).filter(visibleHit);
     const id = hits.find(hit => hit.object.userData.personId)?.object.userData.personId;
     if (id) { goTo(id); return; }
@@ -738,7 +753,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     const groundHit = raycaster.intersectObjects(clickSurfaces)[0];
     if (groundHit) {
       const {x,z} = groundHit.point;
-      goTo({kind:'point',name:'地图位置',place:x<0?MARKET:WOODS,x,z});
+      goTo({kind:'point',name:'地图位置',place:regionAt(x),x,z});
     }
   });
 
@@ -769,27 +784,26 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     if (!miniMap || !view) return;
     const ctx = miniMap.getContext('2d');
     const width = miniMap.width, height = miniMap.height;
-    const px = x => (x + 30) / 60 * width;
-    const py = z => (z + 14) / 28 * height;
-    ctx.clearRect(0, 0, width, height);
-    ctx.fillStyle = '#172d29'; ctx.fillRect(0, 0, width / 2, height);
-    ctx.fillStyle = '#253c2c'; ctx.fillRect(width / 2, 0, width / 2, height);
-    ctx.fillStyle = '#7f8061'; ctx.fillRect(0, py(-1.8), width, py(1.8) - py(-1.8));
-    ctx.strokeStyle = '#b5a46d'; ctx.beginPath(); ctx.moveTo(px(0), 0); ctx.lineTo(px(0), height); ctx.stroke();
-    ctx.fillStyle = '#576351';
-    for (const [x, z, rx, rz] of MARKET_BLOCKERS) ctx.fillRect(px(x - rx), py(z - rz), rx * width / 30, rz * height / 14);
-    for (const [x,z] of Object.values(SITE_SPOTS)) { ctx.fillStyle='#dbc48b'; ctx.fillRect(px(x)-3,py(z)-3,6,6); }
-    for (const person of [...view.people,...view.roamers]) { if(person.looted)continue;const actor=people[person.id]; ctx.fillStyle = person.defeated ? '#e5bf71' : person.id === view.pill.ownerId ? '#f6ce65' : person.realm ? '#d08f71' : '#acc3ad'; ctx.beginPath(); ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill(); }
-    ctx.save(); ctx.translate(px(player.position.x), py(player.position.z)); ctx.rotate(-player.rotation.y);
-    ctx.fillStyle='#f6efce'; ctx.beginPath(); ctx.moveTo(0,5);ctx.lineTo(-4,-4);ctx.lineTo(0,-2);ctx.lineTo(4,-4);ctx.closePath();ctx.fill();ctx.restore();
-    ctx.fillStyle='#c4ccb2';ctx.font='12px sans-serif';ctx.fillText('坊市',9,17);ctx.fillText('黑风林',width-52,17);
+    const [min,max,minZ,maxZ]=bounds();
+    const px=x=>(x-min)/(max-min)*width, py=z=>(z-minZ)/(maxZ-minZ)*height;
+    ctx.clearRect(0,0,width,height);
+    ctx.fillStyle=REGIONS[place].color;ctx.fillRect(0,0,width,height);
+    ctx.fillStyle='#a59a78';ctx.fillRect(0,py(-1.8),width,py(1.8)-py(-1.8));
+    if(place==='river'){ctx.fillStyle='#69a9b1';ctx.fillRect(px(51.5),0,px(58.5)-px(51.5),height);ctx.fillStyle='#d0b77f';ctx.fillRect(px(51.5),py(-2),px(58.5)-px(51.5),py(2)-py(-2));}
+    ctx.fillStyle='#263a35';
+    for(const [x,z,rx,rz] of (place===MARKET?MARKET_BLOCKERS:FRONTIER_BLOCKERS[place]||[]))ctx.fillRect(px(x-rx),py(z-rz),rx*2/(max-min)*width,rz*2/(maxZ-minZ)*height);
+    for(const [id,[x,z]]of Object.entries(SITE_SPOTS)){if(SITES[id].place!==place)continue;ctx.fillStyle='#f5d594';ctx.fillRect(px(x)-3,py(z)-3,6,6);}
+    for(const person of [...view.people,...view.roamers]){if(person.looted||person.place!==place)continue;const actor=people[person.id];ctx.fillStyle=person.defeated?'#e5bf71':person.id===view.pill.ownerId?'#f6ce65':person.realm?'#e6997b':'#d1e6d4';ctx.beginPath();ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill();}
+    for(const to of REGIONS[place].neighbors){const exit=regionExit(place,to);ctx.fillStyle='#fff0b9';ctx.fillRect(px(exit.x)-3,py(0)-5,6,10);}
+    ctx.save();ctx.translate(px(player.position.x),py(player.position.z));ctx.rotate(-player.rotation.y);
+    ctx.fillStyle='#fff9e2';ctx.beginPath();ctx.moveTo(0,5);ctx.lineTo(-4,-4);ctx.lineTo(0,-2);ctx.lineTo(4,-4);ctx.closePath();ctx.fill();ctx.restore();
+    ctx.fillStyle='#fff3d6';ctx.font='12px sans-serif';ctx.fillText(regionName(place),9,17);
   }
-  miniMap?.addEventListener('click', event => {
-    if (busy || !view) return;
-    const rect = miniMap.getBoundingClientRect();
-    const x = (event.clientX - rect.left) / rect.width * 60 - 30;
-    const z = (event.clientY - rect.top) / rect.height * 28 - 14;
-    goTo({kind:'point',name:'小地图目标',place:x<0?MARKET:WOODS,x,z});
+  miniMap?.addEventListener('click',event=>{
+    if(busy||!view)return;
+    const rect=miniMap.getBoundingClientRect(),[min,max,minZ,maxZ]=bounds();
+    const x=min+(event.clientX-rect.left)/rect.width*(max-min),z=minZ+(event.clientY-rect.top)/rect.height*(maxZ-minZ);
+    goTo({kind:'point',name:'小地图目标',place,x,z});
   });
 
   function updateOcclusion() {
@@ -808,8 +822,8 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   function updateNearby() {
     let candidates = view ? [...view.people,...view.roamers].filter(p=>p.place===place&&!p.looted).map(p=>locate(p.id)).filter(Boolean) : [];
-    if (place === WOODS) candidates.push(...Object.keys(SITE_SPOTS).map(locate));
-    candidates.push({kind:'gate',id:'gate',name:place===MARKET?'前往黑风林':'返回坊市',x:place===MARKET?-2.2:2.2,z:0});
+    candidates.push(...Object.keys(SITE_SPOTS).map(locate).filter(site => site.place === place));
+    for (const next of REGIONS[place].neighbors) candidates.push({kind:'gate',id:`region:${next}`,name:`前往${regionName(next)}`,...regionExit(place,next)});
     nearby = !busy && !view?.battle && !navigation.active && !crossing ? candidates.filter(p=>Math.hypot(p.x-player.position.x,p.z-player.position.z)<3).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0] : null;
     if ((nearby?.id || null) !== nearbyId) { nearbyId=nearby?.id || null; onNearby?.(nearby || null); }
   }
@@ -902,10 +916,12 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         moving = Math.hypot(player.position.x - oldX, player.position.z - oldZ) > 0.001;
       }
     }
-    if (!busy && !crossing && !navigation.active && travelArmed && Math.abs(player.position.z) < 2.6 && ((place === MARKET && player.position.x >= -1.501 && moveX > 0) || (place === WOODS && player.position.x <= 1.501 && moveX < 0))) {
-      goTo('gate');
+    const [edgeLeft,edgeRight]=bounds();
+    if(!busy&&!crossing&&!navigation.active&&travelArmed&&Math.abs(player.position.z)<2.6){
+      const next=REGIONS[place].neighbors.find(id=>REGIONS[id].entry[0]>REGIONS[place].entry[0]?player.position.x>=edgeRight-.001&&moveX>0:player.position.x<=edgeLeft+.001&&moveX<0);
+      if(next)goTo(`region:${next}`);
     }
-    if (!travelPending && Math.abs(player.position.x) > 3) travelArmed = true;
+    if(!travelPending&&player.position.x>edgeLeft+1&&player.position.x<edgeRight-1)travelArmed=true;
     player.userData.body.position.y = moving ? Math.sin(elapsed * 12) * 0.07 : Math.sin(elapsed * 2.4) * 0.025;
     player.userData.leftArm.rotation.z = moving ? Math.sin(elapsed * 10) * 0.25 : -0.08;
     player.userData.rightArm.rotation.z = moving ? -Math.sin(elapsed * 10) * 0.25 : 0.08;
@@ -926,11 +942,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     cameraFocus.lerp(new THREE.Vector3(player.position.x,0,player.position.z),Math.min(1,dt*2.7));
     camera.position.set(cameraFocus.x+Math.sin(azimuth)*26.2,22,cameraFocus.z+Math.cos(azimuth)*26.2);
     camera.lookAt(cameraFocus.x,0,cameraFocus.z);
+    sun.position.set(cameraFocus.x - 7, 23, cameraFocus.z + 15);
+    sun.target.position.set(cameraFocus.x, 0, cameraFocus.z);
     const bearer = view?.pill.ownerId === 'player' ? player : people[view?.pill.ownerId];
     pillAura.visible = Boolean(bearer);
     if (bearer) { pillAura.position.set(bearer.position.x, 2.65 + Math.sin(elapsed * 2) * 0.1, bearer.position.z); pillAura.rotation.set(Math.PI / 2, 0, elapsed * 0.5); }
     if (view?.world.trapReady) { terrain.arrayRing.rotation.z = elapsed * 0.3; terrain.arrayRing.material.opacity = 0.65 + Math.sin(elapsed * 3) * 0.3; }
     gardenWorld.update(elapsed, gardenReducedMotion.matches);
+    frontier.update(elapsed);
     scenery.update(elapsed, dt);
     mapTimer += dt;
     if (mapTimer > 0.12) { drawMiniMap(); updateNearby(); updateOcclusion(); mapTimer = 0; }

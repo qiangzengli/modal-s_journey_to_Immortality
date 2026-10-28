@@ -16,7 +16,7 @@ export function decorateWorld(scene) {
   const stone = mat(0x697a71);
   const wood = mat(0x68513b);
   const brass = mat(0xbba16b, { metalness: 0.45, roughness: 0.45 });
-  const water = mesh(group, new THREE.PlaneGeometry(160, 130), mat(0x274e4d, { metalness: 0.32, roughness: 0.35 }), 0, -0.75, 0);
+  const water = mesh(group, new THREE.PlaneGeometry(290, 130), mat(0x274e4d, { metalness: 0.32, roughness: 0.35 }), 75, -0.75, 0);
   water.rotation.x = -Math.PI / 2;
   for (let i = 0; i < 24; i++) {
     const angle = i / 24 * Math.PI * 2;
@@ -24,6 +24,7 @@ export function decorateWorld(scene) {
     const radiusZ = 23 + (i % 5) * 2;
     const height = 5 + (i * 7 % 11);
     const mountain = mesh(group, new THREE.ConeGeometry(4 + i % 4, height, 5), mat([0x415b56, 0x52685d, 0x3a5653][i % 3]), Math.cos(angle) * radiusX, height / 2 - 1, Math.sin(angle) * radiusZ);
+    if(mountain.position.x>29&&Math.abs(mountain.position.z)<25)mountain.position.z=mountain.position.z<0?-28:28;
     mountain.rotation.y = i * 0.41;
     mountain.castShadow = true;
   }

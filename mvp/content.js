@@ -1,4 +1,6 @@
+import { FRONTIER_ACTIONS, FRONTIER_PEOPLE, FRONTIER_SITES } from './campaign-data.js';
 export const ACTION_DEFS = [
+  ...FRONTIER_ACTIONS,
   { type: 'discover_bottle', title: '寻得小绿瓶', detail: '认主古瓶并安置一株幼苗，每旬自动凝液催生', cost: '奇遇 · 每局一次', place: 'woods', site: 'herbs', garden: true },
   { type: 'plant_herb', title: '栽种一株灵草', detail: '种入空畦，自然生长 4 旬，灵液可加速', cost: '灵草 1', place: 'woods', site: 'herbs', garden: true },
   { type: 'water_herb', title: '灵液催熟', detail: '为长势最好的一畦增加 1 点生长', cost: '灵液 1 滴', place: 'woods', site: 'herbs', garden: true },
@@ -25,7 +27,7 @@ export const ACTION_DEFS = [
   { type: 'honor_partner', title: '结清合资承诺', detail: '偿还徐宁，增加信任', cost: '偿还欠款', place: 'market', person: 'xu' },
   { type: 'buy_talisman', title: '购入天雷符', detail: '补充一张用于布阵的符箓', cost: '35 灵石', place: 'market', person: 'qing' },
   { type: 'rest', title: '调息疗伤', detail: '在听雨亭恢复 30 气血', cost: '10 灵石', place: 'woods', site: 'camp' },
-  { type: 'breakthrough', title: '服丹筑基', detail: '气血至少 60 时炼化筑基丹；因果与欠款继续保留', cost: '消耗筑基丹', place: 'woods', site: 'camp' }
+  { type: 'breakthrough', title: '服丹筑基', detail: '气血至少 60 时服用筑基丹或归脉丹；因果与欠款继续保留', cost: '消耗筑基丹或归脉丹', place: 'woods', site: 'camp' }
 ];
 
 export const PERSON_ACTIONS = {
@@ -38,7 +40,7 @@ export const PERSON_ACTIONS = {
 export const SITES = {
   herbs: { name: '灵草坡', role: '黑风林 · 采集与灵圃', detail: '野生灵草旁的旧石龛透出青光。一只古瓶仍在吸纳月华，或许能培育新的灵草。', actions: ['gather_herbs'] },
   formation: { name: '天雷阵位', role: '黑风林 · 设伏', detail: '古阵仍能聚气。护商修士会对贸然进攻作出反击。', actions: ['prepare_trap', 'ambush'] },
-  camp: { name: '听雨亭', role: '黑风林 · 调息', detail: '山林间的一处静地。调息疗伤，或服下筑基丹冲破瓶颈。', actions: ['rest', 'breakthrough'] }
+  camp: { name: '听雨亭', role: '黑风林 · 调息', detail: '山林间的一处静地。调息疗伤，或服下筑基丹、归脉丹冲破瓶颈。', actions: ['rest', 'breakthrough'] }
 };
 
 export const PERSON_DETAILS = {
@@ -51,3 +53,7 @@ export const PERSON_DETAILS = {
   han: { color: '#c9937e', realm: '炼气九层', bio: '黑衣融入树影。林道上的车辙和脚印，比传闻更能引起他的兴趣。' },
   ning: { color: '#d6c39b', realm: '炼气六层', bio: '一筒传音符系在腰间。她游走于坊市各处，靠消息的可信度维持生意。' }
 };
+
+for(const person of FRONTIER_PEOPLE){PERSON_DETAILS[person.id]={color:person.color,realm:person.realm,bio:person.bio};PERSON_ACTIONS[person.id]=['ask'];}
+Object.assign(SITES,FRONTIER_SITES);
+for(const site of Object.values(SITES))site.place ??= 'woods';

@@ -16,7 +16,7 @@ const enemyById = id => WANDERERS.find(enemy => enemy.id === id);
 const intentFor = battle => battle.agentIntent || 'attack';
 const intentNames = { attack: '试探进攻', heavy: '蓄力重击', guard: '护体守势', heal: '运功疗伤' };
 function writeEvent(game, text) {
-  game.events.push({ id: game.nextId++, turn: game.turn, actor: '黑风林', text, causes: [], scope: 'player' });
+  game.events.push({ id: game.nextId++, turn: game.turn, actor: '斗法', text, causes: [], scope: 'player' });
 }
 function weaponPower(state) { return ITEMS[state.weapon]?.attack || 0; }
 function powerBonus(game) { return game.flags.playerBreakthrough ? 5 : 0; }
@@ -39,7 +39,7 @@ export function combatAction(source, input, random = Math.random) {
   if (input.type === 'start') {
     if (battle) throw new GameError('请先结束当前斗法结算。');
     const enemy = enemyById(input.enemyId);
-    if (!enemy || game.player.place !== 'woods') throw new GameError('请先到黑风林找到这位散修。');
+    if (!enemy || game.player.place !== (enemy.place || 'woods')) throw new GameError('请先到这位散修所在的区域。');
     if (state.enemies[enemy.id]?.defeated) throw new GameError('此人已经败退，不可重复挑战。');
     if (game.player.hp < 20) throw new GameError('气血不足 20，请先服用回春丹或前往听雨亭疗伤。');
     state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, mana: 40, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。你先出手，每次行动后敌人会回应。` }] };
@@ -48,13 +48,13 @@ export function combatAction(source, input, random = Math.random) {
   if (input.type === 'leave') {
     if (!battle || battle.status === 'active') throw new GameError('斗法中只能通过逃跑脱身。');
     state.battle = null;
-    return { game, result: battle.status === 'won' ? '储物袋留在原处，可以随时回来拾取。' : '重新踏上林道。可先服丹或去听雨亭调息。' };
+    return { game, result: battle.status === 'won' ? '储物袋留在原处，可以随时回来拾取。' : '重新踏上山道。可先服丹或到附近静地调息。' };
   }
   if (input.type === 'claim') {
     assertPeace(game);
     const enemy = enemyById(input.enemyId);
     const record = enemy && state.enemies[enemy.id];
-    if (game.player.place !== 'woods' || !record?.defeated) throw new GameError('请先在黑风林击败此人，再拾取储物袋。');
+    if ((!enemy || game.player.place !== (enemy.place || 'woods')) || !record?.defeated) throw new GameError('请先在此人所在区域击败他，再拾取储物袋。');
     if (record.looted) throw new GameError('这个储物袋已经取空。');
     ensureNpcState(game);
     const loot = { ...enemy.loot, stones: npcWallet(game, enemy.id).stones };
@@ -191,7 +191,7 @@ export function getCombatView(game) {
   const enemy = battle && enemyById(battle.enemyId);
   const intent = enemy && intentFor(battle);
   return {
-    roamers: WANDERERS.map(enemy => ({ ...enemy, place: 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
+    roamers: WANDERERS.map(enemy => ({ ...enemy, place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
     inventory: Object.entries(state.inventory).filter(([,n]) => n > 0).map(([id, quantity]) => ({ id, ...ITEMS[id], quantity, equipped: state.weapon === id, learned: state.learned.includes(ITEMS[id].skill) })),
     skills: state.learned.map(id => ({ id, ...SKILLS[id], remaining: battle?.cooldowns[id] || 0 })),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },

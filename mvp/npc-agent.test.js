@@ -4,19 +4,20 @@ import { createGame, advanceTurn, applyAction, getView } from './engine.js';
 import { societyContext, applySocietyDecisions, createSocietyAgent } from './npc-agent.js';
 import { ensureNpcState, contractAction, expireOffers, remember, npcWallet } from './npc-state.js';
 import { applyNpcEffect } from './npc-effects.js';
+import { WANDERERS } from './combat-data.js';
 import { combatAction } from './combat.js';
 import { agentContext } from './story-agent.js';
 import { planEnemyTurn } from './npc-combat-agent.js';
 
 const decisions = (game, choices = {}) => societyContext(game).actors.map(actor => ({ actorId: actor.id, actionId: 'observe', goal: '根据局势决定下一步', speech: '我先看清局势。', ...choices[actor.id] }));
-test('全部12名人物各自决策；单纯推进时间不会触发固定借贷买丹脚本', () => {
+test('全部人物各自决策；单纯推进时间不会触发固定借贷买丹脚本', () => {
   const source = createGame(), original = structuredClone(source);
-  assert.equal(societyContext(source).actors.length, 12);
+  assert.equal(societyContext(source).actors.length, Object.keys(source.people).length + WANDERERS.length);
   let game = advanceTurn(advanceTurn(source).game).game;
   assert.equal(game.flags.xuLoan, 0); assert.equal(game.pill.owner, 'shen');
   game = applySocietyDecisions(source, decisions(source)).game;
   assert.equal(game.society.epoch, 1); assert.equal(game.pill.owner, 'shen');
-  assert.equal(game.events.filter(event => event.agent).length, 12);
+  assert.equal(game.events.filter(event => event.agent).length, Object.keys(source.people).length + WANDERERS.length);
   assert.deepEqual(source, original);
   game = applySocietyDecisions(game, decisions(game, { qing: { actionId: 'lend_stones', speech: '徐宁，我愿借你所缺的灵石。' } })).game;
   assert.equal(game.flags.xuLoan, 50); assert.equal(game.pill.owner, 'shen');
@@ -65,7 +66,7 @@ test('委托到期退款一次，散修委托会减少真实储物袋灵石；�
   game.exploration.enemies.luohu={defeated:true,looted:false};
   const received=combatAction(game,{type:'claim',enemyId:'luohu'}).game;
   assert.equal(received.player.stones,188);
-  assert.equal(societyContext(received).actors.length,11);
+  assert.equal(societyContext(received).actors.length,Object.keys(received.people).length + WANDERERS.length - 1);
 });
 test('旧档补齐人物记忆；散修可交谈，非法角色与异地交谈仍拒绝', () => {
   const game=createGame();delete game.society;const player=structuredClone(game.player);

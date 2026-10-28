@@ -1,3 +1,6 @@
+import { FRONTIER_PEOPLE } from './campaign-data.js';
+import { ensureCampaign, applyCampaignAction, travelRegion, campaignView } from './campaign.js';
+import { REGIONS } from './regions.js';
 import { ensureNpcState, npcPublic, societyView, npcPosition, expireOffers } from './npc-state.js';
 import { ACTION_DEFS } from './content.js';
 import { GARDEN_ACTIONS, ensureGarden, applyGardenAction, advanceGarden, getGardenView } from './garden.js';
@@ -6,6 +9,7 @@ import { assertPeace, ensureExploration, getCombatView } from './combat.js';
 export { GameError } from './errors.js';
 
 export const PEOPLE = [
+  ...FRONTIER_PEOPLE,
   { id: 'shen', name: '沈秋', role: '丹商', goal: '卖掉筑基丹，为师弟换取续命药', publicGoal: '急于卖丹', place: 'market', stones: 40, links: ['bai', 'wei'] },
   { id: 'bai', name: '白芷', role: '药师', goal: '保住鉴丹声誉，不让假药流入坊市', publicGoal: '谨慎验药', place: 'market', stones: 300, links: ['shen', 'xu'] },
   { id: 'xu', name: '徐宁', role: '散修', goal: '赶在寿元关口前取得筑基丹', publicGoal: '寻找突破机会', place: 'market', stones: 230, links: ['bai', 'qing'] },
@@ -81,7 +85,7 @@ export function createGame() {
   return ensureNpcState(ensureGarden(ensureExploration(game)));
 }
 
-export const ACTIONS = ['ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
+export const ACTIONS = ['travel_region', 'ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
 
 export function dialogueFor(game, target) {
   const mind = game.society?.minds[target];
@@ -93,13 +97,15 @@ export function dialogueFor(game, target) {
 export function applyAction(source, action) {
   assertPeace(source);
   if (!action || !ACTIONS.includes(action.type)) throw new GameError('未识别的行动。可以试试「验丹」「调查货道」「找徐宁合资」。');
-  const game = structuredClone(source);
+  const game = ensureCampaign(structuredClone(source));
   game.ap = null;
   const type = action.type;
   const target = action.target;
   const participant = ACTION_DEFS.find(def => def.type === type)?.person;
   if (participant && type !== 'buy_pill' && game.people[participant].place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
   let result = '';
+  if (type === 'travel_region') return travelRegion(game, action.place || action.target);
+  if (ACTION_DEFS.find(def=>def.type===type)?.campaign) return {game,result:applyCampaignAction(game,type)};
   if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 
   switch (type) {
@@ -239,6 +245,7 @@ export function applyAction(source, action) {
     case 'travel_market': {
       const destination = type === 'travel_woods' ? WOODS : MARKET;
       if (game.player.place === destination) throw new GameError('你已经在这里。');
+      if(!REGIONS[game.player.place]?.neighbors.includes(destination)) throw new GameError('需要沿相邻区域的山道前行。');
       game.player.place = destination;
       note(game, '你', `前往${destination === WOODS ? '黑风林' : '地下坊市'}。`, [], 'player');
       result = destination === WOODS ? '你进入黑风林。寒沙正在附近观察来路。' : '你回到地下坊市。';
@@ -333,11 +340,12 @@ export function applyAction(source, action) {
     case 'breakthrough': {
       at(game, WOODS);
       if (game.flags.playerBreakthrough) throw new GameError('你已完成筑基。未了的承诺与因果仍可继续处理。');
-      hasPill(game, 'player');
+      if(!game.campaign.alternatePill)hasPill(game, 'player');
       if (game.player.hp < 60) throw new GameError('气血不足 60，强行突破会伤及根基。先在听雨亭调息。');
-      game.pill.owner = 'consumed';
+      const pillName=game.campaign.alternatePill?'归脉丹':'筑基丹';
+      if(game.campaign.alternatePill)game.campaign.alternatePill=false;else game.pill.owner = 'consumed';
       game.player.hp = Math.min(100, game.player.hp + 20);
-      game.flags.playerBreakthrough = note(game, '你', '在听雨亭服下筑基丹，灵气贯通经脉。你踏入筑基初期，旧日的承诺与仇怨仍留在身后。', [game.flags.pillSale || game.flags.attacked].filter(Boolean));
+      game.flags.playerBreakthrough = note(game, '你', `在听雨亭服下${pillName}，灵气贯通经脉。你踏入筑基初期，旧日的承诺与仇怨仍留在身后。`, [game.flags.pillSale || game.flags.attacked].filter(Boolean));
       result = `筑基已成。${game.flags.partnerDebt ? `与徐宁的 ${game.flags.partnerDebt} 灵石欠款仍未结清。` : '你可以继续观察这场机缘留下的因果。'}`;
       break;
     }
@@ -381,6 +389,7 @@ export function getView(game) {
     ...getCombatView(game),
     garden: getGardenView(game),
     society: societyView(game),
+    campaign: campaignView(game),
     turn: game.turn,
     ap: null,
     revision: game.revision || 0,
@@ -415,13 +424,17 @@ export function getView(game) {
     events: visible.map(e => ({ ...e, causes: e.causes.filter(id => visibleIds.has(id)) })).reverse(),
     outcome: game.flags.playerBreakthrough ? `筑基已成。${game.flags.partnerDebt ? '与徐宁的欠款仍待偿还。' : '这场机缘的因果仍将继续。'}` : pillOwner === 'player'
       ? game.flags.partnerDebt ? '筑基丹已入手；徐宁的合资承诺仍待履行。' : '筑基丹已入手。可以继续推进时间，观察人物的后续反应。'
-      : pillOwner === 'xu' ? '徐宁已取得筑基丹。本局机缘失手，可重开尝试另一条路线。' : ''
+      : pillOwner === 'xu' ? '徐宁已取得坊市筑基丹，机缘失手。道途未断：可在云渡药庐寻找归脉丹方，继续游历。' : ''
   };
 }
 
 export function parseLocal(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_COMMAND) throw new GameError('请输入 1～280 字的行动描述。');
   const input = text.trim();
+  const destination=Object.entries(REGIONS).find(([,region])=>input.includes(region.name));
+  if(destination && /前往|返回|去|到/.test(input))return {type:'travel_region',place:destination[0]};
+  const frontier = ACTION_DEFS.find(def=>def.campaign && input.includes(def.title));
+  if(frontier)return {type:frontier.type};
   if (/认主.*小绿瓶|寻.*小绿瓶/.test(input)) return { type: 'discover_bottle' };
   if (/炼.*息壤|扩建.*灵圃/.test(input)) return { type: 'buy_spirit_soil' };
   if (/收取.*灵草|收取.*灵圃|收获.*灵草/.test(input)) return { type: 'harvest_garden' };

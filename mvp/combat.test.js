@@ -123,7 +123,7 @@ test('斗法中禁止移动、推进时间及场外服丹；败退有明示代�
 });
 
 test('场外和未击败时不能获取储物袋，真气不足不能出招', () => {
-  assert.throws(() => act(createGame(), { type: 'start', enemyId: 'luohu' }), /黑风林/);
+  assert.throws(() => act(createGame(), { type: 'start', enemyId: 'luohu' }), /所在的区域/);
   const game = start(); game.exploration.battle.mana = 0;
   assert.throws(() => turn(game, 'skill', { skillId: 'qi_bolt' }), /真气不足/);
   const roaming = createGame(); roaming.player.place = 'woods';
