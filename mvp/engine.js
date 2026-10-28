@@ -1,3 +1,4 @@
+import { ensureNpcState, npcPublic, societyView, npcPosition, expireOffers } from './npc-state.js';
 import { ACTION_DEFS } from './content.js';
 import { GARDEN_ACTIONS, ensureGarden, applyGardenAction, advanceGarden, getGardenView } from './garden.js';
 import { GameError } from './errors.js';
@@ -71,58 +72,22 @@ export function createGame() {
     },
     events: []
   };
-  note(game, '邸报', '地下坊市传出消息：沈秋持有一枚筑基丹，开价 280 灵石。三旬之内，买家将陆续出手。');
+  note(game, '邸报', '地下坊市传出消息：沈秋持有一枚筑基丹，开价 280 灵石。几位修士各有打算，买家何时出手尚未可知。');
   know(game, 'shen', 'pill', 1);
   know(game, 'bai', 'pill', 1);
   know(game, 'xu', 'pill', 1);
   know(game, 'qing', 'pill', 1);
   know(game, 'wei', 'pill', 1);
-  return ensureGarden(ensureExploration(game));
+  return ensureNpcState(ensureGarden(ensureExploration(game)));
 }
 
 export const ACTIONS = ['ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
 
-const ASK_LINES = {
-  shen: '沈秋收起丹盒：「我急着换续命药，但丹药来路与你无关。」',
-  bai: '白芷低声说：「看药纹似乎是真丹。若要我落印鉴定，得当面验。」',
-  xu: '徐宁握着空药瓶：「我只剩一次筑基机会。若能合资，我愿承担一部分价钱。」',
-  lu: '陆执事说：「私售并非罪；若涉及禁运，我需要能核对的线索。」',
-  qing: '青闻笑道：「买卖做不成，消息也能值钱。不过凭证造假，迟早有人追查。」',
-  wei: '魏守按住剑柄：「我护的是雇主，不是丹药。出城之后也一样。」',
-  han: '寒沙眯眼望着林道：「黑风林的路，谁带着重宝，谁就要买平安。」',
-  ning: '宁素说：「昨夜运丹的脚夫走的是封禁货道，我认得那辆车。」'
-};
-
 export function dialogueFor(game, target) {
-  const { flags: f, people: p, pill } = game;
-  if (target === 'shen') {
-    if (p.shen.trust <= -30) return '沈秋把丹盒藏进袖中：「你的手段，我会记住。再来谈买卖，先想清楚自己做过什么。」';
-    if (f.tonicDelivered) return '沈秋松开了紧握的手：「师弟的续命药已经备好。这笔买卖，总算有了一个交代。」';
-    if (pill.owner !== 'shen') return '沈秋叹道：「丹已不在我手里。眼下，我更在意师弟的续命药何时能备好。」';
-    if (p.shen.place === WOODS) return '沈秋看了眼身旁的魏守：「按约来了。就在这里验货，别往林子深处走。」';
-    if (f.disputed) return '沈秋压低声音：「那张有毒鉴定来得蹊跷，可买家都信了。价钱能谈，不能让我血本无归。」';
-  }
-  if (target === 'bai') {
-    if (f.rumorDebunked) return '白芷敲了敲丹谱：「药纹没错，有毒的鉴定才是假货。我会查清印信是从哪里流出的。」';
-    if (f.tonicReady) return '白芷说：「你卖来的灵草已炼成续命药。药成不易，希望它能到真正需要的人手里。」';
-    if (game.player.clues.includes('authentic')) return '白芷指向你的鉴定符：「我的印记是真的。带给徐宁看，他不会再担心丹药品质。」';
-  }
-  if (target === 'xu') {
-    if (f.partnerDebt) return `徐宁看着你：「还欠我 ${f.partnerDebt} 灵石。说好共担机缘，也得记得兑现承诺。」`;
-    if (f.breakthrough) return '徐宁气息渐稳：「这道瓶颈终于过去了。可当初买丹的那些传闻，我还要查清楚。」';
-    if (pill.owner === 'xu') return '徐宁收好丹盒：「我已准备闭关。机缘不等人，只能自己去争。」';
-    if (p.xu.trust > 20) return '徐宁拱手：「你把该还的灵石都还清了。下次遇到机缘，我们还可以坐下来谈。」';
-  }
-  if (target === 'lu') {
-    if (p.lu.knowledge.ambush) return '陆执事注视着你：「魏守已经报案。黑风林里那场夺丹，坊市会继续追查。」';
-    if (pill.owner === 'lu') return '陆执事展开封条：「车号与时间已经核实。此丹以一百五十灵石公售，账目公开。」';
-    if (f.report) return '陆执事把证词压在玉牌下：「线索已收下。待下旬核验，你可来问结果。」';
-  }
-  if (target === 'wei' && f.attacked) return '魏守按剑道：「我认得你的招式。伤了人、夺了丹，就别指望事情到此为止。」';
-  if (target === 'han' && f.hanStalked) return '寒沙低声道：「丹商进林了，身边那把剑可不好对付。没有准备，最好别动歪心思。」';
-  if (target === 'ning' && f.rumorSpread) return '宁素攥着传音符：「消息已经传开。可真假一旦出了差错，收信的人总会回来追问源头。」';
-  if (target === 'ning' && game.player.clues.includes('smuggling')) return '宁素点头：「车号和时间我都给你了。若要执事出面，记得把完整证词递上去。」';
-  return ASK_LINES[target];
+  const mind = game.society?.minds[target];
+  if (mind?.speech) return mind.speech;
+  const person = game.people[target];
+  return `${person.name}正在观察局势。可直接和他交谈，了解打算。${target === 'xu' && game.flags.partnerDebt ? `你尚欠他 ${game.flags.partnerDebt} 灵石。` : ''}`;
 }
 
 export function applyAction(source, action) {
@@ -132,6 +97,8 @@ export function applyAction(source, action) {
   game.ap = null;
   const type = action.type;
   const target = action.target;
+  const participant = ACTION_DEFS.find(def => def.type === type)?.person;
+  if (participant && type !== 'buy_pill' && game.people[participant].place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
   let result = '';
   if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 
@@ -176,6 +143,7 @@ export function applyAction(source, action) {
       hasPill(game, 'shen');
       if (game.flags.partner || game.flags.partnerDebt) throw new GameError('你与徐宁的合资约定尚未结清。');
       if (!game.player.clues.includes('authentic')) throw new GameError('徐宁不愿盲目出资。先请白芷验丹。');
+      if (game.people.xu.stones < 100) throw new GameError('徐宁眼下拿不出 100 灵石，先与他商量其他办法。');
       game.people.xu.stones -= 100;
       game.player.stones += 100;
       game.flags.partner = true;
@@ -230,6 +198,7 @@ export function applyAction(source, action) {
     case 'sell_herbs': {
       at(game, MARKET);
       if (!game.player.herbs) throw new GameError('你的药草已经卖出。');
+      if (game.people.bai.stones < 80) throw new GameError('白芷当前灵石不足，暂时无法收购。');
       game.player.herbs -= 1;
       game.player.stones += 80;
       game.people.bai.stones -= 80;
@@ -254,16 +223,16 @@ export function applyAction(source, action) {
       const id = note(game, '你', '你把宁素的车号和时间交给陆执事，要求查验沈秋所售的丹药。', [], 'player');
       game.flags.report = id;
       know(game, 'lu', 'smuggling', id);
-      result = '陆执事收下证词，下旬会查验。';
+      result = '证词已经递交给陆执事，查验时机由他自行决定。';
       break;
     }
     case 'lure': {
       at(game, MARKET);
       hasPill(game, 'shen');
-      if (game.flags.lured) throw new GameError('沈秋已答应在黑风林验货。');
+      if (game.flags.lured) throw new GameError('你已向沈秋提出林中验货的邀请，留意他的回应。');
       game.flags.lured = note(game, '你', '你以避开坊市耳目为由，约沈秋下旬在黑风林验货。', [], 'player');
       know(game, 'shen', 'woods_meeting', game.flags.lured);
-      result = '沈秋答应赴约。先到黑风林准备，推进一旬后他会抵达。';
+      result = '你向沈秋提出林中会面的邀请。他会根据自身处境决定是否赴约，留意后续动向。';
       break;
     }
     case 'travel_woods':
@@ -287,7 +256,7 @@ export function applyAction(source, action) {
     case 'ambush': {
       at(game, WOODS);
       hasPill(game, 'shen');
-      if (game.people.shen.place !== WOODS) throw new GameError('沈秋不在黑风林。可以先约他出城，再推进一旬。');
+      if (game.people.shen.place !== WOODS) throw new GameError('沈秋不在黑风林。可以先邀请他出城，但是否赴约由他自己决定。');
       if (!game.flags.trap) {
         game.player.hp = Math.max(1, game.player.hp - 35);
         game.people.shen.trust -= 30;
@@ -325,7 +294,7 @@ export function applyAction(source, action) {
       game.flags.forged = note(game, '你', '你伪造“筑基丹有毒”的鉴定符，交给宁素传播。', [], 'player');
       know(game, 'ning', 'poison_rumor', game.flags.forged);
       know(game, 'ning', 'rumor_source_player', game.flags.forged);
-      result = '假鉴定已交给宁素。推进一旬后，坊市会出现反应。';
+      result = '假鉴定已交给宁素。是否传开、谁会相信或查验，取决于各人的后续选择。';
       break;
     }
     case 'honor_partner': {
@@ -376,49 +345,11 @@ export function applyAction(source, action) {
   return { game, result };
 }
 
-function spreadKnowledge(game, from, fact, to, cause) {
-  if (!game.people[from].knowledge[fact] || game.people[to].knowledge[fact]) return;
-  know(game, to, fact, cause);
-}
-
 export function advanceTurn(source) {
   assertPeace(source);
   const game = structuredClone(source);
   game.turn += 1;
   game.ap = null;
-  const started = game.events.length;
-
-  // 宁素只传递自己确实收到的消息，消息来源留在事件账本中。
-  if (game.people.ning.knowledge.poison_rumor && !game.flags.rumorSpread) {
-    const cause = game.people.ning.knowledge.poison_rumor;
-    const id = note(game, '宁素', '宁素将“筑基丹有毒”的鉴定符传给白芷和徐宁，坊市开始议论。', [cause]);
-    spreadKnowledge(game, 'ning', 'poison_rumor', 'bai', id);
-    spreadKnowledge(game, 'ning', 'poison_rumor', 'xu', id);
-    game.flags.rumorSpread = id;
-  }
-
-  // 药师先暂停背书；到下一旬再核验，形成可操作的短暂信息差。
-  if (game.people.bai.knowledge.poison_rumor && !game.flags.disputed && !game.flags.rumorDebunked) {
-    game.flags.disputed = true;
-    note(game, '白芷', '白芷暂停为筑基丹背书，等待重新核验。', [game.flags.rumorSpread]);
-  } else if (game.flags.disputed && game.turn >= source.turn + 1 && game.turn >= 3 && !game.flags.rumorDebunked) {
-    game.flags.rumorDebunked = note(game, '白芷', '白芷核对药纹，确认“有毒鉴定”是伪造的，开始寻找鉴定印来源。', [game.flags.rumorSpread]);
-    game.flags.disputed = false;
-    know(game, 'bai', 'forged_rumor', game.flags.rumorDebunked);
-    spreadKnowledge(game, 'bai', 'forged_rumor', 'lu', game.flags.rumorDebunked);
-  }
-
-  if (game.flags.report && game.pill.owner === 'shen') {
-    game.pill.owner = 'lu';
-    game.flags.auction = true;
-    game.people.shen.trust -= 15;
-    note(game, '陆执事', '陆执事核对车号，查封私售的筑基丹，定价 150 灵石公开转售。沈秋怀疑此事与你有关。', [game.flags.report]);
-  }
-
-  if (game.flags.herbSale && !game.flags.tonicReady) {
-    game.flags.tonicReady = note(game, '白芷', '白芷用收来的灵草炼好续命药，等沈秋筹足灵石便可交货。', [game.flags.herbSale]);
-  }
-
   if (game.flags.partner && game.pill.owner === 'shen' && game.turn > game.flags.partnerDeadline) {
     game.flags.partner = false;
     if (game.player.stones >= 100) {
@@ -433,72 +364,10 @@ export function advanceTurn(source) {
     }
   }
 
-  if (game.flags.partner && game.pill.owner === 'shen' && !game.flags.sellerReserved) {
-    game.flags.sellerReserved = true;
-    know(game, 'shen', 'player_funded', game.flags.partnerEvent);
-    note(game, '沈秋', '沈秋得知你与徐宁已经筹款，暂缓寻找别的买家，等你前来交易。', [game.flags.partnerEvent]);
-  }
-
-  if (game.flags.lured && game.pill.owner === 'shen' && game.people.shen.place === MARKET) {
-    game.people.shen.place = WOODS;
-    game.people.wei.place = WOODS;
-    note(game, '沈秋', '沈秋带丹药与魏守前往黑风林赴约。', [game.flags.lured]);
-  } else if (game.pill.owner === 'shen' && game.flags.disputed && game.pill.price !== 210) {
-    game.pill.price = 210;
-    note(game, '沈秋', '鉴定传闻使买家退缩，急需灵石的沈秋把丹药降至 210 灵石。', [game.flags.rumorSpread]);
-  }
-
-  if (game.pill.owner === 'shen' && game.people.shen.place === MARKET) {
-    if (game.people.xu.stones >= game.pill.price && !game.flags.partner) {
-      game.people.xu.stones -= game.pill.price;
-      game.people.shen.stones += game.pill.price;
-      game.pill.owner = 'xu';
-      game.flags.xuBought = note(game, '徐宁', `徐宁为求突破，以 ${game.pill.price} 灵石买下筑基丹。`, game.flags.rumorSpread ? [game.flags.rumorSpread] : [1]);
-    } else if (!game.flags.partner && !game.flags.xuLoan) {
-      const loan = game.pill.price - game.people.xu.stones;
-      if (loan > 0 && loan <= 80 && game.people.qing.stones >= loan) {
-        game.people.qing.stones -= loan;
-        game.people.xu.stones += loan;
-        game.flags.xuLoan = loan;
-        note(game, '青闻', `青闻借给徐宁 ${loan} 灵石，押他突破后偿还。`, [1]);
-      }
-    }
-  }
-
-  if (game.pill.owner === 'xu' && game.flags.xuBought && !game.flags.breakthrough && game.turn >= game.events.find(e => e.id === game.flags.xuBought).turn + 1) {
-    game.flags.breakthrough = note(game, '徐宁', '徐宁服丹闭关，终于突破瓶颈；他开始回看买丹时听过的传闻。', [game.flags.xuBought]);
-    game.people.xu.condition = '筑基初期';
-  }
-  if (game.flags.tonicReady && !game.flags.tonicDelivered && game.people.shen.stones >= 100 && game.pill.owner !== 'shen') {
-    game.people.shen.stones -= 100;
-    game.people.bai.stones += 100;
-    game.flags.tonicDelivered = true;
-    game.people.shen.condition = '已为师弟备药';
-    note(game, '沈秋', '沈秋用卖丹所得向白芷买下续命药，终于能救治师弟。', [game.flags.tonicReady, game.flags.pillSale || game.flags.xuBought]);
-  }
-  if (game.flags.breakthrough && game.flags.rumorDebunked && !game.flags.exposed && game.people.ning.knowledge.rumor_source_player) {
-    game.flags.exposed = true;
-    game.people.xu.trust -= 40;
-    note(game, '宁素', '宁素在追问下承认鉴定符由你交给她。徐宁得知你是造谣者，决定追查当年的差价。', [game.flags.rumorDebunked, game.flags.forged]);
-  }
-
-  if (game.flags.attacked && (game.pill.owner === 'player' || game.flags.playerBreakthrough) && !game.people.lu.knowledge.ambush) {
-    const id = note(game, '魏守', '魏守向陆执事报案，描述黑风林的夺丹者。坊市对你的警惕上升。', [game.flags.attacked]);
-    know(game, 'lu', 'ambush', id);
-    game.player.reputation = Math.max(0, game.player.reputation - 10);
-  }
-  if (game.people.shen.place === WOODS && game.pill.owner === 'shen' && !game.flags.hanStalked) {
-    note(game, '寒沙', '寒沙发现沈秋带丹入林，开始暗中尾随，但忌惮同行的魏守。', [game.flags.lured]);
-    game.flags.hanStalked = true;
-  }
-  if (game.flags.partnerDebt && (game.pill.owner === 'player' || game.flags.playerBreakthrough) && !game.flags.partnerDemanded) {
-    game.flags.partnerDemanded = true;
-    note(game, '徐宁', `徐宁提醒你：合资承诺中的 ${game.flags.partnerDebt} 灵石还未结清。`);
-  }
-
+  expireOffers(game);
   advanceGarden(game);
   game.player.hp = Math.min(100, game.player.hp + 5);
-  return { game, result: `进入第 ${game.turn} 旬。${game.events.length - started} 条新动向写入因果账本。` };
+  return { game, result: `进入第 ${game.turn} 旬。灵圃与既有约定已结算；人物动向由各自 Agent 决定。` };
 }
 
 export function getView(game) {
@@ -511,6 +380,7 @@ export function getView(game) {
   return {
     ...getCombatView(game),
     garden: getGardenView(game),
+    society: societyView(game),
     turn: game.turn,
     ap: null,
     revision: game.revision || 0,
@@ -526,6 +396,7 @@ export function getView(game) {
       id: p.id, name: p.name, role: p.role, goal: p.publicGoal,
       place: game.people[p.id].place, condition: game.people[p.id].condition,
       trust: game.people[p.id].trust,
+      agent: npcPublic(game, p.id), position: npcPosition(game, p.id, game.people[p.id].place),
       greeting: dialogueFor(game, p.id),
       dialogue: game.player.dialogues?.[p.id] || null,
       memories: visible.filter(e => e.actor === p.name || e.text.includes(p.name)).slice(-3).map(e => ({ turn: e.turn, text: e.text, id: e.id }))

@@ -443,7 +443,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     if (typeof target === 'object') return target;
     if (target === 'gate') return { kind: 'gate', name: place === MARKET ? '黑风林' : '地下坊市', place: place === MARKET ? WOODS : MARKET };
     const person = view && [...view.people,...view.roamers].find(p => p.id === target && !p.looted);
-    if (person) { const [x,z] = positionFor(target, person.place); return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x, z }; }
+    if (person) { const [x,z] = person.position || positionFor(target, person.place); return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x, z }; }
     if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: WOODS, x, z }; }
     return null;
   }
@@ -553,7 +553,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     terrain.arrayRing.material.transparent = true;
     for (const person of [...nextView.people,...nextView.roamers]) {
       const actor = people[person.id];
-      const spot = positionFor(person.id, person.place);
+      const spot = person.position || positionFor(person.id, person.place);
       actor.userData.destination = new THREE.Vector3(spot[0], 0, spot[1]);
       if (!actor.userData.initialized) {
         actor.position.copy(actor.userData.destination);

@@ -23,17 +23,17 @@ export const ITEMS = {
 };
 
 export const WANDERERS = [
-  { id: 'luohu', name: '罗槐', role: '落魄剑修', realm: '炼气六层', spot: [7, 2], color: '#aabb8b', hp: 66, attack: 11, defense: 1, escape: 0.7, pattern: ['attack', 'heavy', 'guard'],
-    bio: '守着入林的小径磨剑，腰间的储物袋露出一角剑谱。招式凌厉，蓄力时却有破绽。', quote: '想带走我的剑谱？先接住我的剑。',
+  { id: 'luohu', name: '罗槐', role: '落魄剑修', realm: '炼气六层', spot: [7, 2], color: '#aabb8b', hp: 66, attack: 11, defense: 1, escape: 0.7,
+    bio: '守着入林的小径磨剑，腰间的储物袋露出一角剑谱。他会根据交锋形势选择攻守。', quote: '想带走我的剑谱？先接住我的剑。',
     loot: { stones: 28, herbs: 1, items: { green_sword: 1, wind_manual: 1, healing_pill: 2 } } },
-  { id: 'suqin', name: '苏芩', role: '采药散修', realm: '炼气八层', spot: [12, -7], color: '#8dbb9e', hp: 84, attack: 14, defense: 2, escape: 0.6, pattern: ['attack', 'heal', 'heavy'],
-    bio: '药篓里藏着青藤杖与回春玉简。擅长恢复伤势，持久周旋并非上策。', quote: '黑风林的灵草各凭本事。道友若执意争夺，便请出招。',
+  { id: 'suqin', name: '苏芩', role: '采药散修', realm: '炼气八层', spot: [12, -7], color: '#8dbb9e', hp: 84, attack: 14, defense: 2, escape: 0.6,
+    bio: '药篓里藏着青藤杖与回春玉简。懂得回春法术，珍视自己的药篓。', quote: '黑风林的灵草各凭本事。道友若执意争夺，便请出招。',
     loot: { stones: 35, herbs: 3, items: { vine_staff: 1, spring_manual: 1, healing_pill: 2, binding_array: 1 } } },
-  { id: 'peijin', name: '裴烬', role: '游火丹修', realm: '炼气九层', spot: [21, -2], color: '#d69776', hp: 106, attack: 17, defense: 2, escape: 0.5, pattern: ['heavy', 'attack', 'guard'],
+  { id: 'peijin', name: '裴烬', role: '游火丹修', realm: '炼气九层', spot: [21, -2], color: '#d69776', hp: 106, attack: 17, defense: 2, escape: 0.5,
     bio: '赤炎剑与丹瓶悬在腰侧。离火蓄势凶猛，先守后攻或用阵盘打断更稳妥。', quote: '我的离火可不认人。真要斗法，就别后悔。',
     loot: { stones: 48, herbs: 2, items: { flame_sword: 1, fire_manual: 1, healing_pill: 2, spirit_pill: 2, thunder_array: 1 } } },
-  { id: 'mochi', name: '墨迟', role: '阵道散修', realm: '炼气圆满', spot: [20, 7], color: '#aea0cc', hp: 132, attack: 20, defense: 4, escape: 0.4, pattern: ['guard', 'heavy', 'attack', 'heavy'],
-    bio: '雷纹刃映着阵盘的微光。攻守交替，护体时不要浪费最强功法。建议备齐丹药再挑战。', quote: '走进这片阵纹之前，先想好退路。',
+  { id: 'mochi', name: '墨迟', role: '阵道散修', realm: '炼气圆满', spot: [20, 7], color: '#aea0cc', hp: 132, attack: 20, defense: 4, escape: 0.4,
+    bio: '雷纹刃映着阵盘的微光。会权衡护体、蓄势与疗伤。建议备齐丹药再挑战。', quote: '走进这片阵纹之前，先想好退路。',
     loot: { stones: 70, herbs: 2, items: { thunder_blade: 1, thunder_manual: 1, spirit_pill: 2, binding_array: 2, thunder_array: 2 } } }
 ];
 

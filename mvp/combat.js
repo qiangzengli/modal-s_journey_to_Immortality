@@ -1,3 +1,4 @@
+import { npcPublic, npcPosition, npcWallet, ensureNpcState, withdrawNpcOffers } from './npc-state.js';
 import { GameError } from './errors.js';
 import { ITEMS, SKILLS, WANDERERS, lootEntries } from './combat-data.js';
 
@@ -12,7 +13,7 @@ export function assertPeace(game) {
   if (game.exploration?.battle?.status === 'active') throw new GameError('斗法尚未结束，请先决出胜负或尝试逃跑。');
 }
 const enemyById = id => WANDERERS.find(enemy => enemy.id === id);
-const intentFor = (enemy, round) => enemy.pattern[(round - 1) % enemy.pattern.length];
+const intentFor = battle => battle.agentIntent || 'attack';
 const intentNames = { attack: '试探进攻', heavy: '蓄力重击', guard: '护体守势', heal: '运功疗伤' };
 function writeEvent(game, text) {
   game.events.push({ id: game.nextId++, turn: game.turn, actor: '黑风林', text, causes: [], scope: 'player' });
@@ -55,18 +56,21 @@ export function combatAction(source, input, random = Math.random) {
     const record = enemy && state.enemies[enemy.id];
     if (game.player.place !== 'woods' || !record?.defeated) throw new GameError('请先在黑风林击败此人，再拾取储物袋。');
     if (record.looted) throw new GameError('这个储物袋已经取空。');
-    game.player.stones += enemy.loot.stones;
+    ensureNpcState(game);
+    const loot = { ...enemy.loot, stones: npcWallet(game, enemy.id).stones };
+    game.player.stones += loot.stones;
+    npcWallet(game, enemy.id).stones = 0;
     game.player.herbs += enemy.loot.herbs;
     for (const [id, amount] of Object.entries(enemy.loot.items)) state.inventory[id] = (state.inventory[id] || 0) + amount;
     record.looted = true;
     if (battle?.enemyId === enemy.id) state.battle = null;
-    const result = `收起${enemy.name}的储物袋：${lootEntries(enemy.loot).map(item => `${item.name} ×${item.quantity}`).join('、')}。`;
+    const result = `收起${enemy.name}的储物袋：${lootEntries(loot).map(item => `${item.name} ×${item.quantity}`).join('、')}。`;
     writeEvent(game, result);
     return { game, result };
   }
   if (input.type !== 'turn' || !battle || battle.status !== 'active') throw new GameError('当前没有可继续的斗法。');
   const enemy = enemyById(battle.enemyId);
-  const intent = intentFor(enemy, battle.round);
+  const intent = intentFor(battle);
   const lines = [];
   const log = (side, text) => { lines.push(text); battle.log.push({ round: battle.round, side, text }); };
   const damage = (power, pierce = false) => Math.max(1, Math.round((power - (pierce ? 0 : enemy.defense)) * (0.9 + random() * 0.2) * (intent === 'guard' ? 0.45 : 1)));
@@ -129,6 +133,7 @@ export function combatAction(source, input, random = Math.random) {
   if (usedSkill) battle.cooldowns[usedSkill] = SKILLS[usedSkill].cooldown;
   if (battle.enemyHp === 0) {
     state.enemies[enemy.id] = { defeated: true, looted: false };
+    withdrawNpcOffers(game, enemy.id);
     log('world', `${enemy.name}败退，储物袋掉落在林道上。`);
     finish(game, 'won', `你击败了${enemy.name}，对方遗落了储物袋。`);
   } else {
@@ -184,9 +189,9 @@ export function getCombatView(game) {
   const state = game.exploration || createExploration();
   const battle = state.battle;
   const enemy = battle && enemyById(battle.enemyId);
-  const intent = enemy && intentFor(enemy, battle.round);
+  const intent = enemy && intentFor(battle);
   return {
-    roamers: WANDERERS.map(enemy => ({ ...enemy, place: 'woods', ...state.enemies[enemy.id], loot: lootEntries(enemy.loot) })),
+    roamers: WANDERERS.map(enemy => ({ ...enemy, place: 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
     inventory: Object.entries(state.inventory).filter(([,n]) => n > 0).map(([id, quantity]) => ({ id, ...ITEMS[id], quantity, equipped: state.weapon === id, learned: state.learned.includes(ITEMS[id].skill) })),
     skills: state.learned.map(id => ({ id, ...SKILLS[id], remaining: battle?.cooldowns[id] || 0 })),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },

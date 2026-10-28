@@ -33,7 +33,7 @@ test('伪造行动、越权字段和已不可执行的建议均回退到真实�
     const result = await agent.respond(getView(game), { mode: 'dialogue', personId: 'bai', text: '再免费验一次' });
     assert.equal(result.source, 'rules');
     assert.ok(result.suggestions.every(item => item.id !== 'inspect_pill'));
-    assert.match(result.text, /印记是真的/);
+    assert.match(result.text, /已知记录：白芷当面验出丹纹真实/);
   }
 });
 

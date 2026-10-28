@@ -9,6 +9,10 @@ import { agentContext, createStoryAgent, createAgentModel } from './story-agent.
 import { createModelClient } from './model-client.js';
 import { gameModelConfig } from './game-model.js';
 import { createRoutePlanner } from './route-planner.js';
+import { ensureNpcState, remember, contractAction } from './npc-state.js';
+import { createSocietyAgent, applySocietyDecisions } from './npc-agent.js';
+import { planEnemyTurn } from './npc-combat-agent.js';
+import { createWorldClock } from './world-clock.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const savePath = process.env.SAVE_PATH || join(root, '.data', 'save.json');
@@ -21,6 +25,17 @@ const storyAgent = createStoryAgent({ modelName, generate: modelEnabled ? create
 const routePlanner = createRoutePlanner({ modelName, generate: modelEnabled ? messages => completeAction(messages, { temperature: .65, maxTokens: 2600 }) : null });
 let game;
 let locked = false;
+const societyAgent = createSocietyAgent({ generate: modelEnabled ? messages => completeAction(messages, { temperature: .7, maxTokens: 3400 }) : null });
+const worldClock = createWorldClock({
+  getGame: () => game, modelEnabled, isLocked: () => locked,
+  decide: snapshot => societyAgent.decide(snapshot), apply: applySocietyDecisions,
+  commit: async (snapshot, outcome) => {
+    if (locked || game !== snapshot) return false;
+    locked = true;
+    try { outcome.game.revision = (game.revision || 0) + 1; await saveGame(outcome.game); game = outcome.game; return true; }
+    finally { locked = false; }
+  }
+});
 
 async function loadGame() {
   try {
@@ -30,7 +45,7 @@ async function loadGame() {
       saved.flags.playerBreakthrough ??= 0;
       saved.revision ??= 0;
       saved.ap = null;
-      return ensureGarden(ensureExploration(saved));
+      return ensureNpcState(ensureGarden(ensureExploration(saved)));
     }
   } catch (error) {
     if (error.code !== 'ENOENT') console.warn('存档未能读取，已开始新局：', error.message);
@@ -112,6 +127,7 @@ const files = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/garden-ui.js': ['garden-ui.js', 'text/javascript; charset=utf-8'],
   '/garden-world.js': ['garden-world.js', 'text/javascript; charset=utf-8'],
+  '/society-ui.js': ['society-ui.js', 'text/javascript; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/world.js': ['world.js', 'text/javascript; charset=utf-8'],
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
@@ -145,7 +161,44 @@ async function handle(req, res) {
     return;
   }
   if (req.method === 'GET' && path === '/api/state') {
-    json(res, 200, { view: getView(game), modelName });
+    json(res, 200, { view: getView(game), modelName, clock: worldClock.view() });
+    return;
+  }
+  if (req.method === 'POST' && ['/api/world/pulse', '/api/world/step', '/api/npc/dialogue'].includes(path)) {
+    if (!req.headers['content-type']?.startsWith('application/json')) { json(res, 415, { error: '请求必须使用 application/json。' }); return; }
+    try {
+      const input = await body(req, 8192);
+      if (path === '/api/world/pulse') {
+        if (typeof input.engaged !== 'boolean') throw new GameError('请提供交互状态。');
+        const clock = worldClock.pulse(input.engaged);
+        json(res, 200, { view: getView(game), modelName, clock }); return;
+      }
+      if (!Number.isSafeInteger(input.expectedRevision)) throw new GameError('请携带当前局势版本。');
+      const snapshot = game;
+      if (input.expectedRevision !== (game.revision || 0)) { json(res, 409, { error: '局势已变化，请重新选择。', view: getView(game), modelName }); return; }
+      if (path === '/api/world/step') {
+        const advanced = await worldClock.step(true);
+        json(res, 200, { view: getView(game), modelName, clock: worldClock.view(), advanced }); return;
+      }
+      worldClock.hold();
+      const personId = input.personId;
+      if (typeof personId !== 'string' || !Object.hasOwn(game.society.minds, personId)) throw new GameError('请选择有效的人物。');
+      const mind = game.society.minds[personId];
+      const view = getView(snapshot);
+      // 私人目标只交给当前扮演的人物，客户端历史不是已发生事实。
+      const reply = await storyAgent.respond({ ...view, agentSelf: mind ? { goal: mind.goal, temperament: mind.temperament, memories: mind.memories } : null }, { ...input, mode: 'dialogue', history: mind?.conversation.slice(-6) || [] });
+      if (game !== snapshot || locked) { json(res, 409, { error: '交谈期间局势变化，请重新交谈。', view: getView(game), modelName }); return; }
+      if (reply.source !== 'model') { json(res, 200, { ...reply, revision: game.revision, view, modelName }); return; }
+      const next = structuredClone(game);
+      const nextMind = next.society.minds[personId];
+      nextMind.conversation.push({ role: 'user', text: input.text.trim() }, { role: 'assistant', text: reply.text });
+      nextMind.conversation = nextMind.conversation.slice(-10);
+      remember(next, personId, `玩家说：「${input.text.trim()}」；我回应：「${reply.text}」`, 'conversation');
+      locked = true;
+      try { next.revision = (game.revision || 0) + 1; await saveGame(next); game = next; worldClock.changed(); }
+      finally { locked = false; }
+      json(res, 200, { ...reply, revision: game.revision, view: getView(game), modelName });
+    } catch (error) { json(res, error instanceof GameError ? 400 : 500, { error: error instanceof GameError ? error.message : '人物暂未完成回应，请稍后重试。' }); }
     return;
   }
   // 叙事请求不占用行动锁，也不写存档；模型等待期间可以继续游戏。
@@ -165,7 +218,7 @@ async function handle(req, res) {
     }
     return;
   }
-  if (req.method !== 'POST' || !['/api/action', '/api/command', '/api/combat', '/api/inventory', '/api/advance', '/api/reset'].includes(path)) {
+  if (req.method !== 'POST' || !['/api/action', '/api/command', '/api/combat', '/api/inventory', '/api/advance', '/api/reset', '/api/contracts', '/api/world/control'].includes(path)) {
     json(res, 404, { error: '找不到页面或接口。' });
     return;
   }
@@ -177,6 +230,7 @@ async function handle(req, res) {
   locked = true;
   try {
     const input = await body(req);
+    if (['/api/contracts', '/api/world/control'].includes(path) && !Number.isSafeInteger(input.expectedRevision)) throw new GameError('请携带当前局势版本。');
     if (input.expectedRevision !== undefined && input.expectedRevision !== (game.revision || 0)) {
       json(res, 409, { error: '存档已在另一页面更新，已同步最新局势，请重新选择行动。', view: getView(game), modelName });
       return;
@@ -186,7 +240,16 @@ async function handle(req, res) {
     let actionType = input.type || path.split('/').at(-1);
     if (path === '/api/reset') outcome = { game: createGame(), result: '新的一局开始了。' };
     else if (path === '/api/advance') outcome = advanceTurn(game);
-    else if (path === '/api/combat') outcome = combatAction(game, input);
+    else if (path === '/api/contracts') outcome = contractAction(game, input);
+    else if (path === '/api/world/control') {
+      if (typeof input.paused !== 'boolean') throw new GameError('请选择暂停或继续世界演化。');
+      const next = structuredClone(game); next.society.paused = input.paused;
+      outcome = { game: next, result: input.paused ? '世界演化已暂停，你仍可自由行动。' : '世界恢复自主演化。' };
+    }
+    else if (path === '/api/combat') {
+      outcome = combatAction(game, input);
+      if (['start', 'turn'].includes(input.type)) await planEnemyTurn(outcome.game, completeAction);
+    }
     else if (path === '/api/inventory') outcome = inventoryAction(game, input);
     else if (path === '/api/command') {
       const parsed = await modelAction(input.text);
@@ -198,6 +261,7 @@ async function handle(req, res) {
     outcome.game.revision = (game.revision || 0) + 1;
     await saveGame(outcome.game);
     game = outcome.game;
+    if (path === '/api/reset') worldClock.reset(); else worldClock.changed();
     json(res, 200, { view: getView(game), result: outcome.result, modelName, parserSource, actionType });
   } catch (error) {
     const expected = error instanceof GameError;

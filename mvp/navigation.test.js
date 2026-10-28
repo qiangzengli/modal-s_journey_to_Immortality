@@ -60,6 +60,15 @@ test('路径不可达或跨区失败时，不触发目标交互', async () => {
   }
 });
 
+test('NPC在寻路期间移动或离场，不在旧位置触发交互', async () => {
+  for (const change of [goal => ({ ...goal, x: goal.x + 3 }), goal => ({ ...goal, place: 'woods' }), () => null]) {
+    let goal = { name: '白芷', kind: 'person', place: 'market', x: -20, z: 0 };
+    const { navigator, visits } = setup({ locate: () => goal, walk: async () => { goal = change(goal); return true; } });
+    assert.equal(await navigator.go('bai'), false);
+    assert.deepEqual(visits, []);
+  }
+});
+
 test('过门动画中改选目标，动画结束后只继续最新目标', async () => {
   let place = 'market';
   let transition;

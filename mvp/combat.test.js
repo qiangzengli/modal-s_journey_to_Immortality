@@ -39,6 +39,7 @@ test('回合由玩家选择推进；真气、功法冷却和敌方反击正确�
   assert.equal(game.exploration.battle.cooldowns.qi_bolt, 1);
   assert.equal(game.exploration.battle.round, 2);
   assert.throws(() => turn(game, 'skill', { skillId: 'qi_bolt' }), /冷却/);
+  game.exploration.battle.agentIntent = 'heavy'; // Agent 选择重击后的确定性结算
   game = turn(game, 'guard');
   assert.equal(game.player.hp, 82);
   assert.equal(game.exploration.battle.mana, 36);

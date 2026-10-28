@@ -13,7 +13,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
     pendingQuestion = null;
   }
   async function request(input, signal) {
-    const response = await fetch('/api/agent', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+    const response = await fetch('/api/npc/dialogue', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
     const data = await response.json();
     if (!response.ok) {
       if (response.status === 409 && data.view) onStale(data);
@@ -23,10 +23,11 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   }
   function drawChat() {
     const { view, personId } = getState();
-    const person = view?.people.find(person => person.id === personId);
+    const person = view && [...view.people,...view.roamers.filter(person=>!person.defeated)].find(person => person.id === personId);
     $('#agent-dialogue').hidden = !person || Boolean(view.battle);
     if (!person) return;
     const thread = getThread(personId);
+    if (!chatPending && person.agent?.conversation?.length && !thread.messages.length) thread.messages = person.agent.conversation.map(message=>({...message}));
     $('#agent-chat-log').innerHTML = thread.messages.map(message => `<p class="agent-message ${message.role}"><small>${message.role === 'user' ? '你' : esc(person.name)}</small>${esc(message.text)}</p>`).join('') || '<p class="agent-empty">问一问缘由、试探动机，或商量下一步。交谈不会直接完成任务。</p>';
     $('#agent-chat-source').textContent = chatPending ? `${person.name}正在斟酌…` : thread.reply ? sourceText(thread.reply) : '人物交谈';
     $('#agent-chat-source').title = thread.reply?.modelName || '';
@@ -50,7 +51,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   }
   async function talk(text) {
     const { view, personId, plan, busy } = getState();
-    if (chatPending || busy || view?.battle || !view?.people.some(person => person.id === personId) || !text.trim()) return;
+    if (chatPending || busy || view?.battle || ![...(view?.people||[]),...(view?.roamers||[]).filter(person=>!person.defeated)].some(person => person.id === personId) || !text.trim()) return;
     const thread = getThread(personId), ticket = ++chatRequest, history = thread.messages.slice(-6);
     chatController?.abort(); chatController = new AbortController(); chatPending = true;
     const message = { role: 'user', text: text.trim() };
@@ -67,6 +68,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
       thread.reply = reply; thread.revision = reply.revision;
       pendingQuestion = null;
       $('#agent-chat-input').value = '';
+      if (reply.view) { lastRevision = reply.revision; chatPending = false; onStale({view:reply.view,modelName:reply.modelName}); }
     } catch (error) {
       if (ticket === chatRequest) { discardPendingQuestion(); if (error.name !== 'AbortError') $('#agent-chat-error').textContent = error.message; }
     } finally {
@@ -86,6 +88,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   });
   return {
     personChanged, talk,
+    isPending:()=>chatPending,
     reset() { discardPendingQuestion(); threads.clear(); chatRequest++; chatController?.abort(); chatPending = false; }
   };
 }

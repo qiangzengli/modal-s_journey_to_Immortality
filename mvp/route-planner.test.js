@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, applyAction, advanceTurn } from './engine.js';
+import { applyNpcEffect } from './npc-effects.js';
 import { plannerContext, previewPlan, createRoutePlanner } from './route-planner.js';
 
 const action = type => ({ type });
@@ -22,14 +23,13 @@ test('模型自由组合完整路线，动态报价和跨区采草可执行，�
     return response([buyByOffer, gatherThenBuy, reportThenBuy]);
   }, modelName: 'deepseek-v4-flash' });
   const result = await planner.respond(game, { text: '不借贷不动武' });
-  assert.equal(result.source, 'model'); assert.equal(result.plans.length, 3);
-  assert.deepEqual(result.plans.map(plan => plan.title), ['卖草当面议价', '入林自筹不借贷', '证词核验后公售']);
+  assert.equal(result.source, 'model'); assert.equal(result.plans.length, 2);
+  assert.deepEqual(result.plans.map(plan => plan.title), ['卖草当面议价', '入林自筹不借贷']);
   assert.equal(result.plans[0].forecast.stones, 20);
   assert.equal(result.plans[1].forecast.stones, 60);
   assert.equal(result.plans[1].steps[0].travel, '先前往黑风林');
   assert.equal(result.plans[1].steps[1].travel, '先前往地下坊市');
-  assert.equal(result.plans[2].forecast.turns, 1);
-  assert.equal(result.plans[2].steps.at(-1).target, 'lu');
+  assert.throws(() => previewPlan(game, reportThenBuy), /invalid_plan_action/); // 不能预言执事的自主选择
   assert.deepEqual(game, original);
 });
 
@@ -76,6 +76,7 @@ test('不借贷和不动武是明确限制，模型不能用备选方案绕过',
 test('方案随局势收缩，公售可一步取丹；已得丹、已失手与离线不再虚构方案', async () => {
   let game = applyAction(createGame(), action('investigate_route')).game;
   game = advanceTurn(applyAction(game, action('report')).game).game;
+  game = applyNpcEffect(game, 'lu', 'investigate_report');
   const planner = createRoutePlanner({ generate: async () => response([proposal('直接赴公售', [action('buy_pill')])]) });
   const result = await planner.respond(game);
   assert.equal(result.plans.length, 1); assert.equal(result.plans[0].steps.length, 1);
@@ -87,7 +88,7 @@ test('方案随局势收缩，公售可一步取丹；已得丹、已失手与�
   assert.equal(padded.plans.length, 1);
   game = applyAction(game, action('buy_pill')).game;
   assert.equal((await planner.respond(game)).reason, 'complete');
-  const lost = advanceTurn(advanceTurn(createGame()).game).game;
+  const lost = applyNpcEffect(applyNpcEffect(createGame(), 'qing', 'lend_stones'), 'xu', 'buy_pill');
   assert.equal((await planner.respond(lost)).reason, 'unavailable_goal');
   assert.equal((await createRoutePlanner().respond(createGame())).reason, 'offline');
 });

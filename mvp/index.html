@@ -12,6 +12,7 @@
     <div class="resource-strip"><span class="realm-chip" id="realm">炼气九层</span><span title="可用于买卖、调息与布置"><i>◆</i> <b id="hud-stones">180</b> <small>灵石</small></span><button id="garden-hud" type="button" class="garden-hud" title="前往灵草坡照看灵圃" hidden></button><span class="health-resource"><small>气血</small><span class="health-track"><i id="hp-fill"></i></span><b id="hud-hp">100</b></span><span class="reputation-resource"><small>声望</small> <b id="hud-reputation">50</b></span></div>
     <div class="top-actions"><div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b>不限</b></small></div><button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button></div>
   </header>
+  <div class="society-clock"><span id="world-clock-status" role="status">众生正在醒来</span><button id="world-rest" type="button" hidden title="只结算修炼、灵圃和已签约定；人物仍等待模型决策">静修一旬</button><button id="world-pause" type="button">暂停演化</button></div>
   <div class="world-top"><span class="eyebrow">乱星海 · 东境</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击人物交谈，探索属于你的机缘</span></div>
 
   <div id="navigation-status" class="navigation-status" role="status" hidden><span class="walking-dot"></span><span id="navigation-copy"></span><button id="navigation-cancel" type="button">停止</button></div>
@@ -34,7 +35,7 @@
   <section id="world-person" class="world-person" aria-label="地图交互" hidden>
     <button id="person-close" class="icon-close" type="button" aria-label="关闭交互">×</button>
     <div class="character-heading"><span id="person-seal" class="person-seal">沈</span><div><small id="world-role"></small><strong id="world-name"></strong></div></div>
-    <div id="person-meta" class="person-meta"></div><p id="world-goal"></p><blockquote id="person-dialogue" hidden></blockquote>
+    <div id="person-meta" class="person-meta"></div><p id="npc-activity" class="npc-activity" hidden></p><p id="world-goal"></p><blockquote id="person-dialogue" hidden></blockquote>
     <div id="interaction-result" class="interaction-result" role="status" hidden><small>此刻 · 行动结果</small><p id="interaction-result-copy"></p><button id="interaction-next" type="button" hidden></button></div>
     <section id="agent-dialogue" class="agent-dialogue" hidden>
       <div class="agent-source-row"><span id="agent-chat-source" role="status">人物交谈</span><small>问话不消耗资源</small></div>
@@ -42,10 +43,11 @@
       <div id="agent-chat-followups" class="agent-followups"></div>
       <form id="agent-chat-form"><label class="sr-only" for="agent-chat-input">对人物说的话</label><textarea id="agent-chat-input" maxlength="280" rows="2" placeholder="询问线索，或说出你的打算…" required></textarea><button id="agent-chat-send" type="submit">交谈</button></form>
       <p id="agent-chat-error" role="alert"></p><div id="agent-chat-actions" class="agent-chat-actions"></div>
-      <small class="agent-boundary">交谈可获得建议；取证、交易与履约请点击行动执行。</small>
+      <small class="agent-boundary">对方会记住交谈并据此考虑行动；委托、取证与交易需由你确认执行。</small>
     </section>
     <section id="garden-card" class="garden-card" aria-label="小绿瓶灵圃" hidden></section>
-    <div id="world-actions" class="context-actions"></div>
+    <section id="npc-commissions" aria-label="人物主动提出的委托" hidden></section>
+    <details class="npc-business" open><summary>交易与事务</summary><div id="world-actions" class="context-actions"></div></details>
     <form id="trade-form" class="trade-form" hidden><label for="trade-offer">当面议价 <small>报价过低可能降低信任</small></label><div class="offer-row"><input id="trade-offer" type="number" min="1" max="9999" value="200" required aria-label="灵石报价"><span>灵石</span><button type="submit">递上报价</button></div><label class="sr-only" for="trade-leverage">议价筹码</label><select id="trade-leverage"><option value="none">仅凭报价</option></select></form>
     <details id="person-memory"><summary>与你有关的往事</summary><div id="memory-list"></div></details>
   </section>
@@ -55,7 +57,7 @@
     <div class="panel-scroll">
       <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>当前持有人</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>当前售价</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>传闻状态</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome"></p><div id="quest-steps" class="quest-steps"></div></section>
       <section data-panel-content="self" hidden><div id="equipment"></div><details class="equipment-resources"><summary>修行与行囊资源</summary><div id="stats" class="stats"></div></details><div id="garden-summary" class="garden-summary"></div><h3>储物行囊</h3><div id="inventory" tabindex="-1" aria-label="行囊物品"></div><div id="clues" class="clues"></div><p id="mode" class="panel-tip">离线规则模式</p><button id="restart" class="text-button" type="button">重开此局</button></section>
-      <section data-panel-content="people" hidden><h3>黑风林 · 散修</h3><p class="panel-tip">点击可一路追踪到散修身边。主动发起斗法，胜者取得储物袋。</p><div id="roamers"></div><h3>坊市众生</h3><p class="panel-tip">人物会记得你的承诺与手段。</p><div id="people" class="people"></div></section>
+      <section data-panel-content="people" hidden><h3>众生委托</h3><div id="society-offers"></div><h3>黑风林 · 散修</h3><p class="panel-tip">点击可一路追踪到散修身边。主动发起斗法，胜者取得储物袋。</p><div id="roamers"></div><h3>坊市众生</h3><p class="panel-tip">人物会记得你的承诺与手段。</p><div id="people" class="people"></div></section>
       <section data-panel-content="actions" hidden><p class="panel-tip">选择行动后会自动走到对应人物或地点执行；途中可按方向键或「停止」取消。</p><div id="actions" class="action-grid"></div></section>
       <section data-panel-content="events" hidden><div id="events" class="events"></div></section>
     </div>
@@ -76,7 +78,7 @@
   </section>
 
   <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="坊市与黑风林导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
-  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击目标会自动绕路、经过界门并继续前往。靠近时按 F 交互，按方向键或 Esc 可取消寻路。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；点击「推进一旬」才会推进时间并结算世界事件。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
+  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>点击目标会自动绕路、经过界门并继续前往。靠近时按 F 交互，按方向键或 Esc 可取消寻路。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；前台探索约每 90 秒触发一次众生决策，也可点击「听候风声」。交谈、斗法或隐藏页面时暂停，可随时暂停演化。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
   <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
   <section id="combat-stage" class="combat-stage" aria-label="回合制斗法" hidden>
     <header class="battle-heading"><span class="eyebrow">黑风林 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>

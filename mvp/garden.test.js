@@ -34,7 +34,7 @@ test('每旬自动凝液催生，离开灵圃仍培养；两旬成熟留种，�
   assert.equal(game.garden.stored, 2);
   assert.equal(game.garden.plots[0].growth, 0);
   assert.equal(game.player.herbs, original.player.herbs);
-  assert.equal(game.pill.owner, 'xu'); // 培养不会冻结原有机缘争夺。
+  assert.equal(game.pill.owner, 'shen'); // 物理时间推进不代替 NPC 自主决策。
   assert.throws(() => act(game, 'harvest_garden'), /灵草坡/);
   game = act(game, 'travel_woods');
   game = act(game, 'harvest_garden');

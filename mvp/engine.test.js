@@ -2,6 +2,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GameError, advanceTurn, applyAction, createGame, getView, parseLocal } from './engine.js';
 
+import { applyNpcEffect } from './npc-effects.js';
+const choose = applyNpcEffect;
+
 function act(game, type, target) { return applyAction(game, { type, target }).game; }
 function next(game) { return advanceTurn(game).game; }
 
@@ -21,7 +24,7 @@ test('新局和行动点耗尽的旧存档均可连续交谈、往返地图，�
     assert.deepEqual(source, snapshot);
     game = next(game);
     assert.equal(game.turn, 2);
-    assert.equal(game.flags.xuLoan, 50);
+    assert.equal(game.flags.xuLoan, 0);
     assert.equal(getView(game).ap, null);
   }
 });
@@ -45,6 +48,8 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   game = act(game, 'sell_herbs');
   assert.equal(game.ap, null);
   game = next(game);
+  game = choose(game, 'bai', 'brew_tonic');
+  game = choose(game, 'shen', 'reserve_pill');
   assert.equal(game.pill.owner, 'shen');
   assert.ok(game.events.some(e => e.actor === '白芷' && /炼好续命药/.test(e.text)));
   assert.ok(game.events.some(e => e.actor === '沈秋' && /筹款/.test(e.text)));
@@ -54,6 +59,7 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   game = act(game, 'travel_woods');
   game = act(game, 'gather_herbs');
   game = next(game);
+  game = choose(game, 'shen', 'buy_tonic');
   assert.ok(game.events.some(e => e.actor === '沈秋' && /师弟/.test(e.text)));
   game = act(game, 'travel_market');
   game = act(game, 'sell_herbs');
@@ -63,12 +69,15 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   assert.match(getView(game).outcome, /筑基丹已入手/);
 });
 
-test('玩家放任机缘时，徐宁会筹款并在下一旬买走丹药', () => {
+test('青闻选择借贷后徐宁才有资金买丹，购买须另行决策', () => {
   let game = createGame();
   game = next(game);
+  game = choose(game, 'qing', 'lend_stones');
   assert.equal(game.flags.xuLoan, 50);
   assert.equal(game.pill.owner, 'shen');
   game = next(game);
+  assert.equal(game.pill.owner, 'shen');
+  game = choose(game, 'xu', 'buy_pill');
   assert.equal(game.pill.owner, 'xu');
   assert.match(getView(game).outcome, /机缘失手/);
 });
@@ -83,7 +92,7 @@ test('合资有期限，玩家不能无限占用徐宁的灵石', () => {
   assert.equal(game.flags.partner, false);
   assert.equal(game.flags.partnerDebt, 0);
   assert.equal(game.player.stones, 170);
-  assert.equal(game.people.xu.stones, 280);
+  assert.equal(game.people.xu.stones, 230);
   assert.ok(game.events.some(e => /收回出资/.test(e.text)));
 });
 
@@ -94,6 +103,7 @@ test('举报路线：需要证词，执事按证词查封并公售', () => {
   game = act(game, 'report');
   const report = game.flags.report;
   game = next(game);
+  game = choose(game, 'lu', 'investigate_report');
   assert.equal(game.pill.owner, 'lu');
   const seizure = game.events.find(e => e.actor === '陆执事' && /查封/.test(e.text));
   assert.deepEqual(seizure.causes, [report]);
@@ -127,6 +137,7 @@ test('伏击路线：必须把卖家引到林中，符箓和代价由规则结�
   game = act(game, 'travel_woods');
   game = act(game, 'prepare_trap');
   game = next(game);
+  game = choose(game, 'shen', 'attend_meeting');
   assert.equal(game.people.shen.place, 'woods');
   game = act(game, 'ambush');
   assert.equal(game.pill.owner, 'player');
@@ -134,11 +145,12 @@ test('伏击路线：必须把卖家引到林中，符箓和代价由规则结�
   assert.equal(game.player.hp, 80);
   assert.equal(game.player.reputation, 35);
   game = next(game);
+  game = choose(game, 'wei', 'report_attack');
   assert.equal(game.player.reputation, 25);
   assert.ok(game.people.lu.knowledge.ambush);
 });
 
-test('假鉴定引出连续人物反应，并最终追溯造谣者', () => {
+test('传播、核验和追溯须人物逐一选择，因果与资源按规则结算', () => {
   let game = createGame();
   game = act(game, 'buy_seal');
   game = act(game, 'forge_poison');
@@ -146,12 +158,14 @@ test('假鉴定引出连续人物反应，并最终追溯造谣者', () => {
   assert.equal(game.people.qing.knowledge.rumor_source_player, undefined);
   assert.equal(game.people.ning.knowledge.rumor_source_player, forgery);
   game = next(game);
+  for (const [id, action] of [['ning','spread_rumor'],['bai','suspend_endorsement'],['shen','lower_price'],['xu','buy_pill']]) game = choose(game, id, action);
   assert.equal(game.pill.owner, 'xu');
   assert.equal(game.pill.price, 210);
   assert.ok(game.flags.rumorSpread);
   assert.ok(game.people.bai.knowledge.poison_rumor);
   assert.ok(game.people.xu.knowledge.poison_rumor);
   game = next(game);
+  for (const [id, action] of [['bai','verify_rumor'],['xu','cultivate'],['ning','reveal_source']]) game = choose(game, id, action);
   assert.ok(game.flags.rumorDebunked);
   assert.equal(game.flags.exposed, true);
   assert.equal(game.people.xu.condition, '筑基初期');
@@ -163,6 +177,7 @@ test('丹商离开坊市后，不能隔空验丹或交易', () => {
   let game = createGame();
   game = act(game, 'lure');
   game = next(game);
+  game = choose(game, 'shen', 'attend_meeting');
   assert.equal(game.people.shen.place, 'woods');
   assert.throws(() => act(game, 'inspect_pill'), /离开坊市/);
   game.player.stones = 300;
@@ -209,7 +224,9 @@ test('服丹突破只能一次，气血不足不能消耗丹药；突破不能�
   assert.equal(result.game.pill.owner, 'consumed');
   assert.equal(result.game.player.hp, 80);
   assert.throws(() => applyAction(result.game, { type: 'breakthrough' }), /已完成筑基/);
-  const next = advanceTurn(result.game).game;
+  let next = advanceTurn(result.game).game;
+  next = choose(next, 'xu', 'request_repayment');
+  next = choose(next, 'wei', 'report_attack');
   assert.equal(next.flags.partnerDebt, 120);
   assert.ok(next.flags.partnerDemanded);
   assert.ok(next.people.lu.knowledge.ambush);

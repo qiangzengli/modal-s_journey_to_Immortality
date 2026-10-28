@@ -35,7 +35,9 @@ export function createNavigator({ getPlace, locate, walk, stop, cross, waitForTr
           if (!goal || goal.place !== getPlace()) return false;
           onChange({ name: goal.name, stage: '正在前往' });
           if (!await walk(goal) || !valid()) return false;
-          onArrive(goal);
+          const latest = locate(target);
+          if (!latest || latest.place !== getPlace() || Math.hypot(latest.x-goal.x, latest.z-goal.z)>0.5) return false;
+          onArrive(latest);
         }
         return true;
       } finally {
