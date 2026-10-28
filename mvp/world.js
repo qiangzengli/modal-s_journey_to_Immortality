@@ -5,6 +5,7 @@ import { SITES } from './content.js';
 import { WANDERERS } from './combat-data.js';
 import { createBattleWorld } from './battle-world.js';
 import { createGardenWorld } from './garden-world.js';
+import { placeNpcs, arrangeNameplates } from './npc-layout.js';
 
 const NPC_SPOTS = {
   shen: { market: [-15, -4], woods: [12, -3] },
@@ -157,6 +158,16 @@ function makePerson(id, name) {
     root.add(nameplate);
   }
   root.userData = { id, body, leftArm, rightArm, baseY: 0, weapon: heldWeapon };
+  root.userData.nameplate = root.children.find(child => child.isSprite);
+  if (name) {
+    root.userData.nameplate.material.depthWrite = false;
+    root.userData.nameplate.renderOrder = 10;
+    const leader = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 2.65, 0), new THREE.Vector3(0, 3.16, 0)]), new THREE.LineBasicMaterial({ color: 0xb9ba90, transparent: true, opacity: .55, depthTest: false }));
+    leader.visible = false;
+    leader.renderOrder = 9;
+    root.add(leader);
+    root.userData.labelLeader = leader;
+  }
   if(id==='player')root.userData.weapon=put(body,new THREE.BoxGeometry(.08,1.05,.09),material(0xb1b9b4,.3,.7),.62,.72,.08);
   if (WANDERERS.some(enemy=>enemy.id===id)) {
     const bag = new THREE.Group();
@@ -443,7 +454,11 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     if (typeof target === 'object') return target;
     if (target === 'gate') return { kind: 'gate', name: place === MARKET ? '黑风林' : '地下坊市', place: place === MARKET ? WOODS : MARKET };
     const person = view && [...view.people,...view.roamers].find(p => p.id === target && !p.looted);
-    if (person) { const [x,z] = person.position || positionFor(target, person.place); return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x, z }; }
+    if (person) {
+      const destination = people[target]?.userData.destination;
+      if (!destination) return null;
+      return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x: destination.x, z: destination.z };
+    }
     if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: WOODS, x, z }; }
     return null;
   }
@@ -459,7 +474,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       let x = goal.x, z = goal.z;
       if (goal.kind === 'person') {
         const approaches = Array.from({length:16}, (_,i) => ({ x:goal.x+Math.cos(i*Math.PI/8)*1.9, z:goal.z+Math.sin(i*Math.PI/8)*1.9 }))
-          .filter(p=>walkable(p.x,p.z)).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z));
+          .filter(p=>walkable(p.x,p.z) && Object.values(people).every(actor => !actor.visible || actor.userData.place !== place || Math.hypot(p.x-actor.position.x,p.z-actor.position.z) >= 1.25)).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z));
         if (!approaches.length) { resolve(false); return; }
         ({x,z} = approaches[0]);
       } else if (goal.kind === 'site') { x += goal.id === 'herbs' ? -1.7 : 0; z += goal.id === 'herbs' ? 0 : 2.2; }
@@ -551,10 +566,15 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     plants.forEach((plant, i) => { plant.visible = nextView.world.herbsRemaining > 0 && (nextView.world.herbsRemaining > 1 || i < 4); });
     terrain.arrayRing.material.color.setHex(nextView.world.trapReady ? 0x88d5ee : 0xc49e69);
     terrain.arrayRing.material.transparent = true;
-    for (const person of [...nextView.people,...nextView.roamers]) {
+    const allPeople = [...nextView.people, ...nextView.roamers];
+    const placements = placeNpcs(allPeople.map(person => ({ ...person, point: person.position || positionFor(person.id, person.place), home: !person.position })), npcCanStand);
+    for (const person of allPeople) {
       const actor = people[person.id];
-      const spot = person.position || positionFor(person.id, person.place);
-      actor.userData.destination = new THREE.Vector3(spot[0], 0, spot[1]);
+      const spot = placements.get(person.id);
+      actor.visible = Boolean(spot);
+      if (!spot) { actor.userData.destination = null; continue; }
+      actor.userData.place = person.place;
+      actor.userData.destination = new THREE.Vector3(spot.x, 0, spot.z);
       if (!actor.userData.initialized) {
         actor.position.copy(actor.userData.destination);
         actor.userData.initialized = true;
@@ -584,12 +604,17 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   function bounds() { return place === MARKET ? [-27.3, -1.5] : [1.5, 27.3]; }
 
-  function walkable(x, z) {
-    const [minX, maxX] = bounds();
-    if (x < minX || x > maxX || z < -11.1 || z > 11.1) return false;
-    if (place === MARKET) return !MARKET_BLOCKERS.some(([bx, bz, rx, rz]) => Math.abs(x - bx) < rx && Math.abs(z - bz) < rz);
+  function walkableAt(location, x, z) {
+    const [minX, maxX, minZ, maxZ] = location === MARKET ? [-27.3, -1.5, -11.1, 11.1] : [1.5, 27.3, -11.1, 11.1];
+    if (x < minX || x > maxX || z < minZ || z > maxZ) return false;
+    if (location === MARKET) return !MARKET_BLOCKERS.some(([bx, bz, rx, rz]) => Math.abs(x - bx) < rx && Math.abs(z - bz) < rz);
     return !FOREST_TREES.some(([tx, tz, size]) => Math.hypot(x - tx, z - tz) < 0.67 * size)
       && !FOREST_ROCKS.some(([rx, rz]) => Math.hypot(x - rx, z - rz) < 1.18);
+  }
+  function walkable(x, z) { return walkableAt(place, x, z); }
+  function npcCanStand(location, x, z) {
+    // Include the robe's footprint, rather than checking only the body's center.
+    return [[0,0],[.75,0],[-.75,0],[0,.75],[0,-.75]].every(([dx,dz]) => walkableAt(location,x+dx,z+dz));
   }
 
   function clearSegment(a, b) {
@@ -782,11 +807,50 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   }
 
   function updateNearby() {
-    let candidates = view ? [...view.people,...view.roamers].filter(p=>p.place===place&&!p.looted).map(p=>locate(p.id)) : [];
+    let candidates = view ? [...view.people,...view.roamers].filter(p=>p.place===place&&!p.looted).map(p=>locate(p.id)).filter(Boolean) : [];
     if (place === WOODS) candidates.push(...Object.keys(SITE_SPOTS).map(locate));
     candidates.push({kind:'gate',id:'gate',name:place===MARKET?'前往黑风林':'返回坊市',x:place===MARKET?-2.2:2.2,z:0});
     nearby = !busy && !view?.battle && !navigation.active && !crossing ? candidates.filter(p=>Math.hypot(p.x-player.position.x,p.z-player.position.z)<3).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0] : null;
     if ((nearby?.id || null) !== nearbyId) { nearbyId=nearby?.id || null; onNearby?.(nearby || null); }
+  }
+
+  function updateNameplates() {
+    if (!view) return;
+    camera.updateMatrixWorld();
+    const width = container.clientWidth, height = container.clientHeight;
+    if (!width || !height) return;
+    const labels = [], actors = new Map();
+    for (const actor of [player, ...Object.values(people)]) {
+      const sprite = actor.userData.nameplate, leader = actor.userData.labelLeader;
+      if (!sprite) continue;
+      sprite.visible = false; leader.visible = false;
+      if (!actor.visible || (actor !== player && (actor.userData.place !== place || !actor.userData.body.visible))) continue;
+      const anchor = actor.position.clone().add(new THREE.Vector3(0, 3.16, 0)).project(camera);
+      if (anchor.z < -1 || anchor.z > 1) continue;
+      const id = actor.userData.id;
+      actors.set(id, { actor, depth: anchor.z });
+      labels.push({ id, x: (anchor.x+1)*width/2, y: (1-anchor.y)*height/2,
+        width: sprite.scale.x*height/zoom, height: sprite.scale.y*height/zoom,
+        priority: id === selectedId ? 3 : id === nearbyId ? 2 : actor === player ? 1 : 0 });
+    }
+    const layout = arrangeNameplates(labels, width, height);
+    for (const label of labels) {
+      const position = layout.get(label.id);
+      if (!position) continue;
+      const { actor, depth } = actors.get(label.id);
+      const sprite = actor.userData.nameplate, leader = actor.userData.labelLeader;
+      const point = new THREE.Vector3(position.x/width*2-1, 1-position.y/height*2, depth).unproject(camera);
+      actor.updateWorldMatrix(true, false);
+      sprite.position.copy(actor.worldToLocal(point));
+      sprite.visible = true;
+      leader.visible = Math.hypot(position.x-label.x, position.y-label.y) > 3;
+      if (leader.visible) {
+        const vertices = leader.geometry.attributes.position;
+        vertices.setXYZ(1, sprite.position.x, sprite.position.y, sprite.position.z);
+        vertices.needsUpdate = true;
+        leader.geometry.computeBoundingSphere();
+      }
+    }
   }
 
   function frame() {
@@ -879,6 +943,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         bubble.style.top=`${THREE.MathUtils.clamp((1-screen.y)/2*container.clientHeight,200,container.clientHeight-210)}px`;
       }
     }
+    updateNameplates();
     if(view?.battle)battleWorld.render(elapsed);
     else renderer.render(scene, camera);
   }

@@ -97,7 +97,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
-    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/combat-data.js', '/combat-ui.js', '/equipment-ui.js', '/equipment-art.js', '/equipment.css', '/battle-world.js', '/battle-fx.js']) {
+    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/npc-layout.js', '/combat-data.js', '/combat-ui.js', '/equipment-ui.js', '/equipment-art.js', '/equipment.css', '/battle-world.js', '/battle-fx.js']) {
       assert.equal((await fetch(origin + file)).status, 200);
     }
     await stop();

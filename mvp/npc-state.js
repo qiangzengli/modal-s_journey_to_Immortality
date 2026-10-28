@@ -1,5 +1,6 @@
 import { WANDERERS } from './combat-data.js';
 import { GameError } from './errors.js';
+import { stationOffset } from './npc-layout.js';
 
 export const STATIONS = {
   market: { square: [-11, 0], gate: [-4, 0], west: [-22, 0] },
@@ -30,8 +31,11 @@ export function npcPosition(game, id, place) {
   const station = game.society?.minds[id]?.station;
   const point = STATIONS[place]?.[station];
   if (!point) return null;
-  const index = [...Object.keys(game.people), ...WANDERERS.map(npc => npc.id)].indexOf(id);
-  return [point[0] + (index % 3 - 1) * .65, point[1] + (Math.floor(index / 3) % 2 ? .8 : -.8)];
+  const occupants = [...Object.values(game.people), ...WANDERERS.map(npc => ({ ...npc, place: npc.place || 'woods' }))]
+    .filter(npc => npc.place === place && game.society?.minds[npc.id]?.station === station && !game.exploration?.enemies[npc.id]?.looted)
+    .map(npc => npc.id).sort();
+  const offset = stationOffset(occupants.indexOf(id));
+  return offset ? [point[0] + offset[0], point[1] + offset[1]] : null;
 }
 export function remember(game, id, text, kind = 'event') {
   const mind = game.society.minds[id];

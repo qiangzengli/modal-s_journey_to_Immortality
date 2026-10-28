@@ -136,6 +136,7 @@ const files = {
   '/plan-ui.js': ['plan-ui.js', 'text/javascript; charset=utf-8'],
   '/scenery.js': ['scenery.js', 'text/javascript; charset=utf-8'],
   '/navigation.js': ['navigation.js', 'text/javascript; charset=utf-8'],
+  '/npc-layout.js': ['npc-layout.js', 'text/javascript; charset=utf-8'],
   '/combat-data.js': ['combat-data.js', 'text/javascript; charset=utf-8'],
   '/combat-ui.js': ['combat-ui.js', 'text/javascript; charset=utf-8'],
   '/equipment-ui.js': ['equipment-ui.js', 'text/javascript; charset=utf-8'],
