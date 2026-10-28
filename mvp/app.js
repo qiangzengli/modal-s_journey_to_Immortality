@@ -1,3 +1,4 @@
+import { createSectUI, affiliationText } from './sect-ui.js';
 import { createWorld } from './world.js';
 import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES } from './content.js';
 import { createCombatUI, roamerActions } from './combat-ui.js';
@@ -14,7 +15,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&a
 const names = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action.title]));
 names.ask = '探问近况';
 const defs = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action]));
-const titles = { campaign: '天下与游历', opportunity: '筑基丹去向', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
+const titles = { sects: '门派与道统', campaign: '天下与游历', opportunity: '筑基丹去向', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
 let current;
 let busy = false;
 let selectedPerson = null;
@@ -35,6 +36,7 @@ let planUI;
 let commandUI;
 let currentModelName = null;
 let campaignUI;
+let sectUI;
 function actionTarget(action, view=current) {
   if(action.type==='ask')return action.target;
   if(action.type==='frontier_rest')return ({quarry:'workers',ruins:'memorial'})[view.player.place] || 'infirmary';
@@ -78,6 +80,7 @@ function openPanel(name) {
   $('#map-panel').hidden = false;
   $('#panel-title').textContent = titles[name];
   document.querySelectorAll('[data-panel-content]').forEach(section => { section.hidden = section.dataset.panelContent !== name; });
+  $('#map-panel .panel-scroll').scrollTop = 0;
   document.querySelectorAll('[data-open-panel]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.openPanel === name)));
   if (name === 'events') { newsCount=0; $('#news-count').hidden=true; }
 }
@@ -113,6 +116,7 @@ function showPerson(id, focusUI = true) {
   $('#world-role').textContent=person.role;
   $('#world-name').textContent=person.name;
   $('#person-meta').innerHTML=`<span>${esc(person.condition === '筑基初期' ? person.condition : detail.realm)}</span><span>${esc(relationship(person.trust))} ${person.trust > 0 ? '+' : ''}${person.trust}</span><span>${esc(person.condition)}</span>`;
+  $('#person-meta').insertAdjacentHTML('beforeend', `<span>${esc(affiliationText(person.affiliation))}</span>`);
   $('#world-goal').textContent=detail.bio;
   $('#person-dialogue').hidden=false;
   $('#person-dialogue').textContent=person.agent?.speech || person.greeting || '';
@@ -120,7 +124,7 @@ function showPerson(id, focusUI = true) {
   $('#npc-activity').hidden=false;
   $('#npc-activity').hidden=false;
   const options = PERSON_ACTIONS[id].filter(type => type !== 'buy_pill' || (id === 'lu' ? current.pill.ownerId === 'lu' : current.pill.ownerId !== 'lu'));
-  $('#world-actions').innerHTML=options.map(actionMarkup).join('');
+  $('#world-actions').innerHTML=options.map(actionMarkup).join('') + (person.affiliation?.sectId ? `<button type="button" class="challenge-button" data-view-sect="${person.affiliation.sectId}">查看${esc(person.affiliation.name)}门规 →</button>` : '');
   $('#trade-form').hidden=!(id === 'shen' && current.pill.ownerId === 'shen' && current.player.place === 'market');
   const previousLeverage=$('#trade-leverage').value;
   $('#trade-leverage').innerHTML='<option value="none">仅凭报价</option>'+current.player.clues.map(clue => `<option value="${clue}">${clue === 'smuggling' ? '亮出货道证词' : '持真丹鉴定'}</option>`).join('');
@@ -143,7 +147,7 @@ function showRoamer(enemy, focusUI = true) {
   $('#person-seal').textContent=enemy.defeated?'袋':enemy.name[0];
   $('#world-role').textContent=enemy.defeated?'林道遗落 · 储物袋':enemy.role;
   $('#world-name').textContent=enemy.defeated?`${enemy.name}的储物袋`:enemy.name;
-  $('#person-meta').innerHTML=`<span>${enemy.realm}</span><span>${enemy.defeated?'已败退':`气血 ${enemy.hp} · 攻势 ${enemy.attack}`}</span>`;
+  $('#person-meta').innerHTML=`<span>${enemy.realm}</span><span>${esc(affiliationText(enemy.affiliation))}</span><span>${enemy.defeated?'已败退':`气血 ${enemy.hp} · 攻势 ${enemy.attack}`}</span>`;
   $('#world-goal').hidden=false;$('#world-goal').textContent=enemy.defeated?'散修已经负伤离去，只剩系着禁制绳结的储物袋。里面的物品尚未取出。':enemy.bio;
   $('#person-dialogue').hidden=Boolean(enemy.defeated);$('#person-dialogue').textContent=enemy.agent?.speech || '他正在观察来人，可以先交谈再决定是否动手。';
   $('#npc-activity').textContent=enemy.agent?.activity ? `此刻 · ${enemy.agent.activity}` : '';
@@ -172,7 +176,7 @@ function showSite(id, focusUI = true) {
   const state=site.place!=='woods'?`${regionName(site.place)} · 灵矿 ${current.campaign.ore} · 灵草 ${current.player.herbs}`:id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
   $('#person-meta').innerHTML=`<span>${esc(state)}</span>`;
   $('#person-dialogue').hidden=true;$('#person-memory').hidden=true;$('#trade-form').hidden=true;$('#npc-activity').hidden=true;
-  $('#world-actions').innerHTML=site.actions.map(actionMarkup).join('');
+  $('#world-actions').innerHTML=site.actions.map(actionMarkup).join('') + (site.sect ? `<button type="button" class="challenge-button" data-view-sect="${site.sect}">查看门规与拜帖 →</button>` : '');
   updateNearbyPrompt(); updateInteractionResult();
   if (focusUI) $('#world-person').scrollTop=0;
   $('#world-hint').textContent=`已到达${site.name}。${state}。`;
@@ -188,7 +192,7 @@ const world=createWorld($('#world-canvas'), {
     navigatingNow=Boolean(state);
     $('#navigation-status').hidden=!state;
     if(state){ $('#navigation-copy').textContent=`${state.stage} · ${state.name}`; $('#world-hint').textContent=`${state.stage} · ${state.name}`; $('#turn-summary').hidden=true; }
-    else if (/^(正在前往|经过界门) · /.test($('#world-hint').textContent)) $('#world-hint').textContent='点击人物交谈，或继续探索这片天地。';
+    else if (/^(正在前往|传送前往) · /.test($('#world-hint').textContent)) $('#world-hint').textContent='点击人物交谈，或继续探索这片天地。';
   },
   onNearby: target => { nearbyTarget=target; updateNearbyPrompt(); },
   onTravel: async place => {
@@ -223,6 +227,8 @@ societyUI=createSocietyUI({
   request:call,navigate,notice,
   sync:data=>{const before=current;render(data.view,data.modelName);if(before&&data.view.turn>before.turn)showTurnSummary(before,data.view);}
 });
+
+sectUI=createSectUI({element:$('#sect-content'),getState:()=>({view:current,busy}),request:call,navigate});
 
 campaignUI=createCampaignUI({getState:()=>({view:current,busy}),navigate,executeAction});
 
@@ -307,7 +313,7 @@ function render(view, modelName) {
   const entries=[['境界',view.world.realm],['所在',regionName(view.player.place)],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
   $('#stats').innerHTML=entries.map(([key,value])=>`<div><span>${key}</span><strong>${esc(value)}</strong></div>`).join('');
   $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与徐宁的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
-  $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${regionName(p.place)} ↗</span></button>`).join('');
+  $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(affiliationText(p.affiliation))}<br>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${regionName(p.place)} ↗</span></button>`).join('');
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
   $('#actions').innerHTML=ACTION_DEFS.filter(def=>(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins'].includes(view.player.place)))&&!def.garden).map(def=>{
     const state=view.actionOptions[def.type];
@@ -316,6 +322,7 @@ function render(view, modelName) {
   $('#actions').insertAdjacentHTML('afterbegin','<button type="button" class="action" data-garden-open><strong>照看灵圃 ↗</strong><span>小绿瓶 · 自动培养</span><small>前往灵草坡认主神器、栽种或收取灵草</small></button>');
   updateQuest();
   campaignUI?.render();
+  sectUI?.render();
   if(!view.roamers.some(enemy=>enemy.id===selectedPerson))updateInteractionResult();
   combatUI.render(view);
   agentUI?.personChanged();
@@ -395,7 +402,7 @@ async function call(path,payload={}) {
     return false;
   }
   finally{
-    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();gardenUI.render();societyUI.render();campaignUI.render();
+    busy=false;world.setBusy(false);updateNearbyPrompt();document.body.classList.remove('busy');$('#command-form').setAttribute('aria-busy','false');updateCommandStatus();commandUI.refresh();planUI.refresh();gardenUI.render();societyUI.render();campaignUI.render();sectUI.render();
     for(const id of ['#restart','#command-submit'])$(id).disabled=Boolean(current?.battle);
   }
 }
@@ -422,6 +429,7 @@ $('#world-actions').addEventListener('click',async event=>{
 $('#trade-form').addEventListener('submit',event=>{event.preventDefault();executeAction({type:'negotiate',offer:Number($('#trade-offer').value),leverage:$('#trade-leverage').value});});
 $('#actions').addEventListener('click',event=>{const button=event.target.closest('[data-locate-action]');if(button){const def=defs[button.dataset.locateAction];executeAction({type:def.type});}});
 $('#people').addEventListener('click',event=>{const button=event.target.closest('[data-person]');if(button)navigate(button.dataset.person);});
+document.addEventListener('click',event=>{const target=event.target.closest('[data-view-sect]');if(target){sectUI.select(target.dataset.viewSect);openPanel('sects');}});
 document.querySelectorAll('[data-open-panel]').forEach(button=>button.addEventListener('click',()=>openPanel(button.dataset.openPanel)));
 $('#panel-close').addEventListener('click',closePanel);
 $('#person-close').addEventListener('click',()=>world.clearSelection());

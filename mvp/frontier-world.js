@@ -13,7 +13,7 @@ export function frontierWalkable(place,x,z){
 }
 export function createFrontier(scene, targets, helpers) {
   const {put,material,label,makeBuilding,makeTree}=helpers;
-  const {clickSurfaces,gateTargets,siteTargets,obstacleTargets}=targets;
+  const {clickSurfaces,siteTargets,obstacleTargets}=targets;
   const luminous=[], indicators={};
   const groundMats={river:0x46695d,quarry:0x806450,ruins:0x525d6c};
   for(const id of ['river','quarry','ruins']){
@@ -48,13 +48,6 @@ export function createFrontier(scene, targets, helpers) {
     const sign=label(site.name,{width:280,font:29});sign.position.y=id==='core'?5.3:2.5;sign.userData.siteId=id;root.add(sign);siteTargets.push(sign);
     const hit=put(root,new THREE.CylinderGeometry(1.8,1.8,2,12),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}),0,1,0);hit.userData.siteId=id;hit.castShadow=false;siteTargets.push(hit);
     if(id==='spring')for(let i=0;i<5;i++)put(root,new THREE.ConeGeometry(.18,.7,5),material(0xa2bf86),Math.cos(i)*.8,.4,Math.sin(i)*.8);
-  }
-  for(const [left,right] of [['woods','river'],['river','quarry'],['quarry','ruins']]){
-    const x=(REGIONS[left].bounds[1]+REGIONS[right].bounds[0])/2;
-    put(scene,new THREE.BoxGeometry(7,.12,4.5),material(0x958970),x,.02,0);
-    for(const z of [-2.5,2.5])put(scene,new THREE.BoxGeometry(.5,3.5,.5),material(0x858a75),x,1.7,z);
-    const sign=label(`${REGIONS[left].short} · ${REGIONS[right].short}`,{width:340,font:27});sign.position.set(x,4.5,0);scene.add(sign);
-    const gate=put(scene,new THREE.BoxGeometry(2,4,5),new THREE.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false}),x,2,0);gate.userData.regions=[left,right];gate.castShadow=false;gateTargets.push(gate);
   }
   return {
     sync(view){const restored=view.campaign?.flags.sluice||view.campaign?.ending?.id==='restore';water.material.color.setHex(restored?0x6bcbbe:0x4f96a3);for(const [id,mesh]of Object.entries(indicators))mesh.material.color.setHex(view.campaign?.objectives.some(o=>o.target===id&&o.done)?0xa8c78c:0x9caa96);},

@@ -1,12 +1,13 @@
+import { SECT_PEOPLE } from './sect-data.js';
 import { GameError } from './errors.js';
 import { FRONTIER_PEOPLE, FRONTIER_ACTIONS, ENDINGS } from './campaign-data.js';
-import { REGIONS, regionName } from './regions.js';
+import { REGIONS, regionName, travelAccess } from './regions.js';
 
 export function ensureCampaign(game) {
   const defaults = { version:1, visited:['market','woods'], flags:{}, ore:0, mined:0, gathered:0, alternatePill:false, vault:180, ending:null, endingEvent:0 };
   game.campaign ??= {};
   for (const [key, value] of Object.entries(defaults)) game.campaign[key] ??= value;
-  for(const actor of FRONTIER_PEOPLE) game.people[actor.id] ??= {...structuredClone(actor),knowledge:{},trust:0,condition:'正常'};
+  for(const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE]) game.people[actor.id] ??= {...structuredClone(actor),knowledge:{},trust:0,condition:'正常'};
   if(!game.campaign.visited.includes(game.player.place))game.campaign.visited.push(game.player.place);
   return game;
 }
@@ -18,11 +19,13 @@ function note(game, actor, text, causes=[]) {
 export function travelRegion(source, to) {
   const game=ensureCampaign(structuredClone(source));
   if(game.exploration?.battle)throw new GameError('请先离开斗法空间再赶路。');
-  if(!REGIONS[game.player.place]?.neighbors.includes(to))throw new GameError('只能从相邻的山道往返，请按天下图的路线前行。');
+  const access = travelAccess(game, to);
+  if (!access.available) throw new GameError(access.reason);
+  if (to === game.player.place) throw new GameError('你已在此区域，无需再次传送。');
   game.player.place=to;
   const first=!game.campaign.visited.includes(to);
   if(first){game.campaign.visited.push(to);note(game,'游历',`初到${regionName(to)}。${REGIONS[to].description}`);}
-  return {game,result:`来到${regionName(to)}。${REGIONS[to].description}`};
+  return {game,result:`传送抵达${regionName(to)}。${REGIONS[to].description}`};
 }
 const evidenceCount = game => ['manifest','water','vein'].filter(key=>game.campaign.flags[key]).length;
 const requireValue=(condition,message)=>{if(!condition)throw new GameError(message);};
@@ -134,5 +137,5 @@ export function campaignView(game) {
   const objectives=[['read_manifest','货单与药船','ferry',f.manifest],['sample_water','枯泉实证','spring',f.water],['inspect_vein','抽脉阵纹','ore',f.vein],['aid_workers','工棚的求生路（可选）','workers',f.aid],['repair_sluice','为云渡引回支流（可选）','sluice',f.sluice],['open_archive','开启归墟石门','archive',f.opened],['read_core','读取万息旧契','core',f.truth],['read_names','留下供息者姓名（可选）','memorial',f.names]]
     .map(([type,title,target,done])=>({type,title,target,done:Boolean(done)}));
   const aftermath=[['recovery','矿工与商路的生计','song'],['relief','工棚病患的救治','tao'],['history','供息者姓名的留存','yuan']].map(([flag,title,target])=>({title,target,done:Boolean(f[flag]),eventId:f[flag]||null}));
-  return {title:'卷一 · 枯潮来信',chapters,objectives,aftermath,ending:c.ending?{id:c.ending,...ENDINGS[c.ending]}:null,flags:{...f},ore:c.ore,minesRemaining:6-c.mined,reedsRemaining:3-c.gathered,alternatePill:Boolean(c.alternatePill),visited:[...c.visited],regions:Object.entries(REGIONS).map(([id,region])=>({id,...region,visited:c.visited.includes(id),current:game.player.place===id}))};
+  return {title:'卷一 · 枯潮来信',chapters,objectives,aftermath,ending:c.ending?{id:c.ending,...ENDINGS[c.ending]}:null,flags:{...f},ore:c.ore,minesRemaining:6-c.mined,reedsRemaining:3-c.gathered,alternatePill:Boolean(c.alternatePill),visited:[...c.visited],regions:Object.entries(REGIONS).map(([id,region])=>({id,...region,...travelAccess(game,id),visited:c.visited.includes(id),current:game.player.place===id}))};
 }

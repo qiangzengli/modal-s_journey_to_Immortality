@@ -1,3 +1,4 @@
+import { affiliationText } from './sect-ui.js';
 import { cultivatorArt, equipmentIcon } from './equipment-art.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -113,6 +114,7 @@ export function createEquipmentUI({ element, onAction }) {
     const occupied = EQUIPMENT_SLOTS.filter(entry => equippedAt(current, entry)).length;
     element.innerHTML = `<section class="equipment-sheet" data-screen="${screen}" aria-label="人物装备与行囊"><header class="equipment-heading"><div><small>青衣负剑 · 道途随行</small><h3>人物装备</h3></div><span>${esc(world?.realm || '修行中')}</span></header>
       <nav class="equipment-tabs" aria-label="装备界面切换">${[['overview', '人物装备'], ['inventory', '储物行囊'], ['skills', '已修功法']].map(([id, label]) => `<button type="button" data-equipment-screen="${id}" data-equipment-focus="screen-${id}" aria-pressed="${screen === id}">${label}${id === 'skills' ? ` · ${skills.length}` : ''}</button>`).join('')}</nav>
+      <p class="sect-identity">${esc(affiliationText(current.sects?.player))}${current.sects?.player.sectId ? ` · ${esc(current.sects.player.rank)}` : ''}<button type="button" data-view-sect="${esc(current.sects?.player.sectId || 'qinglan')}">查看门派 →</button></p>
       ${characterAttributes(current)}
       <div class="equipment-layout"><div class="equipment-portrait"><div class="equipment-map">${cultivatorArt({ staff: weapon?.id === 'vine_staff', bottle: Boolean(garden?.bottle), armed: Boolean(weapon) })}<div class="equipment-slots" role="group" aria-label="装备部位">${EQUIPMENT_SLOTS.map((entry, index) => {
         const item = equippedAt(current, entry);

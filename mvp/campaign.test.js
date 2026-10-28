@@ -25,13 +25,13 @@ test('旧存档迁移仅补新领域；保留原人物、物品、欠款和丹�
   const preserved=structuredClone(old);ensureNpcState(old);
   for(const key of ['player','pill','flags','exploration','events'])assert.deepEqual(old[key],preserved[key]);
   for(const id of Object.keys(preserved.people))assert.deepEqual(old.people[id],preserved.people[id]);
-  assert.equal(Object.keys(old.people).length,14);assert.equal(getView(old).roamers.length,7);
+  assert.equal(Object.keys(old.people).length,18);assert.equal(getView(old).roamers.length,7);
   const migrated=structuredClone(old);ensureNpcState(old);assert.deepEqual(old,migrated);
 });
-test('五地按相邻路径往返，拒绝瞬移和斗法中离场；首次访问只记录一次',()=>{
-  let g=createGame();assert.throws(()=>applyAction(g,{type:'travel_region',place:'ruins'}),/相邻/);
-  assert.deepEqual(regionPath('market','ruins'),['woods','river','quarry','ruins']);
-  g=travel(g,'ruins');assert.throws(()=>act(g,'travel_market'),/相邻/);
+test('九域可直接传送，修为不足与斗法中不可传送；首次访问只记录一次',()=>{
+  let g=createGame();assert.throws(()=>applyAction(g,{type:'travel_region',place:'jinhuo'}),/筑基/);
+  assert.deepEqual(regionPath('market','ruins'),['ruins']);
+  g=travel(g,'ruins');assert.equal(act(g,'travel_market').player.place,'market');
   const visits=g.events.filter(e=>e.actor==='游历').length;g=travel(travel(g,'market'),'ruins');assert.equal(g.events.filter(e=>e.actor==='游历').length,visits);
   g=combatAction(g,{type:'start',enemyId:'shouque'}).game;
   assert.throws(()=>applyAction(g,{type:'travel_region',place:'quarry'}),/斗法/);

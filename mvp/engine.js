@@ -1,3 +1,4 @@
+import { SECT_PEOPLE } from './sect-data.js';
 import { FRONTIER_PEOPLE } from './campaign-data.js';
 import { ensureCampaign, applyCampaignAction, travelRegion, campaignView } from './campaign.js';
 import { REGIONS } from './regions.js';
@@ -6,10 +7,11 @@ import { ACTION_DEFS } from './content.js';
 import { GARDEN_ACTIONS, ensureGarden, applyGardenAction, advanceGarden, getGardenView } from './garden.js';
 import { GameError } from './errors.js';
 import { assertPeace, ensureExploration, getCombatView } from './combat.js';
+import { affiliationFor, sectView } from './sects.js';
 export { GameError } from './errors.js';
 
 export const PEOPLE = [
-  ...FRONTIER_PEOPLE,
+  ...FRONTIER_PEOPLE, ...SECT_PEOPLE,
   { id: 'shen', name: '沈秋', role: '丹商', goal: '卖掉筑基丹，为师弟换取续命药', publicGoal: '急于卖丹', place: 'market', stones: 40, links: ['bai', 'wei'] },
   { id: 'bai', name: '白芷', role: '药师', goal: '保住鉴丹声誉，不让假药流入坊市', publicGoal: '谨慎验药', place: 'market', stones: 300, links: ['shen', 'xu'] },
   { id: 'xu', name: '徐宁', role: '散修', goal: '赶在寿元关口前取得筑基丹', publicGoal: '寻找突破机会', place: 'market', stones: 230, links: ['bai', 'qing'] },
@@ -104,7 +106,7 @@ export function applyAction(source, action) {
   const participant = ACTION_DEFS.find(def => def.type === type)?.person;
   if (participant && type !== 'buy_pill' && game.people[participant].place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
   let result = '';
-  if (type === 'travel_region') return travelRegion(game, action.place || action.target);
+  if (['travel_region', 'travel_market', 'travel_woods'].includes(type)) return travelRegion(game, type === 'travel_region' ? action.place || action.target : type === 'travel_market' ? 'market' : 'woods');
   if (ACTION_DEFS.find(def=>def.type===type)?.campaign) return {game,result:applyCampaignAction(game,type)};
   if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 
@@ -239,16 +241,6 @@ export function applyAction(source, action) {
       game.flags.lured = note(game, '你', '你以避开坊市耳目为由，约沈秋下旬在黑风林验货。', [], 'player');
       know(game, 'shen', 'woods_meeting', game.flags.lured);
       result = '你向沈秋提出林中会面的邀请。他会根据自身处境决定是否赴约，留意后续动向。';
-      break;
-    }
-    case 'travel_woods':
-    case 'travel_market': {
-      const destination = type === 'travel_woods' ? WOODS : MARKET;
-      if (game.player.place === destination) throw new GameError('你已经在这里。');
-      if(!REGIONS[game.player.place]?.neighbors.includes(destination)) throw new GameError('需要沿相邻区域的山道前行。');
-      game.player.place = destination;
-      note(game, '你', `前往${destination === WOODS ? '黑风林' : '地下坊市'}。`, [], 'player');
-      result = destination === WOODS ? '你进入黑风林。寒沙正在附近观察来路。' : '你回到地下坊市。';
       break;
     }
     case 'prepare_trap': {
@@ -387,6 +379,7 @@ export function getView(game) {
   const pillOwner = game.pill.owner;
   return {
     ...getCombatView(game),
+    sects: sectView(game),
     garden: getGardenView(game),
     society: societyView(game),
     campaign: campaignView(game),
@@ -403,6 +396,7 @@ export function getView(game) {
     },
     people: PEOPLE.map(p => ({
       id: p.id, name: p.name, role: p.role, goal: p.publicGoal,
+      affiliation: affiliationFor(game, p.id),
       place: game.people[p.id].place, condition: game.people[p.id].condition,
       trust: game.people[p.id].trust,
       agent: npcPublic(game, p.id), position: npcPosition(game, p.id, game.people[p.id].place),
@@ -432,7 +426,7 @@ export function parseLocal(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_COMMAND) throw new GameError('请输入 1～280 字的行动描述。');
   const input = text.trim();
   const destination=Object.entries(REGIONS).find(([,region])=>input.includes(region.name));
-  if(destination && /前往|返回|去|到/.test(input))return {type:'travel_region',place:destination[0]};
+  if(destination && /传送|前往|返回|去|到/.test(input))return {type:'travel_region',place:destination[0]};
   const frontier = ACTION_DEFS.find(def=>def.campaign && input.includes(def.title));
   if(frontier)return {type:frontier.type};
   if (/认主.*小绿瓶|寻.*小绿瓶/.test(input)) return { type: 'discover_bottle' };

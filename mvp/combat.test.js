@@ -120,7 +120,7 @@ test('斗法中禁止移动、推进时间及场外服丹；败退有明示代�
   assert.equal(lost.player.stones, 162);
   assert.deepEqual(lost.exploration.inventory, game.exploration.inventory);
   assert.equal(lost.exploration.enemies.mochi, undefined);
-  assert.equal(applyAction(lost, { type: 'travel_market' }).game.player.place, 'market');
+  assert.equal(applyAction(act(lost, { type: 'leave' }), { type: 'travel_market' }).game.player.place, 'market');
 });
 
 test('场外和未击败时不能获取储物袋，真气不足不能出招', () => {

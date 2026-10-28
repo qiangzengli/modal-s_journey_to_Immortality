@@ -1,5 +1,5 @@
-// 一次寻路可以跨过界门；新目标和手动移动会取消旧目标的后续操作。
-import { regionPath, regionExit } from './regions.js';
+// 跨图直接传送，落地后才在本图步行；取消不会执行旧目标的后续操作。
+import { regionPath } from './regions.js';
 export function createNavigator({ getPlace, locate, walk, stop, cross, waitForTransition, onChange, onArrive }) {
   let generation = 0;
   let active = false;
@@ -29,9 +29,7 @@ export function createNavigator({ getPlace, locate, walk, stop, cross, waitForTr
         const itinerary = regionPath(getPlace(),goal.place);
         if(!itinerary)return false;
         for (const next of itinerary) {
-          onChange({ name: goal.name, stage: '经过界门' });
-          const exit=regionExit(getPlace(),next);
-          if (!await walk({ kind: 'point', ...exit }) || !valid()) return false;
+          onChange({ name: goal.name, stage: '传送前往' });
           if (!await cross(next) || !valid()) return false;
         }
         if (goal.kind !== 'gate') {

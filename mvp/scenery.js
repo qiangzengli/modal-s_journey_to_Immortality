@@ -16,7 +16,7 @@ export function decorateWorld(scene) {
   const stone = mat(0x697a71);
   const wood = mat(0x68513b);
   const brass = mat(0xbba16b, { metalness: 0.45, roughness: 0.45 });
-  const water = mesh(group, new THREE.PlaneGeometry(290, 130), mat(0x274e4d, { metalness: 0.32, roughness: 0.35 }), 75, -0.75, 0);
+  const water = mesh(group, new THREE.PlaneGeometry(1100, 180), mat(0x274e4d, { metalness: 0.32, roughness: 0.35 }), 75, -0.75, 0);
   water.rotation.x = -Math.PI / 2;
   for (let i = 0; i < 24; i++) {
     const angle = i / 24 * Math.PI * 2;

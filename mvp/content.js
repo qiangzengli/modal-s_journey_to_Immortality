@@ -1,3 +1,4 @@
+import { SECT_PEOPLE, SECT_SITES } from './sect-data.js';
 import { FRONTIER_ACTIONS, FRONTIER_PEOPLE, FRONTIER_SITES } from './campaign-data.js';
 export const ACTION_DEFS = [
   ...FRONTIER_ACTIONS,
@@ -19,8 +20,8 @@ export const ACTION_DEFS = [
   { type: 'buy_seal', title: '买空白鉴定印', detail: '可用于制作假鉴定，来源会留下记录', cost: '25 灵石', place: 'market', person: 'qing' },
   { type: 'forge_poison', title: '散布有毒鉴定', detail: '交宁素传播，可能被追查', cost: '空白印 1', place: 'market', person: 'ning' },
   { type: 'lure', title: '约沈秋出城', detail: '提出林中会面，沈秋会自行权衡是否赴约', cost: '无资源消耗', place: 'market', person: 'shen' },
-  { type: 'travel_woods', title: '前往黑风林', detail: '经过界门进入城外险地', cost: '无资源消耗', place: 'market', site: 'gate' },
-  { type: 'travel_market', title: '返回地下坊市', detail: '经过界门回到坊市', cost: '无资源消耗', place: 'woods', site: 'gate' },
+  { type: 'travel_woods', title: '前往黑风林', detail: '传送进入黑风林', cost: '无资源消耗', place: 'market', site: 'gate' },
+  { type: 'travel_market', title: '返回地下坊市', detail: '传送回到地下坊市', cost: '无资源消耗', place: 'woods', site: 'gate' },
   { type: 'gather_herbs', title: '采集灵草', detail: '林道共可采两株；带回坊市出售', cost: '无资源消耗', place: 'woods', site: 'herbs' },
   { type: 'prepare_trap', title: '布下天雷符', detail: '阵法能迫退护卫，为夺丹创造机会', cost: '天雷符 1', place: 'woods', site: 'formation' },
   { type: 'ambush', title: '拦截夺丹', detail: '无阵会失败并失去 35 气血；有阵损失 20 气血、15 声望', cost: '会被目击追查', place: 'woods', site: 'formation' },
@@ -54,6 +55,6 @@ export const PERSON_DETAILS = {
   ning: { color: '#d6c39b', realm: '炼气六层', bio: '一筒传音符系在腰间。她游走于坊市各处，靠消息的可信度维持生意。' }
 };
 
-for(const person of FRONTIER_PEOPLE){PERSON_DETAILS[person.id]={color:person.color,realm:person.realm,bio:person.bio};PERSON_ACTIONS[person.id]=['ask'];}
-Object.assign(SITES,FRONTIER_SITES);
+for(const person of [...FRONTIER_PEOPLE, ...SECT_PEOPLE]){PERSON_DETAILS[person.id]={color:person.color,realm:person.realm,bio:person.bio};PERSON_ACTIONS[person.id]=['ask'];}
+Object.assign(SITES,FRONTIER_SITES,SECT_SITES);
 for(const site of Object.values(SITES))site.place ??= 'woods';

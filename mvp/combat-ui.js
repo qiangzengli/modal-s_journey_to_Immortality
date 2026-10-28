@@ -1,3 +1,4 @@
+import { affiliationText } from './sect-ui.js';
 import { createEquipmentUI, combatScalingText } from './equipment-ui.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -25,7 +26,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
   }
   function renderInventory() {
     equipmentUI.render(current, { pending });
-    $('#roamers').innerHTML = current.roamers.map(enemy => `<button type="button" class="roamer-row" data-roamer="${enemy.id}" ${enemy.looted ? 'disabled' : ''}><span style="--roamer-color:${enemy.color}">${enemy.defeated ? '袋' : enemy.name[0]}</span><div><strong>${enemy.name} <small>${enemy.realm}</small></strong><p>${enemy.looted ? '已败退 · 储物袋已取空' : enemy.defeated ? '储物袋待拾取' : `${enemy.role} · 气血 ${enemy.hp}`}</p></div><b>↗</b></button>`).join('');
+    $('#roamers').innerHTML = current.roamers.map(enemy => `<button type="button" class="roamer-row" data-roamer="${enemy.id}" ${enemy.looted ? 'disabled' : ''}><span style="--roamer-color:${enemy.color}">${enemy.defeated ? '袋' : enemy.name[0]}</span><div><strong>${enemy.name} <small>${enemy.realm}</small></strong><p>${enemy.looted ? '已败退 · 储物袋已取空' : enemy.defeated ? '储物袋待拾取' : `${affiliationText(enemy.affiliation)} · 气血 ${enemy.hp}`}</p></div><b>↗</b></button>`).join('');
   }
   function render(view) {
     current = view;
@@ -45,7 +46,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     $('#battle-mana-bar').style.width = `${battle.mana / view.combatStats.maxMana * 100}%`;
     $('#battle-weapon').textContent = view.weapon.name;
     $('#battle-enemy').textContent = enemy.name;
-    $('#battle-enemy-realm').textContent = enemy.realm;
+    $('#battle-enemy-realm').textContent = `${enemy.realm} · ${affiliationText(enemy.affiliation)}`;
     $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
     $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
     $('#battle-intent').textContent = active ? `${battle.intentSource==='model'?'Agent 决策':'基础应对'} · ${battle.intentSpeech || battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? '对方已败退。收取储物袋后可在行囊中研习、换装。' : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';

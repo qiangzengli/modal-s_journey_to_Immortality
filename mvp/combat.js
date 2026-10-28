@@ -2,6 +2,7 @@ import { npcPublic, npcPosition, npcWallet, ensureNpcState, withdrawNpcOffers } 
 import { GameError } from './errors.js';
 import { ITEMS, SKILLS, WANDERERS, lootEntries } from './combat-data.js';
 import { getCombatStats, getSkillScaling } from './combat-stats.js';
+import { affiliationFor } from './sects.js';
 
 export function createExploration() {
   return {
@@ -194,7 +195,7 @@ export function getCombatView(game) {
   const intent = enemy && intentFor(battle);
   return {
     combatStats: stats,
-    roamers: WANDERERS.map(enemy => ({ ...enemy, place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
+    roamers: WANDERERS.map(enemy => ({ ...enemy, affiliation: affiliationFor(game, enemy.id), place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
     inventory: Object.entries(state.inventory).filter(([,n]) => n > 0).map(([id, quantity]) => ({ id, ...ITEMS[id], quantity, equipped: state.weapon === id, learned: state.learned.includes(ITEMS[id].skill) })),
     skills: state.learned.map(id => {
       const skill = SKILLS[id];

@@ -17,10 +17,10 @@ function setup(overrides = {}) {
   return { navigator, visits };
 }
 
-test('一次追踪完成走到界门、跨区、继续前往目标', async () => {
+test('一次追踪直接传送到目标区域，仅落地后步行', async () => {
   const { navigator, visits } = setup();
   assert.equal(await navigator.go('听雨亭'), true);
-  assert.deepEqual(visits, [['walk', -2.2], ['cross', 'woods'], ['walk', 25], ['arrive', '听雨亭']]);
+  assert.deepEqual(visits, [['cross', 'woods'], ['walk', 25], ['arrive', '听雨亭']]);
   assert.equal(navigator.active, false);
 });
 
@@ -32,7 +32,7 @@ test('过门期间取消，不会到达旧目标或执行旧行动', async () =>
   navigator.cancel();
   finishCross(true);
   assert.equal(await pending, false);
-  assert.deepEqual(visits, [['walk', -2.2]]);
+  assert.deepEqual(visits, []);
 });
 
 test('改选目标后，旧寻路即使完成也不会触发旧行动', async () => {
@@ -96,14 +96,14 @@ test('过门动画中改选目标，动画结束后只继续最新目标', async
   finishTransition();
   assert.equal(await previous, false);
   assert.equal(await next, true);
-  assert.deepEqual(visits, ['界门', '新目标', '交互:新目标']);
+  assert.deepEqual(visits, ['新目标', '交互:新目标']);
 });
 
-test('连续跨过四个区域后才在遗府交互，取消中途行程不会触发剩余区域',async()=>{
+test('远方遗府只传送一次且不访问中途地图，取消后不触发交互',async()=>{
   let place='market';const crossed=[],arrived=[];
   let navigator=createNavigator({getPlace:()=>place,locate:()=>({kind:'site',name:'灵枢',place:'ruins',x:162,z:-6}),stop(){},walk:async()=>true,cross:async to=>{crossed.push(to);place=to;return true;},onChange(){},onArrive:g=>arrived.push(g.name)});
-  assert.equal(await navigator.go('core'),true);assert.deepEqual(crossed,['woods','river','quarry','ruins']);assert.deepEqual(arrived,['灵枢']);
+  assert.equal(await navigator.go('core'),true);assert.deepEqual(crossed,['ruins']);assert.deepEqual(arrived,['灵枢']);
   place='market';crossed.length=0;arrived.length=0;
-  navigator=createNavigator({getPlace:()=>place,locate:()=>({kind:'site',name:'灵枢',place:'ruins',x:162,z:-6}),stop(){},walk:async()=>true,cross:async to=>{crossed.push(to);place=to;if(to==='river')navigator.cancel();return true;},onChange(){},onArrive:g=>arrived.push(g.name)});
-  assert.equal(await navigator.go('core'),false);assert.deepEqual(crossed,['woods','river']);assert.deepEqual(arrived,[]);
+  navigator=createNavigator({getPlace:()=>place,locate:()=>({kind:'site',name:'灵枢',place:'ruins',x:162,z:-6}),stop(){},walk:async()=>true,cross:async to=>{crossed.push(to);place=to;navigator.cancel();return true;},onChange(){},onArrive:g=>arrived.push(g.name)});
+  assert.equal(await navigator.go('core'),false);assert.deepEqual(crossed,['ruins']);assert.deepEqual(arrived,[]);
 });

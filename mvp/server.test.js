@@ -71,7 +71,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.combatStats.baseAttack, 14);
     assert.equal(initial.combatStats.baseSpellPower, 20);
     assert.equal(initial.skills[0].scaling.total, 27);
-    assert.equal(initial.people.length,14);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,5);
+    assert.equal(initial.people.length,18);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,9);
     for (const input of [null, [], 'invalid']) {
       assert.equal((await post('/api/combat',input)).status,400);
     }
@@ -114,7 +114,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.deepEqual(restored, bought.view);
     let revision=restored.revision;
     const action=async input=>{const result=await post('/api/action',{...input,expectedRevision:revision});if(result.view)revision=result.view.revision;return result;};
-    assert.equal((await action({type:'travel_region',place:'ruins'})).status,400);
+    assert.equal((await action({type:'travel_region',place:'jinhuo'})).status,400);
     for(const place of ['woods','river'])assert.equal((await action({type:'travel_region',place})).status,200);
     const evidence=await action({type:'sample_water'});assert.ok(evidence.view.campaign.flags.water);
     const herbs=await action({type:'gather_reeds'});assert.equal(herbs.view.player.herbs,3);

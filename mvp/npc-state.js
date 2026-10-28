@@ -2,8 +2,10 @@ import { ensureCampaign } from './campaign.js';
 import { WANDERERS } from './combat-data.js';
 import { GameError } from './errors.js';
 import { stationOffset } from './npc-layout.js';
+import { ensureSects } from './sects.js';
 
 export const STATIONS = {
+  qinglan:{court:[214,0],hall:[226,4]},lingshu:{court:[274,0],hall:[286,4]},jinhuo:{court:[334,0],hall:[346,4]},xuanming:{court:[394,0],hall:[406,4]},
   market: { square: [-11, 0], gate: [-4, 0], west: [-22, 0] },
   woods: { trail: [8, 0], herbs: [18, 0], camp: [25, -3.5] },
   river:{dock:[42,0],fields:[63,6],lodge:[69,-4]},
@@ -17,6 +19,7 @@ const TEMPERAMENTS = {
   han: '警惕而贪利，会试探，不盲目出手', ning: '关注消息可信度，担心假消息反噬自己'
 };
 export function ensureNpcState(game) {
+  ensureSects(game);
   ensureCampaign(game);
   game.society ??= { paused: false, epoch: 0, minds: {}, offers: [], nextOffer: 1 };
   for (const npc of [...Object.values(game.people), ...WANDERERS]) {
