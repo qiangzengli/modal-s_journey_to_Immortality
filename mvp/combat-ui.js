@@ -1,4 +1,5 @@
 import { ITEM_KINDS } from './combat-data.js';
+import { createEquipmentUI } from './equipment-ui.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const $ = selector => document.querySelector(selector);
@@ -11,6 +12,11 @@ export function createCombatUI({ request, navigate, openInventory }) {
   let previousEnemy;
   let previousTurn;
   const stage = $('#combat-stage');
+  const equipmentUI = createEquipmentUI({
+    element: $('#equipment'),
+    onEquip: itemId => submit('/api/inventory', { type: 'equip', itemId }),
+    onOpenInventory: () => { $('#inventory').scrollIntoView({ block: 'start' }); $('#inventory').focus({ preventScroll: true }); }
+  });
   function updateRoundLabel() {
     const battle = current?.battle;
     if (!battle) return;
@@ -20,7 +26,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     return `<button type="button" data-combat-move="${move}" ${extra} ${reason ? 'disabled' : ''}><strong>${esc(title)}</strong><small>${esc(reason || detail)}</small></button>`;
   }
   function renderInventory() {
-    $('#equipment').innerHTML = `<h3>随身法器</h3><p class="loadout-summary">${esc(current.weapon.name)} <span>威力 +${current.weapon.attack}</span></p><h3>已修功法</h3><div class="learned-skills">${current.skills.map(skill => `<p><strong>${esc(skill.name)}</strong><small>${esc(skill.description)}</small></p>`).join('')}</div>`;
+    equipmentUI.render(current, { pending });
     $('#inventory').innerHTML = current.inventory.map(item => {
       const type = item.kind === 'weapon' ? 'equip' : item.kind === 'manual' ? 'learn' : item.heal ? 'use' : '';
       const unavailable = item.equipped || item.learned || (item.heal && current.player.hp >= 100);
@@ -75,10 +81,11 @@ export function createCombatUI({ request, navigate, openInventory }) {
   async function submit(path, input) {
     if (pending) return;
     pending = true;
+    equipmentUI.render(current, { pending });
     updateRoundLabel();
     $('#combat-inputs').disabled = true;
     try { return await request(path, input); }
-    finally { pending = false; $('#combat-inputs').disabled = false; updateRoundLabel(); }
+    finally { pending = false; equipmentUI.render(current, { pending }); $('#combat-inputs').disabled = false; updateRoundLabel(); }
   }
   stage.addEventListener('click', async event => {
     const change = event.target.closest('[data-combat-tab]');
