@@ -18,6 +18,7 @@ export function decorateWorld(scene) {
   const brass = mat(0xbba16b, { metalness: 0.45, roughness: 0.45 });
   const water = mesh(group, new THREE.PlaneGeometry(1100, 180), mat(0x274e4d, { metalness: 0.32, roughness: 0.35 }), 75, -0.75, 0);
   water.rotation.x = -Math.PI / 2;
+  const mountains = [];
   for (let i = 0; i < 24; i++) {
     const angle = i / 24 * Math.PI * 2;
     const radiusX = 38 + (i % 4) * 3;
@@ -27,16 +28,20 @@ export function decorateWorld(scene) {
     if(mountain.position.x>29&&Math.abs(mountain.position.z)<25)mountain.position.z=mountain.position.z<0?-28:28;
     mountain.rotation.y = i * 0.41;
     mountain.castShadow = true;
+    mountains.push(mountain);
   }
   // 石板路与石砌岸边。
   const paving = new THREE.InstancedMesh(new THREE.BoxGeometry(1.6, 0.045, 0.82), mat(0xa29b82), 102);
   const dummy = new THREE.Object3D();
+  const pavingPlacements = [], grassPlacements = [];
   let index = 0;
   for (let x = -27; x <= 27; x += 1.65) for (const z of [-1.55, -0.53, 0.52]) {
+    if (Math.abs(x) < 2.4) continue;
     dummy.position.set(x + (z > 0 ? 0.18 : 0), 0.04, z);
     dummy.rotation.set(0, Math.sin(x * 3) * 0.025, 0);
     dummy.updateMatrix();
     paving.setMatrixAt(index++, dummy.matrix);
+    pavingPlacements.push({ x, matrix: dummy.matrix.clone() });
   }
   paving.count = index;
   paving.receiveShadow = true;
@@ -57,6 +62,7 @@ export function decorateWorld(scene) {
     dummy.scale.setScalar(0.6 + (i % 5) * 0.17);
     dummy.updateMatrix();
     grass.setMatrixAt(grassCount++, dummy.matrix);
+    grassPlacements.push({ x, matrix: dummy.matrix.clone() });
     if (grassCount >= 420) break;
   }
   grass.count = grassCount;
@@ -92,6 +98,20 @@ export function decorateWorld(scene) {
   group.add(motes);
   const pulses = [];
   return {
+    sync(place) {
+      const originalRegion = place === 'market' || place === 'woods';
+      for (const object of group.children) {
+        if (object === water || pulses.some(pulse => pulse.object === object)) continue;
+        object.visible = originalRegion && (object.isInstancedMesh || object === motes || mountains.includes(object) || (object.position.x < 0 ? 'market' : 'woods') === place);
+      }
+      for (const [object, placements] of [[paving, pavingPlacements], [grass, grassPlacements]]) {
+        const local = placements.filter(item => (item.x < 0 ? 'market' : 'woods') === place);
+        local.forEach((item, i) => object.setMatrixAt(i, item.matrix));
+        object.count = local.length;
+        object.instanceMatrix.needsUpdate = true;
+        object.computeBoundingSphere();
+      }
+    },
     burst(position, color = 0xe9c87b) {
       const pulse = mesh(group, new THREE.RingGeometry(0.6, 0.75, 48), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1, side: THREE.DoubleSide, depthWrite: false }), position.x, 0.12, position.z);
       pulse.rotation.x = -Math.PI / 2;

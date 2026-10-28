@@ -14,3 +14,5 @@
 
 @media(min-width:701px) and (max-width:1000px){.map-panel:has([data-panel-content=sects]:not([hidden])){bottom:250px}}
 @media(max-height:680px){.map-panel:has([data-panel-content=sects]:not([hidden])){top:80px;bottom:210px}}
+
+@media(min-width:701px){.map-panel:has([data-panel-content=campaign]:not([hidden])){top:110px}}

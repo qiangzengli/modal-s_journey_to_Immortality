@@ -572,6 +572,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       } else player.position.copy(entry);
       cameraFocus.copy(entry);
       mapHolders.forEach(holder => { holder.visible = holder.userData.region === place; });
+      scenery.sync(place);
       scenery.burst(entry);
       select(null);
     }
