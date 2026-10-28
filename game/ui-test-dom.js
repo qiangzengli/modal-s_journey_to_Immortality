@@ -2,7 +2,7 @@ import {parseHTML} from 'linkedom';
 import {readFileSync} from 'node:fs';
 // DOM behavior tests; this helper does not render pixels or emulate WebGL.
 export function installDOM(t) {
- const {window,document}=parseHTML(readFileSync(new URL('./index.html',import.meta.url),'utf8'));
+ const {window,document}=parseHTML(readFileSync(new URL('../index.html',import.meta.url),'utf8'));
  const saved=new Map();
  const expose=(name,value)=>{saved.set(name,Object.getOwnPropertyDescriptor(globalThis,name));Object.defineProperty(globalThis,name,{configurable:true,writable:true,value});};
  for(const [name,value]of Object.entries({window,document,MutationObserver:window.MutationObserver,Event:window.Event}))expose(name,value);

@@ -1,11 +1,11 @@
 {
-  "name": "niminglu-mvp",
+  "name": "niminglu",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node --env-file-if-exists=.env.local server.js",
-    "test": "node --test"
+    "start": "node server.js",
+    "test": "node --test game/*.test.js"
   },
   "engines": {
     "node": ">=22.9"

@@ -1,3 +1,4 @@
+import { runtimePaths, loadGameEnvironment } from './runtime-paths.js';
 import { createServer } from 'node:http';
 import { readFile, mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -18,7 +19,9 @@ import { VOLUME_ACTIONS, VOLUME_PEOPLE } from './volume-data.js';
 import { sectAction, reviewSectApplication } from './sects.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
-const savePath = process.env.SAVE_PATH || join(root, '.data', 'save.json');
+const projectRoot=dirname(root);
+if(process.env.NODE_ENV!=='test')loadGameEnvironment(projectRoot);
+const {savePath}=runtimePaths(projectRoot);
 const port = Number(process.env.PORT || 4177);
 const modelConfig = gameModelConfig();
 const modelEnabled = Boolean(modelConfig);
@@ -100,7 +103,7 @@ async function modelAction(text, { allowReply = false, snapshot = game } = {}) {
     ], { maxTokens: 120, validate: content => {
       answer = JSON.parse(content.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, ''));
       if (allowReply && answer?.type === 'unknown') return;
-      if (!answer || !ACTIONS.includes(answer.type) || (answer.type === 'ask' && !PEOPLE.some(p => p.id === answer.target))) throw new Error('invalid_model_action');
+      if (!answer || !ACTIONS.includes(answer.type) || (answer.type === 'ask' && !Object.hasOwn(snapshot.people,answer.target||''))) throw new Error('invalid_model_action');
     } });
     if (allowReply && answer.type === 'unknown') return { source: 'model', modelName: completed.modelName };
     return { action: { type: answer.type, target: answer.target, offer: answer.offer, leverage: answer.leverage }, source: 'model', modelName: completed.modelName };
@@ -133,7 +136,7 @@ const files = {
   '/volume-ui.js': ['volume-ui.js', 'text/javascript; charset=utf-8'],
   '/volume-world.js': ['volume-world.js', 'text/javascript; charset=utf-8'],
   '/volume-data.js': ['volume-data.js', 'text/javascript; charset=utf-8'],
-  '/': ['index.html', 'text/html; charset=utf-8'],
+  '/': ['../index.html', 'text/html; charset=utf-8'],
   '/garden-ui.js': ['garden-ui.js', 'text/javascript; charset=utf-8'],
   '/garden-world.js': ['garden-world.js', 'text/javascript; charset=utf-8'],
   '/society-ui.js': ['society-ui.js', 'text/javascript; charset=utf-8'],
@@ -161,10 +164,16 @@ const files = {
   '/equipment.css': ['equipment.css', 'text/css; charset=utf-8'],
   '/battle-world.js': ['battle-world.js', 'text/javascript; charset=utf-8'],
   '/battle-fx.js': ['battle-fx.js', 'text/javascript; charset=utf-8'],
-  '/vendor/three.module.js': ['node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
-  '/vendor/three.core.js': ['node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
+  '/vendor/three.module.js': ['../node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
+  '/vendor/three.core.js': ['../node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
 };
+
+// /game contains source modules, not a second edition or a separate save.
+for(const [path,asset]of Object.entries(files)) {
+  if(path!=='/'&&!path.startsWith('/vendor/')&&!path.startsWith('/assets/'))files['/game'+path]=asset;
+}
+files['/index.html']=files['/'];
 
 async function handle(req, res) {
   const path = new URL(req.url, 'http://127.0.0.1').pathname;
@@ -172,10 +181,14 @@ async function handle(req, res) {
     json(res, 403, { error: '仅允许从本地游戏页面访问。' });
     return;
   }
+  if(req.method==='GET'&&['/mvp','/mvp/','/mvp/index.html','/game','/game/','/game/index.html'].includes(path)){
+    res.writeHead(308,{location:'/', 'cache-control':'no-store'});res.end();return;
+  }
   if (req.method === 'GET' && files[path]) {
     const [file, type] = files[path];
+    const contents=await readFile(join(root,file));
     res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
-    res.end(await readFile(join(root, file)));
+    res.end(contents);
     return;
   }
   if (req.method === 'GET' && path === '/api/state') {
@@ -300,6 +313,6 @@ createServer((req, res) => { handle(req, res).catch(error => {
   if (!res.headersSent) json(res, 500, { error: '服务器处理失败。' });
   else res.end();
 }); }).listen(port, '127.0.0.1', () => {
-  console.log(`逆命录 MVP 已启动：http://127.0.0.1:${port}`);
+  console.log(`逆命录已启动：http://127.0.0.1:${port}`);
   console.log(modelName ? `自然语言解析：${modelName}` : '自然语言解析：离线规则模式');
 });

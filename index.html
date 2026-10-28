@@ -1,58 +1,95 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-  <title>凡人修仙传：七玄门</title>
-  <link rel="stylesheet" href="./style.css">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#142921">
+  <title>逆命录 · 七玄问道</title><link rel="stylesheet" href="/game/style.css"><link rel="stylesheet" href="/game/equipment.css"><link rel="stylesheet" href="/game/sect.css"><link rel="stylesheet" href="/game/experience.css"><script type="module" src="/game/app.js"></script>
 </head>
 <body>
-  <main id="game-shell">
-    <div id="scene"></div>
-    <div id="chapter-card" class="chapter-card">
-      <span>第一章</span><strong>七玄门与墨府</strong><small>凡人踏上修仙路的起点</small>
-    </div>
+<main class="world-panel" aria-label="逆命录可探索地图">
+  <div id="world-canvas" class="world-canvas"></div><div class="world-vignette" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">逆</span><div><strong>逆命录</strong><small>枯潮来信 · 众生因果</small></div></div>
+    <div class="resource-strip"><span class="realm-chip" id="realm">炼气九层</span><span title="可用于买卖、调息与布置"><i>◆</i> <b id="hud-stones">180</b> <small>灵石</small></span><button id="garden-hud" type="button" class="garden-hud" title="前往灵草坡照看灵圃" hidden></button><span class="health-resource"><small>气血</small><span class="health-track"><i id="hp-fill"></i></span><b id="hud-hp">100</b></span><span class="reputation-resource"><small>声望</small> <b id="hud-reputation">50</b></span></div>
+    <div class="top-actions"><div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b>不限</b></small></div><button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button></div>
+  </header>
+  <div class="society-clock"><span id="world-clock-status" role="status">众生正在醒来</span><button id="world-rest" type="button" hidden title="只结算修炼、灵圃和已签约定；人物仍等待模型决策">静修一旬</button><button id="world-pause" type="button">暂停演化</button></div>
+  <div class="world-top"><span class="eyebrow">乱星海 · 东境</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击人物交谈，探索属于你的机缘</span></div>
 
-    <header class="hud top-hud">
-      <div><span class="eyebrow">七玄门 · 第一章</span><h1>凡人修仙传</h1></div>
-      <div class="hud-actions"><span id="realm">凡人</span><button id="save" title="保存进度">保存</button></div>
-    </header>
+  <div id="navigation-status" class="navigation-status" role="status" hidden><span class="walking-dot"></span><span id="navigation-copy"></span><button id="navigation-cancel" type="button">停止</button></div>
+  <button id="nearby-interact" class="nearby-interact" type="button" hidden><kbd>F</kbd><span id="nearby-name"></span><small>交互</small></button>
 
-    <section class="quest-panel hud">
-      <div class="quest-heading"><span class="eyebrow">当前主线</span><span id="quest-count">1 / 12</span></div>
-      <strong id="quest">山门试炼</strong>
-      <p id="objective">前往山门，与七玄门执事交谈</p>
-      <small id="location">地点：七玄门山门</small>
-      <div class="quest-progress"><i id="quest-progress"></i></div>
+  <button id="campaign-track" class="campaign-track" type="button" data-open-panel="campaign" hidden><span class="eyebrow">卷一 · 游历手记</span><strong></strong><small></small><em>展开天下与故事 →</em></button>
+  <section class="journey-card" aria-label="机缘指引">
+    <div class="journey-heading"><span class="eyebrow">修行手札</span><span id="quest-progress">动态规划</span></div>
+    <div id="plan-options" class="plan-options" aria-label="模型设计的取丹方案"></div>
+    <small id="quest-objective" class="quest-objective"></small>
+    <h2 id="quest-title">正在梳理线索</h2><p id="quest-detail" aria-live="polite"></p>
+    <p id="plan-risk" class="plan-risk"></p><small id="plan-forecast" class="plan-forecast"></small>
+    <small id="quest-facts" class="quest-objective"></small>
+    <div class="agent-source-row"><span id="agent-guide-source" role="status">正在设计方案…</span><button id="guide-rethink" type="button" aria-label="重新设计取丹方案">↻</button></div>
+    <button id="quest-track" type="button" disabled>等待可行方案</button>
+    <details class="guide-inquiry"><summary>提出偏好 · 重新设计</summary><div id="guide-followups" class="agent-followups"></div><form id="guide-form"><label class="sr-only" for="guide-question">取丹方案偏好</label><input id="guide-question" maxlength="280" placeholder="例如：不欠人情，尽量不动武"><button id="guide-send" type="submit">重想</button></form></details>
+  </section>
+
+  <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>机缘 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small id="opportunity-hint">金色光环标记持丹者 ↗</small></button>
+
+  <section id="world-person" class="world-person" aria-label="地图交互" hidden>
+    <button id="person-close" class="icon-close" type="button" aria-label="关闭交互">×</button>
+    <div class="character-heading"><span id="person-seal" class="person-seal">沈</span><div><small id="world-role"></small><strong id="world-name"></strong></div></div>
+    <div id="person-meta" class="person-meta"></div><p id="npc-activity" class="npc-activity" hidden></p><p id="world-goal"></p><blockquote id="person-dialogue" hidden></blockquote>
+    <div id="interaction-result" class="interaction-result" role="status" hidden><small>此刻 · 行动结果</small><p id="interaction-result-copy"></p><button id="interaction-next" type="button" hidden></button></div>
+    <section id="agent-dialogue" class="agent-dialogue" hidden>
+      <div class="agent-source-row"><span id="agent-chat-source" role="status">人物交谈</span><small>问话不消耗资源</small></div>
+      <div id="agent-chat-log" class="agent-chat-log" role="log" aria-live="polite"></div>
+      <div id="agent-chat-followups" class="agent-followups"></div>
+      <form id="agent-chat-form"><label class="sr-only" for="agent-chat-input">对人物说的话</label><textarea id="agent-chat-input" maxlength="280" rows="2" placeholder="询问线索，或说出你的打算…" required></textarea><button id="agent-chat-send" type="submit">交谈</button></form>
+      <p id="agent-chat-error" role="alert"></p><div id="agent-chat-actions" class="agent-chat-actions"></div>
+      <small class="agent-boundary">对方会记住交谈并据此考虑行动；委托、取证与交易需由你确认执行。</small>
     </section>
+    <section id="garden-card" class="garden-card" aria-label="小绿瓶灵圃" hidden></section>
+    <section id="npc-commissions" aria-label="人物主动提出的委托" hidden></section>
+    <details class="npc-business" open><summary>交易与事务</summary><div id="world-actions" class="context-actions"></div></details>
+    <form id="trade-form" class="trade-form" hidden><label for="trade-offer">当面议价 <small>报价过低可能降低信任</small></label><div class="offer-row"><input id="trade-offer" type="number" min="1" max="9999" value="200" required aria-label="灵石报价"><span>灵石</span><button type="submit">递上报价</button></div><label class="sr-only" for="trade-leverage">议价筹码</label><select id="trade-leverage"><option value="none">仅凭报价</option></select></form>
+    <details id="person-memory"><summary>与你有关的往事</summary><div id="memory-list"></div></details>
+  </section>
 
-    <section id="party" class="party-panel hud"></section>
-    <div id="target-hint" class="target-hint"><span>◆</span><b id="target-name">七玄门执事</b><small id="target-distance">12 米</small></div>
-    <div id="toast" class="toast"></div>
-
-    <div id="dialog" class="dialog hidden">
-      <img id="dialog-portrait" alt="角色立绘">
-      <div class="dialog-copy"><div class="dialog-name" id="dialog-name"></div><div class="dialog-text" id="dialog-text"></div></div>
-      <button id="dialog-next">继续</button>
+  <aside id="map-panel" class="map-panel" aria-label="地图信息" hidden>
+    <div class="panel-heading"><div><span class="eyebrow">逆命录 / JOURNAL</span><h2 id="panel-title">机缘</h2></div><button id="panel-close" class="icon-close" type="button" aria-label="关闭信息面板">×</button></div>
+    <div class="panel-scroll">
+      <section data-panel-content="campaign" hidden><div id="campaign-content"></div></section>
+      <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>当前持有人</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>当前售价</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>传闻状态</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome"></p><div id="quest-steps" class="quest-steps"></div></section>
+      <section data-panel-content="self" hidden><div id="equipment"></div><details class="equipment-resources"><summary>修行资源与灵圃</summary><div id="stats" class="stats"></div><div id="garden-summary" class="garden-summary"></div><div id="clues" class="clues"></div><p id="mode" class="panel-tip">离线规则模式</p></details><button id="restart" class="text-button" type="button">重开此局</button></section>
+      <section data-panel-content="sects" hidden><div id="sect-content"></div></section>
+      <section data-panel-content="people" hidden><h3>众生委托</h3><div id="society-offers"></div><h3>各地 · 游历修士</h3><p class="panel-tip">点击可一路传送至所在区域，再走到修士身边。主动发起斗法，胜者取得储物袋。</p><div id="roamers"></div><h3>修真界众生</h3><p class="panel-tip">人物会记得你的承诺与手段。</p><div id="people" class="people"></div></section>
+      <section data-panel-content="actions" hidden><p class="panel-tip">选择行动后会自动走到对应人物或地点执行；途中可按方向键或「停止」取消。</p><div id="actions" class="action-grid"></div></section>
+      <section data-panel-content="events" hidden><div id="events" class="events"></div></section>
     </div>
+  </aside>
 
-    <div id="battle" class="battle-screen hidden">
-      <div class="battle-top"><div><span class="eyebrow">剧情战斗</span><h2 id="battle-title">墨大夫</h2></div><span id="turn-label">我方回合</span></div>
-      <div class="battle-stage">
-        <div class="fighter ally-fighter"><img src="./assets/generated/hanli.png" alt="韩立"><span>韩立</span></div>
-        <div class="turn-order"><b>行动顺序</b><i>韩</i><i>敌</i><i>韩</i></div>
-        <div class="fighter enemy-fighter"><img id="enemy-image" src="./assets/generated/modafu.png" alt="敌人"><span id="enemy-name">墨大夫</span></div>
-      </div>
-      <div class="battle-status"><div><span>韩立</span><i><b id="hero-hp"></b></i></div><div><span id="enemy-hp-name">墨大夫</span><i><b id="enemy-hp"></b></i></div></div>
-      <div id="battle-log" class="battle-log">灵力涌动，战斗开始。</div>
-      <div class="battle-actions"><button data-action="attack"><b>剑</b><span>普攻</span></button><button data-action="spell"><b>灵</b><span>长春功</span></button><button data-action="item"><b>丹</b><span>回灵丹</span></button><button data-action="guard"><b>御</b><span>防御</span></button></div>
+  <nav class="map-nav" aria-label="地图功能"><button type="button" data-open-panel="campaign"><i>◎</i>天下</button><button type="button" data-open-panel="opportunity"><i>◇</i>机缘</button><button type="button" data-open-panel="self"><i>▧</i>行囊</button><button type="button" data-open-panel="sects"><i>⚑</i>门派</button><button type="button" data-open-panel="people"><i>♧</i>人物</button><button type="button" data-open-panel="actions"><i>⚒</i>行动</button><button type="button" data-open-panel="events"><i>≋</i>邸报 <b id="news-count" hidden>0</b></button></nav>
+
+  <section class="command-dock" aria-label="自然语言问计与行动">
+    <div class="command-caption"><span>心念传音</span><small id="command-status">正在连接……</small></div>
+    <div id="command-conversation" class="command-conversation" hidden>
+      <div class="agent-source-row"><span id="command-source">问计</span><button id="command-clear" type="button">清空问答</button></div>
+      <div id="command-log" class="agent-chat-log" role="log" aria-label="心念传音问答" aria-live="polite"></div>
+      <div id="command-followups" class="agent-followups"></div>
+      <div id="command-suggestions" class="agent-followups"></div>
     </div>
+    <form id="command-form"><label class="sr-only" for="command">写下你的问题或计策</label><textarea id="command" maxlength="280" rows="1" placeholder="可问：灵石不够怎么办？也可行动：请白芷验丹。"></textarea><button id="command-submit" class="primary" type="submit">落子 <span>↗</span></button></form>
+    <div id="message" class="message" role="status" aria-live="polite">写下疑问向 AI 问计，或直接说出要做的行动。</div>
+  </section>
 
-    <div id="joystick" class="joystick"><span></span></div>
-    <button id="interact" class="interact hidden"><span>◆</span><b id="interact-label">互动</b></button>
-    <nav class="bottom-bar"><button id="journal">任务</button><button id="bag">储物袋</button><button id="auto">自动：关</button></nav>
-  </main>
-  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
-  <script type="module" src="./main.js"></script>
-</body>
-</html>
+  <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="当前区域导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
+  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>跨地图直接传送，按修为开放；点击人物后传送到所在区域，再自动走近。靠近时按 F 交互，按方向键或 Esc 可取消追踪。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；前台探索约每 90 秒触发一次众生决策，也可点击「听候风声」。交谈、斗法或隐藏页面时暂停，可随时暂停演化。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
+  <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
+  <section id="combat-stage" class="combat-stage" aria-label="回合制斗法" hidden>
+    <header class="battle-heading"><span class="eyebrow">乱星海 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>
+    <div class="duelist duelist-player"><small>你 · <span id="battle-weapon"></span></small><strong>守住这一线生机</strong><div class="duelist-stat"><span>气血</span><b id="battle-player-hp"></b></div><div class="battle-bar"><i id="battle-player-bar"></i></div><div class="duelist-stat"><span>真气</span><b id="battle-mana"></b></div><div class="battle-bar mana"><i id="battle-mana-bar"></i></div></div>
+    <div class="duelist duelist-enemy"><small id="battle-enemy-realm"></small><strong id="battle-enemy"></strong><div class="duelist-stat"><span>气血</span><b id="battle-enemy-hp"></b></div><div class="battle-bar enemy"><i id="battle-enemy-bar"></i></div><p id="battle-intent"></p></div>
+    <div class="battle-console"><div id="battle-log" class="battle-log" role="log" aria-live="polite"></div><details class="battle-history"><summary>查看交锋记录</summary><div id="battle-history"></div></details><p id="combat-error" class="combat-error" role="alert"></p><fieldset id="combat-inputs"><div id="combat-controls"><div id="combat-basics" class="combat-basics"></div><div id="combat-tabs" class="combat-tabs"></div><div id="combat-options" class="combat-options"></div></div><div id="combat-result" hidden></div></fieldset></div>
+  </section>
+  <section id="turn-summary" class="turn-summary" aria-label="本旬动向" hidden><div><span class="eyebrow">时序流转</span><button id="summary-close" class="icon-close" type="button" aria-label="关闭本旬动向">×</button></div><h2 id="summary-title"></h2><div id="summary-events"></div><button id="summary-continue" class="primary" type="button">展开邸报 →</button></section>
+  <dialog id="ending" class="ending"><span class="ending-seal">筑</span><p class="eyebrow">道途初开</p><h2>一念破境，因果未了。</h2><p id="ending-copy"></p><div id="ending-stats"></div><button id="ending-close" class="primary" type="button">回到这片修真界 →</button></dialog>
+</main>
+</body></html>
