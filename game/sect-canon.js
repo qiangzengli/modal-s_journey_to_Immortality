@@ -28,7 +28,7 @@ export function ensureSectCanon(game) {
   for (const event of game.events || []) { event.actor = rename(event.actor); event.text = rename(event.text); }
   for (const mind of Object.values(game.society?.minds || {})) {
     for (const field of ['goal', 'temperament', 'activity', 'speech']) mind[field] = rename(mind[field]);
-    for (const memory of mind.memories || []) memory.text = rename(memory.text);
+    for (const memory of mind.memories || []) if (memory.kind !== 'conversation') memory.text = rename(memory.text);
     for (const line of mind.conversation || []) if (line.role !== 'user') {
       if (line.content !== undefined) line.content = rename(line.content);
       if (line.text !== undefined) line.text = rename(line.text);

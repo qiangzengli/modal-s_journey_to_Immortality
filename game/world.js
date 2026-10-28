@@ -488,7 +488,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     onChange: state => { onNavigation?.(state); },
     onArrive: goal => {
       if (goal.kind === 'person') { select(goal.id); onSelectPerson(goal.id); }
-      else if (goal.kind === 'site' && !goal.room) { selectSite(goal.id); onSelectSite(goal.id); }
+      else if (goal.kind === 'site') { selectSite(goal.id); onSelectSite(goal.id); }
     }
   });
   function goTo(target) {

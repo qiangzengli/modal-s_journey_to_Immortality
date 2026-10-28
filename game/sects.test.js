@@ -144,3 +144,16 @@ test('模型计费、权限、限流、超时等错误与接引人的决定分�
 test('原著宗门名可直接用于自然语言传送', () => {
   for(const [id,sect] of Object.entries(SECTS)) assert.deepEqual(parseLocal('传送到'+sect.name),{type:'travel_region',place:id});
 });
+
+
+test('迁移不改写拜师缘由、聊天原文或引用玩家原话的对话记忆', () => {
+  const game=applicant();delete game.sects.catalogVersion;
+  const words='我想拜入青岚剑宗，曾在灵枢谷求药。';
+  game.sects.application.reason=words;
+  game.society.minds.gu.conversation=[{role:'user',text:words},{role:'assistant',text:'我记住了。'}];
+  game.society.minds.gu.memories=[{kind:'conversation',turn:1,text:`玩家说：「${words}」；我回应：「我记住了。」`},{kind:'event',turn:1,text:'万息灵枢尚待调查'}];
+  const memories=structuredClone(game.society.minds.gu.memories);
+  ensureNpcState(game);
+  assert.equal(game.sects.application.reason,words);assert.equal(game.society.minds.gu.conversation[0].text,words);
+  assert.deepEqual(game.society.minds.gu.memories,memories);
+});
