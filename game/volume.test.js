@@ -1,3 +1,4 @@
+import {winOpeningFight} from './canon-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame,createOpeningGame,applyAction,getView,advanceTurn,parseLocal } from './engine.js';
@@ -13,7 +14,7 @@ const act=(g,type)=>applyAction(g,{type}).game;
 const travel=(g,place)=>g.player.place===place?g:applyAction(g,{type:'travel_region',place}).game;
 function through(end,{side=false}={}){
  let g=createOpeningGame();
- for(const a of VOLUME_ACTIONS.filter(a=>!a.repeatable&&(!a.optional||side))){g=travel(g,a.place);g=act(g,a.type);if(a.type===end)break;}
+ for(const a of VOLUME_ACTIONS.filter(a=>!a.repeatable&&(!a.optional||side))){g=travel(g,a.place);g=act(g,a.type);if(g.exploration.battle)g=winOpeningFight(g);if(a.type===end)break;}
  return g;
 }
 test('新开局为凡人韩立，从七玄门开始；旧存档迁移不注入新剧情、不改资产',()=>{
@@ -24,9 +25,9 @@ test('新开局为凡人韩立，从七玄门开始；旧存档迁移不注入�
  const old=createGame();old.pill.owner='xu';old.flags.partnerDebt=120;old.player.stones=43;
  const snapshot=structuredClone(old);ensureNpcState(old);assert.deepEqual(old,snapshot);assert.equal(getView(old).story,null);
 });
-test('十四段主线和三条支线可完整推进；功法、信物、灵圃和事件链落入真实状态',()=>{
+test('十七段主线和三条支线可完整推进；功法、信物、灵圃和事件链落入真实状态',()=>{
  const g=through('enter_xianmen',{side:true}),v=getView(g);
- assert.equal(v.story.complete,true);assert.equal(v.story.completed,14);assert.ok(v.story.objectives.every(a=>a.done));
+ assert.equal(v.story.complete,true);assert.equal(v.story.completed,17);assert.ok(v.story.objectives.every(a=>a.done));
  assert.equal(g.player.herbs,1);assert.equal(g.player.stones,180);assert.equal(g.player.hp,100);
  for(const id of ['mo_letter','warm_jade','ascension_token','sword_talisman','huanglong_recipe','changchun_manual','fireball_manual'])assert.equal(g.exploration.inventory[id],1,id);
  assert.equal(g.garden.bottle,true);assert.ok(g.exploration.learned.includes('changchun'));assert.ok(g.exploration.learned.includes('object_control'));

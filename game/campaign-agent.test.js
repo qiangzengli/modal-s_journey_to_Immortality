@@ -1,121 +1,43 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, applyAction, advanceTurn, getView } from './engine.js';
-import { ensureNpcState, contractAction, remember } from './npc-state.js';
-import { societyContext, applySocietyDecisions, createSocietyAgent } from './npc-agent.js';
-import { campaignNpcOptions } from './campaign.js';
+import {getView,advanceTurn} from './engine.js';
+import {contractAction,remember,ensureNpcState} from './npc-state.js';
+import {campaignNpcOptions,applyCampaignNpc} from './campaign.js';
+import {societyContext,applySocietyDecisions,createSocietyAgent} from './npc-agent.js';
+import {throughCampaign,travel} from './canon-test-helpers.js';
+const decisions=(g,overrides={})=>societyContext(g).actors.map(a=>({actorId:a.id,actionId:'observe',goal:'根据已知经历安排修行',speech:'我会先核对眼下的情况。',...overrides[a.id]}));
+const has=(g,id,action)=>campaignNpcOptions(g,id).some(o=>o.id===action);
 
-function concluded() {
-  let game=createGame();
-  const act=(type,target)=>{game=applyAction(game,{type,target}).game;};
-  act('travel_region','woods'); act('travel_region','river');
-  act('read_manifest'); act('sample_water'); act('gather_reeds');
-  act('travel_region','quarry'); act('inspect_vein'); act('mine_ore'); act('mine_ore'); act('aid_workers');
-  act('travel_region','ruins'); act('open_archive'); act('read_core'); act('read_names'); act('lease_core');
-  return game;
-}
-const choices=(game,overrides={})=>societyContext(game).actors.map(actor=>({actorId:actor.id,actionId:'observe',goal:'根据自己的处境决定下一步',speech:'我会考虑旧契带来的变化。',...overrides[actor.id]}));
-const has=(game,id,action)=>campaignNpcOptions(game,id).some(option=>option.id===action);
-
-test('灵枢结局只开放真实候选，静修与旁观不自动触发后续剧情',async()=>{
-  const initial=createGame();
-  assert.equal(has(initial,'song','rebuild_livelihood'),false);
-  let game=concluded();
-  const before=structuredClone(game);
-  assert.equal(has(game,'song','rebuild_livelihood'),true);
-  assert.equal(has(game,'yuan','preserve_names'),true);
-  assert.equal(has(game,'tao','treat_workers'),false);
-  assert.equal(has(game,'song','support_archive'),false);
-  assert.equal(has(game,'qiao','debate_core'),false);
-  assert.ok(game.campaign.endingEvent);
-  await assert.rejects(createSocietyAgent().decide(game),/offline/);
-  assert.deepEqual(game,before);
-  game=advanceTurn(advanceTurn(game).game).game;
-  assert.ok(getView(game).campaign.aftermath.every(item=>!item.done));
-  game=applySocietyDecisions(game,choices(game)).game;
-  assert.ok(getView(game).campaign.aftermath.every(item=>!item.done));
+test('禁地援助不自动触发，不消耗玩家资产，不代替采药；同一援助最多结算一次',()=>{
+ let g=throughCampaign('enter_forbidden');g.people.yue.trust=10;g.people.song.trust=10;
+ const before=structuredClone(g);g=advanceTurn(g).game;assert.equal(g.campaign.storyFlags.scout_help,undefined);
+ const result=applySocietyDecisions(g,decisions(g,{yue:{actionId:'share_trial_notes'},song:{actionId:'share_trial_notes'}}));g=result.game;
+ assert.equal(g.people.yue.stones,before.people.yue.stones-20);assert.equal(g.people.song.stones,before.people.song.stones);
+ assert.ok(result.skipped.includes('song'));assert.deepEqual(g.campaign.questHerbs,[]);assert.equal(g.player.stones,before.player.stones);
+ assert.throws(()=>applyCampaignNpc(g,'song','share_trial_notes'),/不能执行/);
 });
-
-test('药师先自主委托、真实交付再选择救治；模型不得索取玩家物品或直接改结局',()=>{
-  let game=concluded();
-  const before=structuredClone(game);
-  assert.throws(()=>applySocietyDecisions(game,choices(game,{tao:{actionId:'treat_workers'}})),/invalid/);
-  assert.throws(()=>applySocietyDecisions(game,choices(game,{qiao:{actionId:'restore_flow'}})),/invalid/);
-  assert.deepEqual(game,before);
-  game=applySocietyDecisions(game,choices(game,{tao:{actionId:'offer_herbs',offer:{title:'工棚后续诊治',description:'旧契虽定，工人的病还需要一株灵草调理。',quantity:1,reward:25}}})).game;
-  assert.equal(game.people.tao.stones,before.people.tao.stones-25);
-  const offerId=game.society.offers.at(-1).id;
-  game=applyAction(game,{type:'travel_region',target:'quarry'}).game;
-  game=applyAction(game,{type:'travel_region',target:'river'}).game;
-  game=contractAction(game,{type:'accept',offerId}).game;
-  game=contractAction(game,{type:'deliver',offerId}).game;
-  assert.equal(game.player.herbs,before.player.herbs-1);
-  assert.equal(game.player.stones,before.player.stones+25);
-  assert.equal(game.society.minds.tao.herbs,1);
-  assert.equal(game.campaign.flags.relief,undefined);
-  const player=structuredClone(game.player);
-  game=applySocietyDecisions(game,choices(game,{tao:{actionId:'treat_workers'}})).game;
-  assert.equal(game.society.minds.tao.herbs,0);
-  assert.equal(game.player.herbs,player.herbs);
-  assert.equal(game.player.stones,player.stones);
-  assert.equal(game.campaign.ending,'lease');
-  const event=game.events.find(item=>item.id===game.campaign.flags.relief);
-  assert.ok(event.causes.includes(game.campaign.endingEvent));
-  assert.match(event.text,/陶晚自主决定/);
-  assert.ok(game.society.minds.tao.memories.some(memory=>memory.text.includes('救治')));
-  assert.equal(has(game,'tao','treat_workers'),false);
+test('人物先委托、真实收药后才能自行救治；模型无法代玩家交药或完成主线',()=>{
+ let g=throughCampaign('leave_forbidden');const before=structuredClone(g);
+ assert.equal(has(g,'tao','treat_survivors'),false);
+ assert.throws(()=>applySocietyDecisions(g,decisions(g,{tao:{actionId:'treat_survivors'}})),/invalid/);
+ assert.throws(()=>applySocietyDecisions(g,decisions(g,{tao:{actionId:'deliver_spirit_herbs'}})),/invalid/);assert.deepEqual(g,before);
+ g=applySocietyDecisions(g,decisions(g,{tao:{actionId:'offer_herbs',offer:{title:'救治试炼伤者',description:'收取一株灵草，救治同行伤者。',quantity:1,reward:25}}})).game;
+ assert.equal(g.people.tao.stones,before.people.tao.stones-25);const offerId=g.society.offers.at(-1).id;
+ g=travel(g,'quarry');g=contractAction(g,{type:'accept',offerId}).game;g=contractAction(g,{type:'deliver',offerId}).game;
+ const player=structuredClone(g.player);g=applySocietyDecisions(g,decisions(g,{tao:{actionId:'treat_survivors'}})).game;
+ assert.equal(g.society.minds.tao.herbs,0);assert.equal(g.player.herbs,player.herbs);assert.equal(g.player.stones,player.stones);
+ const event=g.events.find(e=>e.id===g.campaign.storyFlags.relief);assert.deepEqual(event.causes,[g.campaign.storyFlags.leave_forbidden]);
+ assert.equal(has(g,'tao','treat_survivors'),false);assert.equal(g.campaign.alternatePill,false);
 });
-
-test('多名NPC竞争同一善后行动只扣一次资源；重复执行拒绝且事实可追溯',()=>{
-  const source=concluded(), before=structuredClone(source);
-  const outcome=applySocietyDecisions(source,choices(source,{yue:{actionId:'rebuild_livelihood'},qiao:{actionId:'rebuild_livelihood'},yuan:{actionId:'preserve_names'}}));
-  const game=outcome.game;
-  assert.deepEqual(source,before);
-  assert.ok(outcome.skipped.includes('qiao'));
-  assert.equal(game.people.yue.stones,source.people.yue.stones-30);
-  assert.equal(game.people.qiao.stones,source.people.qiao.stones);
-  assert.equal(game.people.yuan.stones,source.people.yuan.stones-15);
-  assert.equal(game.player.stones,source.player.stones);
-  assert.equal(game.campaign.vault,source.campaign.vault);
-  assert.equal(game.events.filter(event=>event.text.includes('自主决定整顿')).length,1);
-  assert.ok(game.events.find(event=>event.id===game.campaign.flags.history).causes.includes(game.campaign.flags.names));
-  assert.throws(()=>applySocietyDecisions(game,choices(game,{song:{actionId:'rebuild_livelihood'}})),/invalid/);
-  assert.throws(()=>applySocietyDecisions(game,choices(game,{ji:{actionId:'preserve_names'}})),/invalid/);
+test('人物援助受财物和关系限制，离线与读取视图不补发资源',async()=>{
+ const g=throughCampaign('enter_forbidden');g.people.song.trust=10;g.people.song.stones=19;
+ assert.equal(has(g,'song','share_trial_notes'),false);const before=structuredClone(g);
+ await assert.rejects(createSocietyAgent().decide(g),/offline/);getView(g);societyContext(g);ensureNpcState(g);assert.deepEqual(g,before);
 });
-
-test('善后候选受资金与证据约束；旧档迁移和读视图不补发资源',()=>{
-  const game=concluded();
-  game.people.yue.stones=29; game.people.yuan.stones=14;
-  assert.equal(has(game,'yue','rebuild_livelihood'),false);
-  assert.equal(has(game,'yuan','preserve_names'),false);
-  delete game.campaign.flags.names;
-  assert.equal(has(game,'ji','preserve_names'),false);
-  delete game.campaign.endingEvent;
-  const player=structuredClone(game.player),vault=game.campaign.vault;
-  ensureNpcState(game);
-  assert.equal(game.campaign.endingEvent,0);
-  assert.equal(game.campaign.vault,vault);
-  assert.deepEqual(game.player,player);
-  const before=structuredClone(game);
-  getView(game); societyContext(game); ensureNpcState(game);
-  assert.deepEqual(game,before);
-});
-
-test('Agent收到结局和公开调查，但另一人的私下交谈仍不会串入',async()=>{
-  const game=concluded();
-  remember(game,'qiao','玩家私下希望我独占矿契。','conversation');
-  let sent;
-  const agent=createSocietyAgent({generate:async messages=>{
-    sent=JSON.parse(messages[1].content);
-    return {decisions:sent.actors.map(actor=>({actorId:actor.id,actionId:actor.id==='yuan'?'preserve_names':'observe',goal:'保存可核实的旧史',speech:'先看留下来的证据。'}))};
-  }});
-  const decisions=await agent.decide(game);
-  const yuan=sent.actors.find(actor=>actor.id==='yuan');
-  assert.equal(yuan.localCampaign.ending.id,'lease');
-  assert.equal(yuan.localCampaign.evidence.names,true);
-  assert.doesNotMatch(JSON.stringify(yuan),/独占矿契/);
-  assert.match(JSON.stringify(sent.actors.find(actor=>actor.id==='qiao')),/独占矿契/);
-  const result=applySocietyDecisions(game,decisions).game;
-  assert.ok(result.campaign.flags.history);
-  assert.equal(result.campaign.flags.recovery,undefined);
+test('Agent使用当前原著时段，自主选择真实能力，私人交谈不串给其他人',async()=>{
+ const g=throughCampaign('enter_forbidden');g.people.song.trust=10;remember(g,'qiao','只告诉钟吾的私下约定','conversation');
+ let sent;const agent=createSocietyAgent({generate:async messages=>{sent=JSON.parse(messages[1].content);return {decisions:sent.actors.map(a=>({actorId:a.id,actionId:a.id==='song'?'share_trial_notes':'observe',goal:'谨慎探索禁地',speech:'先看看已有的见闻。'}))};}});
+ const next=await agent.decide(g);assert.equal(sent.canon.source,'凡人修仙传');assert.match(sent.canon.era,/血色禁地/);
+ assert.doesNotMatch(JSON.stringify(sent.actors.find(a=>a.id==='song')),/私下约定/);assert.match(JSON.stringify(sent.actors.find(a=>a.id==='qiao')),/私下约定/);
+ const result=applySocietyDecisions(g,next).game;assert.ok(result.campaign.storyFlags.scout_help);assert.deepEqual(result.campaign.questHerbs,[]);
 });

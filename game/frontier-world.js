@@ -33,15 +33,14 @@ export function createFrontier(scene, targets, helpers) {
   for(const z of [-2.1,2.1])for(let x=51.4;x<59;x+=1.4)put(scene,new THREE.CylinderGeometry(.06,.08,1,6),material(0x706047),x,.5,z);
   const boat=new THREE.Group();boat.position.set(44,.2,-11);scene.add(boat);
   put(boat,new THREE.BoxGeometry(5,.45,1.8),material(0x6f5843),0,0,0);put(boat,new THREE.BoxGeometry(.13,3,.13),material(0x8d7853),0,1.5,0);put(boat,new THREE.BoxGeometry(1.7,2,.05),material(0xbeb793),.65,2.1,0);
-  for(const [id,buildings] of Object.entries(FRONTIER_BLOCKERS))for(const [x,z] of buildings)obstacleTargets.push(makeBuilding(scene,x,z,5.8,4,id==='quarry'?0x77543d:0x576f76,id==='river'?'渡口人家':id==='quarry'?'矿场工棚':'遗府残殿'));
+  for(const [id,buildings] of Object.entries(FRONTIER_BLOCKERS))for(const [x,z] of buildings)obstacleTargets.push(makeBuilding(scene,x,z,5.8,4,id==='quarry'?0x77543d:0x576f76,id==='river'?'药园静舍':id==='quarry'?'禁地废墟':'禁地石殿'));
   for(let i=0;i<9;i++){
-    const crystal=put(scene,new THREE.ConeGeometry(.35,1.4+i%3*.35,5),new THREE.MeshStandardMaterial({color:0xda946d,emissive:0x9f4924,emissiveIntensity:.45}),100+i%3*1.1,.6,-13-Math.floor(i/3)*.8);crystal.rotation.z=(i%3-1)*.25;
+    const sprig=put(scene,new THREE.ConeGeometry(.22,.8,5),material(i%2?0x8ca979:0xb5a56d),101+i%3*1.1,.4,-13-Math.floor(i/3)*.8);
+    sprig.rotation.z=(i%3-1)*.1;
   }
-  const wheel=put(scene,new THREE.TorusGeometry(2,.18,8,24),material(0x8a6442),120,2,14);wheel.rotation.y=Math.PI/2;
-  for(let i=0;i<8;i++){const spoke=put(scene,new THREE.BoxGeometry(.15,4,.15),material(0x8a6442),120,2,14);spoke.rotation.x=i*Math.PI/4;}
-  const core=put(scene,new THREE.IcosahedronGeometry(1.5,1),new THREE.MeshStandardMaterial({color:0xb3cbe9,emissive:0x7693c4,emissiveIntensity:.7,metalness:.4,roughness:.3}),162,2.6,-6);luminous.push(core);
-  for(let i=0;i<3;i++){const ring=put(scene,new THREE.TorusGeometry(2.3+i*.35,.045,6,56),new THREE.MeshBasicMaterial({color:0xb6c9e5}),162,2.6,-6);ring.rotation.set(i*.7,.3+i,.2);luminous.push(ring);}
-  for(let i=0;i<6;i++)put(scene,new THREE.BoxGeometry(.65,1.5+i%2*.4,.3),material(0x8b9098),167+i%3*1.6,.75,13+Math.floor(i/3)*2);
+  put(scene,new THREE.BoxGeometry(4,.5,3),material(0x737b79),162,.25,-6);
+  for(const x of [159.5,164.5])for(const z of [-8,-4])put(scene,new THREE.CylinderGeometry(.3,.42,4,8),material(0x8c9290),x,2,z);
+  const fruit=put(scene,new THREE.SphereGeometry(.3,12,8),new THREE.MeshStandardMaterial({color:0xe0b566,emissive:0x795325,emissiveIntensity:.4}),162,1.6,-6);luminous.push(fruit);
   for(const [id,site] of Object.entries(FRONTIER_SITES)){
     const [x,z]=site.spot, root=new THREE.Group();root.position.set(x,.02,z);scene.add(root);
     const ring=put(root,new THREE.CylinderGeometry(1.5,1.7,.15,12),material(0x9caa96),0,0,0);indicators[id]=ring;
@@ -50,7 +49,7 @@ export function createFrontier(scene, targets, helpers) {
     if(id==='spring')for(let i=0;i<5;i++)put(root,new THREE.ConeGeometry(.18,.7,5),material(0xa2bf86),Math.cos(i)*.8,.4,Math.sin(i)*.8);
   }
   return {
-    sync(view){const restored=view.campaign?.flags.sluice||view.campaign?.ending?.id==='restore';water.material.color.setHex(restored?0x6bcbbe:0x4f96a3);for(const [id,mesh]of Object.entries(indicators))mesh.material.color.setHex(view.campaign?.objectives.some(o=>o.target===id&&o.done)?0xa8c78c:0x9caa96);},
-    update(time){for(let i=0;i<luminous.length;i++){luminous[i].rotation.y=time*(.15+i*.04);if(!i)luminous[i].position.y=2.6+Math.sin(time)*.16;}}
+    sync(view){const restored=view.campaign?.flags.garden_cultivate;water.material.color.setHex(restored?0x6bcbbe:0x4f96a3);for(const [id,mesh]of Object.entries(indicators))mesh.material.color.setHex(view.campaign?.objectives.some(o=>o.target===id&&o.done)?0xa8c78c:0x9caa96);},
+    update(time){for(let i=0;i<luminous.length;i++){luminous[i].rotation.y=time*(.15+i*.04);if(!i)luminous[i].position.y=1.6+Math.sin(time)*.16;}}
   };
 }

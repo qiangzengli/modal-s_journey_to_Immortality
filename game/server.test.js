@@ -8,12 +8,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { WANDERERS } from './combat-data.js';
 import { FRONTIER_PEOPLE } from './campaign-data.js';
-import { createGame } from './engine.js';
+import { createGame, PEOPLE } from './engine.js';
 
 test('旧存档迁移保留进度，过期页面不能重复扣费，成功行动落盘后可恢复', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'niminglu-api-'));
   const savePath = join(directory, 'save.json');
   const old = createGame();
+  old.sects.membership={sectId:'qinglan',joinedTurn:0};
   old.turn = 2;
   old.ap = 0;
   old.player.hp = 70;
@@ -71,7 +72,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.combatStats.baseAttack, 14);
     assert.equal(initial.combatStats.baseSpellPower, 20);
     assert.equal(initial.skills[0].scaling.total, 27);
-    assert.equal(initial.people.length,18);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,13);
+    assert.equal(initial.people.length,PEOPLE.length);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,13);
     for (const input of [null, [], 'invalid']) {
       assert.equal((await post('/api/combat',input)).status,400);
     }
@@ -105,7 +106,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(saved.ap, null);
     assert.equal(saved.player.stones, 135);
     assert.equal(saved.player.hp, 70);
-    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/npc-layout.js', '/combat-data.js', '/combat-ui.js', '/equipment-ui.js', '/equipment-art.js', '/equipment.css', '/battle-world.js', '/battle-fx.js', '/regions.js', '/campaign-data.js', '/frontier-world.js', '/campaign-ui.js']) {
+    for (const file of ['/content.js', '/scenery.js', '/world.js', '/app.js', '/command-ui.js', '/navigation.js', '/npc-layout.js', '/combat-data.js', '/combat-ui.js', '/equipment-ui.js', '/equipment-art.js', '/equipment.css', '/battle-world.js', '/battle-fx.js', '/regions.js', '/canon.js', '/cultivation.js', '/campaign-data.js', '/frontier-world.js', '/campaign-ui.js']) {
       assert.equal((await fetch(origin + file)).status, 200);
     }
     await stop();
@@ -115,11 +116,13 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     let revision=restored.revision;
     const action=async input=>{const result=await post('/api/action',{...input,expectedRevision:revision});if(result.view)revision=result.view.revision;return result;};
     assert.equal((await action({type:'travel_region',place:'jinhuo'})).status,400);
-    for(const place of ['woods','river'])assert.equal((await action({type:'travel_region',place})).status,200);
-    const evidence=await action({type:'sample_water'});assert.ok(evidence.view.campaign.flags.water);
-    const herbs=await action({type:'gather_reeds'});assert.equal(herbs.view.player.herbs,3);
+    assert.equal((await action({type:'travel_region',place:'qinglan'})).status,200);
+    assert.equal((await action({type:'huangfeng_register'})).status,200);
+    assert.equal((await action({type:'travel_region',place:'river'})).status,200);
+    const evidence=await action({type:'garden_duty'});assert.ok(evidence.view.campaign.flags.garden_duty);
+    const herbs=await action({type:'gather_reeds'});assert.equal(herbs.view.player.herbs,5);
     const staleGather=await post('/api/action',{type:'gather_reeds',expectedRevision:evidence.view.revision});assert.equal(staleGather.status,409);assert.deepEqual(staleGather.view,herbs.view);
-    const savedEvidence=await readFile(savePath,'utf8');assert.equal((await action({type:'sample_water'})).status,400);assert.equal(await readFile(savePath,'utf8'),savedEvidence);
+    const savedEvidence=await readFile(savePath,'utf8');assert.equal((await action({type:'garden_duty'})).status,400);assert.equal(await readFile(savePath,'utf8'),savedEvidence);
     await stop();await start();assert.deepEqual((await(await fetch(origin+'/api/state')).json()).view,herbs.view);
     await action({type:'travel_region',place:'woods'});await action({type:'travel_region',place:'market'});
     const entered = await action({type:'travel_woods'});

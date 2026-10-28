@@ -1,3 +1,4 @@
+import {openingMove} from './canon-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -26,6 +27,15 @@ test('第一卷 API：新档、全主线落盘、过期请求拒绝、重启恢�
   for(const action of VOLUME_ACTIONS.filter(a=>!a.optional&&!a.repeatable)){
    if(view.player.place!==action.place){const r=await post('/api/action',{type:'travel_region',place:action.place,expectedRevision:view.revision});assert.equal(r.status,200,r.error);view=r.view;}
    const result=await post('/api/action',{type:action.type,expectedRevision:view.revision});assert.equal(result.status,200,result.error);view=result.view;
+   if(view.battle){
+    for(let round=0;view.battle.status==='active'&&round<50;round++){
+     const turn=await post('/api/combat',{...openingMove(view),expectedRevision:view.revision});assert.equal(turn.status,200,turn.error);view=turn.view;
+     if(round===1){await stop();await start();assert.deepEqual((await(await fetch(origin+'/api/state')).json()).view,view);}
+    }
+    assert.equal(view.battle.status,'won');
+    const claim=await post('/api/combat',{type:'claim',enemyId:view.battle.enemyId,expectedRevision:view.revision});assert.equal(claim.status,200,claim.error);view=claim.view;
+   }
+
   }
   assert.equal(view.story.complete,true);const stale=await post('/api/action',{type:'enter_xianmen',expectedRevision:0});assert.equal(stale.status,409);assert.equal(stale.view.player.stones,180);
   const saved=JSON.parse(await readFile(savePath,'utf8'));assert.ok(saved.volume.flags.enter_xianmen);

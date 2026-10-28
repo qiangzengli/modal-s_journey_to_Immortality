@@ -45,7 +45,7 @@ test('手札内容不合法时使用规则线索，不能改用其他模型或�
   let calls = 0;
   const server = createServer((req, res) => {
     calls++;
-    const content = JSON.stringify({ title: '先验丹', text: '你可以先请白芷核验丹药。', followUps: [], suggestionIds: ['grant_stones'] });
+    const content = JSON.stringify({ title: '先验丹', text: '你可以先请马师兄核验丹药。', followUps: [], suggestionIds: ['grant_stones'] });
     res.setHeader('content-type', 'application/json'); res.end(JSON.stringify({ choices: [{ message: { content } }] }));
   });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');

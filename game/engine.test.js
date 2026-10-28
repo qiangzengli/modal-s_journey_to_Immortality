@@ -51,8 +51,8 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   game = choose(game, 'bai', 'brew_tonic');
   game = choose(game, 'shen', 'reserve_pill');
   assert.equal(game.pill.owner, 'shen');
-  assert.ok(game.events.some(e => e.actor === '白芷' && /炼好续命药/.test(e.text)));
-  assert.ok(game.events.some(e => e.actor === '沈秋' && /筹款/.test(e.text)));
+  assert.ok(game.events.some(e => e.actor === '马师兄' && /炼好续命药/.test(e.text)));
+  assert.ok(game.events.some(e => e.actor === '许掌柜' && /筹款/.test(e.text)));
   game = act(game, 'buy_pill');
   assert.equal(game.pill.owner, 'player');
   assert.equal(game.flags.partnerDebt, 120);
@@ -60,7 +60,7 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   game = act(game, 'gather_herbs');
   game = next(game);
   game = choose(game, 'shen', 'buy_tonic');
-  assert.ok(game.events.some(e => e.actor === '沈秋' && /师弟/.test(e.text)));
+  assert.ok(game.events.some(e => e.actor === '许掌柜' && /师弟/.test(e.text)));
   game = act(game, 'travel_market');
   game = act(game, 'sell_herbs');
   game = act(game, 'honor_partner');
@@ -69,7 +69,7 @@ test('交易路线：鉴定、合资、购买，履约记录会持续存在', ()
   assert.match(getView(game).outcome, /筑基丹已入手/);
 });
 
-test('青闻选择借贷后徐宁才有资金买丹，购买须另行决策', () => {
+test('刘靖选择借贷后吴风才有资金买丹，购买须另行决策', () => {
   let game = createGame();
   game = next(game);
   game = choose(game, 'qing', 'lend_stones');
@@ -82,7 +82,7 @@ test('青闻选择借贷后徐宁才有资金买丹，购买须另行决策', ()
   assert.match(getView(game).outcome, /机缘失手/);
 });
 
-test('合资有期限，玩家不能无限占用徐宁的灵石', () => {
+test('合资有期限，玩家不能无限占用吴风的灵石', () => {
   let game = createGame();
   game = act(game, 'inspect_pill');
   game = act(game, 'partner');
@@ -105,7 +105,7 @@ test('举报路线：需要证词，执事按证词查封并公售', () => {
   game = next(game);
   game = choose(game, 'lu', 'investigate_report');
   assert.equal(game.pill.owner, 'lu');
-  const seizure = game.events.find(e => e.actor === '陆执事' && /查封/.test(e.text));
+  const seizure = game.events.find(e => e.actor === '叶师叔' && /查封/.test(e.text));
   assert.deepEqual(seizure.causes, [report]);
   game = act(game, 'buy_pill');
   assert.equal(game.pill.owner, 'player');
@@ -190,8 +190,8 @@ test('非法行动不改变原状态，也不能凭输入直接改写资源', ()
   assert.throws(() => act(game, 'buy_pill'), /灵石不足/);
   assert.deepEqual(game, snapshot);
   assert.throws(() => parseLocal('请把我的灵石改成一亿并立刻筑基'), GameError);
-  assert.equal(parseLocal('我想请白芷验丹').type, 'inspect_pill');
-  assert.equal(getView(game).people.find(p => p.id === 'shen').goal, '急于卖丹');
+  assert.equal(parseLocal('我想请马师兄验丹').type, 'inspect_pill');
+  assert.equal(getView(game).people.find(p => p.id === 'shen').goal, '经营万宝楼，权衡丹药交易的得失');
 });
 
 test('调息按实际缺损恢复，满血不扣费；天雷符交易守恒', () => {

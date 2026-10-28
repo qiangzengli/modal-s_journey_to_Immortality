@@ -16,7 +16,7 @@ export function createGardenUI({ getState, executeAction, navigate }) {
     $('#garden-hud').textContent = garden.stored ? `⚘ 待收 ${garden.stored} 株` : `⚘ 灵液 ${garden.drops} / ${garden.capacity}`;
     $('#garden-hud').classList.toggle('ripe', garden.stored > 0);
     $('#garden-hud').disabled = busy || Boolean(view.battle);
-    $('#garden-summary').innerHTML = `<h3>灵植神器</h3><button type="button" data-garden-open><span>${garden.bottle ? '小绿瓶' + (garden.spiritSoil ? ' · 息壤盆' : '') : view.story?'神手谷的青光':'灵草坡的青光'}</span><strong>${garden.bottle ? `待收 ${garden.stored} 株 · 凝液 ${garden.drops}/${garden.capacity}` : '前往寻得小绿瓶 ↗'}</strong><small>${garden.bottle ? `已收获 ${garden.harvested} 株 · ${garden.plots.filter(p => p.planted).length}/${garden.plots.length} 畦在生长` : view.story?'沿神手谷石径调查小绿瓶的秘密。':'黑风林的旧石龛里，一只古瓶正在吸纳月华。'}</small></button>`;
+    $('#garden-summary').innerHTML = `<h3>灵植神器</h3><button type="button" data-garden-open><span>${garden.bottle ? '小绿瓶' + (garden.spiritSoil ? ' · 息壤盆' : '') : view.story?'神手谷的青光':'灵草坡的青光'}</span><strong>${garden.bottle ? `待收 ${garden.stored} 株 · 凝液 ${garden.drops}/${garden.capacity}` : '前往寻得小绿瓶 ↗'}</strong><small>${garden.bottle ? `已收获 ${garden.harvested} 株 · ${garden.plots.filter(p => p.planted).length}/${garden.plots.length} 畦在生长` : view.story?'沿神手谷石径调查小绿瓶的秘密。':'太岳山脉的旧石龛里，一只古瓶正在吸纳月华。'}</small></button>`;
     if (!['herbs','valley_bottle'].includes(site)) return;
     const bottle = '<div class="jade-bottle" aria-hidden="true"><i></i><span>生</span></div>';
     if (!garden.bottle && view.story) { $('#garden-card').innerHTML='<p class="garden-note">先完成石径的拾取与月下试验，小绿瓶才会开启灵圃。</p>';return; }

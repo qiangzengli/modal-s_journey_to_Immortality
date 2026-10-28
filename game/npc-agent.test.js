@@ -19,7 +19,7 @@ test('全部人物各自决策；单纯推进时间不会触发固定借贷买�
   assert.equal(game.society.epoch, 1); assert.equal(game.pill.owner, 'shen');
   assert.equal(game.events.filter(event => event.agent).length, Object.keys(source.people).length + WANDERERS.length);
   assert.deepEqual(source, original);
-  game = applySocietyDecisions(game, decisions(game, { qing: { actionId: 'lend_stones', speech: '徐宁，我愿借你所缺的灵石。' } })).game;
+  game = applySocietyDecisions(game, decisions(game, { qing: { actionId: 'lend_stones', speech: '吴风，我愿借你所缺的灵石。' } })).game;
   assert.equal(game.flags.xuLoan, 50); assert.equal(game.pill.owner, 'shen');
   assert.equal(game.people.qing.stones, 210); assert.equal(game.people.xu.stones, 280);
   game = applySocietyDecisions(game, decisions(game, { xu: { actionId: 'buy_pill' } })).game;

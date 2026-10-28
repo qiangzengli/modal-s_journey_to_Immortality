@@ -1,87 +1,92 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, applyAction, getView, advanceTurn } from './engine.js';
-import { ensureNpcState } from './npc-state.js';
-import { FRONTIER_PEOPLE } from './campaign-data.js';
-import { regionPath } from './regions.js';
-import { campaignNpcOptions, applyCampaignNpc } from './campaign.js';
-import { societyContext, applySocietyDecisions } from './npc-agent.js';
-import { combatAction } from './combat.js';
-const act=(game,type)=>applyAction(game,{type}).game;
-const travel=(game,to)=>regionPath(game.player.place,to).reduce((g,place)=>applyAction(g,{type:'travel_region',place}).game,game);
-const decisions=(game,choice={})=>societyContext(game).actors.map(actor=>({actorId:actor.id,actionId:choice[actor.id]||'observe',goal:'根据经历安排下一步',speech:'我还在权衡这件事。'}));
-function investigate(){
-  let game=travel(createGame(),'river');
-  game=act(act(act(game,'read_manifest'),'sample_water'),'gather_reeds');
-  game=travel(game,'quarry');game=act(game,'inspect_vein');
-  for(let i=0;i<4;i++)game=act(game,'mine_ore');
-  return game;
-}
-function reveal(){let g=investigate();g=travel(g,'ruins');return act(act(g,'open_archive'),'read_core');}
-test('旧存档迁移仅补新领域；保留原人物、物品、欠款和丹药归属，重复迁移幂等',()=>{
-  const old=createGame();delete old.campaign;
-  for(const person of FRONTIER_PEOPLE){delete old.people[person.id];delete old.society.minds[person.id];}
-  old.pill.owner='xu';old.player.stones=43;old.flags.partnerDebt=120;old.exploration.enemies.luohu={defeated:true,looted:true};
-  const preserved=structuredClone(old);ensureNpcState(old);
-  for(const key of ['player','pill','flags','exploration','events'])assert.deepEqual(old[key],preserved[key]);
-  for(const id of Object.keys(preserved.people))assert.deepEqual(old.people[id],preserved.people[id]);
-  assert.equal(Object.keys(old.people).length,18);assert.equal(getView(old).roamers.length,7);
-  const migrated=structuredClone(old);ensureNpcState(old);assert.deepEqual(old,migrated);
+import {createGame,applyAction,getView} from './engine.js';
+import {ensureNpcState} from './npc-state.js';
+import {inventoryAction,combatAction} from './combat.js';
+import {CULTIVATION_REALMS} from './cultivation.js';
+import {affiliationFor} from './sects.js';
+import {act,travel,openingComplete,throughCampaign,CANON_ROUTE} from './canon-test-helpers.js';
+import {previewPlan,createRoutePlanner} from './route-planner.js';
+import {campaignMarkup} from './campaign-ui.js';
+import {agentContext} from './story-agent.js';
+
+test('七玄门自然接入黄枫谷，禁地采药、交药、筑基、拜师与功法可完整结算',()=>{
+ let g=openingComplete();assert.equal(getView(g).campaign.next.type,'huangfeng_register');
+ g=throughCampaign('deliver_spirit_herbs',g);
+ assert.equal(getView(g).world.realm,'炼气十一层');assert.equal(affiliationFor(g).name,'黄枫谷');
+ assert.equal(g.player.hp,64);assert.equal(g.campaign.alternatePill,true);assert.deepEqual(g.campaign.questHerbs,[]);
+ assert.throws(()=>act(g,'deliver_spirit_herbs'),/已经完成/);
+ g=act(travel(g,'woods'),'breakthrough');assert.equal(getView(g).world.realm,'筑基初期');
+ g=act(travel(g,'qinglan'),'take_master');assert.equal(affiliationFor(g).rank,'李化元弟子');assert.equal(getView(g).campaign.complete,true);
+ assert.equal(g.exploration.inventory.wind_manual,1);assert.throws(()=>act(g,'take_master'),/已经完成/);
+ g=inventoryAction(g,{type:'learn',itemId:'wind_manual'}).game;assert.ok(g.exploration.learned.includes('wind_blade'));
+ for(const type of CANON_ROUTE){const e=g.events.find(e=>e.id===g.campaign.storyFlags[type]);assert.ok(e);assert.ok(e.causes.every(id=>id<e.id&&g.events.some(old=>old.id===id)));}
 });
-test('九域可直接传送，修为不足与斗法中不可传送；首次访问只记录一次',()=>{
-  let g=createGame();assert.throws(()=>applyAction(g,{type:'travel_region',place:'jinhuo'}),/筑基/);
-  assert.deepEqual(regionPath('market','ruins'),['ruins']);
-  g=travel(g,'ruins');assert.equal(act(g,'travel_market').player.place,'market');
-  const visits=g.events.filter(e=>e.actor==='游历').length;g=travel(travel(g,'market'),'ruins');assert.equal(g.events.filter(e=>e.actor==='游历').length,visits);
-  g=combatAction(g,{type:'start',enemyId:'shouque'}).game;
-  assert.throws(()=>applyAction(g,{type:'travel_region',place:'quarry'}),/斗法/);
+test('剧情锁区、缺少凭据、顺序跳过、低气血失败都不修改原始状态',()=>{
+ let g=openingComplete(),snapshot=structuredClone(g);
+ for(const place of ['river','quarry','ruins'])assert.throws(()=>travel(g,place),/主线/);
+ assert.deepEqual(g,snapshot);g=travel(g,'qinglan');delete g.exploration.inventory.ascension_token;
+ assert.throws(()=>act(g,'huangfeng_register'),/升仙令/);
+ g=throughCampaign('enter_forbidden');assert.throws(()=>act(travel(g,'ruins'),'fight_mojiao'),/先完成/);
+ g.player.hp=8;snapshot=structuredClone(g);assert.throws(()=>act(g,'gather_monkey_flower'),/气血/);assert.deepEqual(g,snapshot);
+ assert.throws(()=>act(travel(g,'woods'),'breakthrough'),/离开血色禁地/);
 });
-test('三份实证和一次性行动不能重复刷取，采集与矿层有限且资源不足不改变原存档',()=>{
-  let g=travel(createGame(),'river');g=act(g,'read_manifest');const snapshot=structuredClone(g);
-  assert.throws(()=>act(g,'read_manifest'),/已经完成/);assert.deepEqual(g,snapshot);
-  for(let i=0;i<3;i++)g=act(g,'gather_reeds');assert.equal(g.player.herbs,7);assert.throws(()=>act(g,'gather_reeds'),/取尽/);
-  g=travel(g,'quarry');for(let i=0;i<6;i++)g=act(g,'mine_ore');assert.equal(g.campaign.ore,12);assert.equal(g.player.hp,52);assert.throws(()=>act(g,'mine_ore'),/取尽/);
-  g.campaign.ore=0;g=act(g,'inspect_vein');const before=structuredClone(g);assert.throws(()=>act(g,'repair_sluice'),/灵矿/);assert.deepEqual(g,before);
+test('任务主药独立于普通灵草交易，有限采收、重复主药与交付不能刷奖励',()=>{
+ let g=throughCampaign('garden_duty');
+ for(let i=0;i<3;i++)g=act(g,'gather_reeds');assert.throws(()=>act(g,'gather_reeds'),/取尽/);
+ g=throughCampaign('gather_monkey_flower');const herbs=[...g.campaign.questHerbs];
+ g=act(travel(g,'market'),'sell_herbs');assert.deepEqual(g.campaign.questHerbs,herbs);
+ assert.throws(()=>act(travel(g,'quarry'),'gather_monkey_flower'),/已经完成/);
+ g=throughCampaign('leave_forbidden');g.campaign.questHerbs.pop();const before=structuredClone(g);
+ assert.throws(()=>act(travel(g,'qinglan'),'deliver_spirit_herbs'),/主药/);assert.deepEqual(g,before);
 });
-test('开府需实证；NPC援助须自主选择，扣本人资产且不允许重复或多人重复支付',()=>{
-  let g=travel(createGame(),'ruins');g.campaign.ore=2;assert.throws(()=>act(g,'open_archive'),/至少两份/);
-  g=investigate();g=act(g,'aid_workers');assert.ok(campaignNpcOptions(g,'song').some(o=>o.id==='support_archive'));
-  const wealth=g.people.song.stones;g=advanceTurn(g).game;assert.equal(g.campaign.flags.support,undefined);
-  g=applySocietyDecisions(g,decisions(g,{song:'support_archive'})).game;
-  assert.equal(g.people.song.stones,wealth-20);assert.ok(g.campaign.flags.support);
-  const ore=g.campaign.ore;g=act(travel(g,'ruins'),'open_archive');assert.equal(g.campaign.ore,ore);
-  assert.equal(campaignNpcOptions(g,'song').some(o=>o.id==='support_archive'),false);
+test('坊市丹失手仍可交药获丹筑基；债务、原丹归属不变',()=>{
+ let g=openingComplete();g.pill.owner='xu';g.flags.partnerDebt=120;
+ g=throughCampaign('deliver_spirit_herbs',g);g=act(travel(g,'woods'),'breakthrough');
+ assert.equal(g.pill.owner,'xu');assert.equal(g.flags.partnerDebt,120);assert.equal(g.campaign.alternatePill,false);
+ assert.throws(()=>act(g,'breakthrough'),/已完成筑基/);
 });
-test('原丹已被徐宁取得仍能炼制归脉丹筑基，原归属与旧债保留',()=>{
-  let g=investigate();g.pill.owner='xu';g.flags.partnerDebt=120;
-  const wealth=g.player.stones,ore=g.campaign.ore;g=act(travel(g,'river'),'brew_trace_pill');
-  assert.equal(g.player.stones,wealth-80);assert.equal(g.campaign.ore,ore-2);assert.equal(g.campaign.alternatePill,true);
-  assert.throws(()=>act(g,'brew_trace_pill'),/重复炼丹/);
-  g=act(travel(g,'woods'),'breakthrough');assert.ok(g.flags.playerBreakthrough);assert.equal(g.campaign.alternatePill,false);assert.equal(g.pill.owner,'xu');assert.equal(g.flags.partnerDebt,120);
-  assert.throws(()=>act(g,'breakthrough'),/已完成筑基/);
+test('坊市先行筑基可以直接拜师，不强制重演炼气试炼或降级修为',()=>{
+ let g=throughCampaign('huangfeng_register');g.player.stones=400;
+ g=act(travel(g,'market'),'buy_pill');g=act(travel(g,'woods'),'breakthrough');
+ assert.equal(getView(g).campaign.next.type,'take_master');assert.ok(getView(g).campaign.objectives.find(o=>o.type==='enter_forbidden').skipped);
+ g=act(travel(g,'qinglan'),'take_master');assert.equal(getView(g).campaign.complete,true);assert.equal(getView(g).world.realm,'筑基初期');
 });
-for(const [type,ending,stones,item]of [['restore_flow','restore',60,'spring_manual'],['lease_core','lease',140,'flame_sword'],['seal_core','seal',90,'thunder_manual']])test(`${type}结局全流程、真实扣费、一次奖励与互斥选择`,()=>{
-  let g=reveal();g=act(g,'read_names');g.garden.bottle=true;
-  const before=structuredClone(g);g=act(g,type);assert.equal(g.campaign.ending,ending);assert.equal(g.player.stones,before.player.stones+stones);assert.equal(g.campaign.vault,180-stones);assert.equal(g.exploration.inventory[item],1);
-  if(type==='seal_core'){assert.equal(g.player.talismans,before.player.talismans-1);assert.equal(g.player.hp,before.player.hp-20);}
-  else assert.equal(g.campaign.ore,before.campaign.ore-2);
-  for(const other of ['restore_flow','lease_core','seal_core'])assert.throws(()=>act(g,other),/已经确定/);
-  assert.match(g.events.at(-1).text,/姓名拓本/);assert.equal(getView(g).campaign.chapters.at(-1).done,true);
+test('旧档迁移保留资产、原剧情结算、债务、装备、历史和委托，身份更新且幂等',()=>{
+ const old=createGame();delete old.canonVersion;delete old.campaign.canonVersion;delete old.campaign.storyFlags;
+ old.people.shen.name='沈秋';old.people.gu.name='顾长青';old.people.shen.stones=17;old.people.shen.trust=-12;
+ old.campaign.flags={truth:3,names:4};old.campaign.ending='lease';old.campaign.vault=40;old.campaign.ore=9;old.campaign.alternatePill=true;
+ old.pill.owner='xu';old.flags.partnerDebt=120;old.exploration.inventory.wind_manual=1;
+ old.society.offers.push({id:'old',npcId:'shen',npcName:'沈秋',status:'accepted',reward:30,quantity:1});
+ const before=structuredClone(old);ensureNpcState(old);
+ for(const key of ['player','pill','flags','exploration','events','garden'])assert.deepEqual(old[key],before[key]);
+ assert.deepEqual(old.society.offers,before.society.offers);assert.deepEqual(old.campaign.flags,before.campaign.flags);
+ assert.equal(old.people.shen.name,'许掌柜');assert.equal(old.people.gu.name,'钟灵道');assert.equal(old.people.shen.stones,17);assert.equal(old.people.shen.trust,-12);
+ assert.equal(old.campaign.vault,40);assert.equal(old.campaign.ore,9);assert.equal(old.campaign.alternatePill,true);
+ const migrated=structuredClone(old);ensureNpcState(old);getView(old);assert.deepEqual(old,migrated);
+ assert.equal(getView(old).campaign.title,'卷二 · 黄枫仙途');assert.throws(()=>act(old,'lease_core'),/未识别/);
 });
-test('结局不足资源拒绝；结局后的生计、救治、留史也须Agent自行花费',()=>{
-  let g=reveal();g.player.talismans=0;const original=structuredClone(g);assert.throws(()=>act(g,'seal_core'),/天雷符/);assert.deepEqual(g,original);
-  g.player.talismans=1;g=act(act(g,'read_names'),'seal_core');
-  const wealth=g.people.song.stones;g=advanceTurn(g).game;assert.equal(g.campaign.flags.recovery,undefined);
-  g=applySocietyDecisions(g,decisions(g,{song:'rebuild_livelihood',yuan:'preserve_names'})).game;
-  assert.equal(g.people.song.stones,wealth-30);assert.ok(g.campaign.flags.history);assert.equal(g.campaign.ending,'seal');
-  assert.throws(()=>applyCampaignNpc(g,'tao','treat_workers'),/不能执行/);
-  g.society.minds.tao.herbs=1;const player=structuredClone(g.player);applyCampaignNpc(g,'tao','treat_workers');assert.equal(g.society.minds.tao.herbs,0);assert.deepEqual(g.player,player);assert.ok(g.campaign.flags.relief);
+test('原著门派、境界和模型时段一致，主线界面不再显示原创游历',()=>{
+ const g=throughCampaign('enter_forbidden'),v=getView(g),markup=campaignMarkup(v);
+ assert.equal(CULTIVATION_REALMS.find(r=>r.name==='炼气').stages.length,13);
+ assert.deepEqual(CULTIVATION_REALMS.map(r=>r.name),['凡人','炼气','筑基','结丹','元婴','化神','炼虚','合体','大乘','渡劫飞升']);
+ assert.equal(affiliationFor(g,'tao').name,'灵兽山');assert.equal(affiliationFor(g,'ji').name,'掩月宗');assert.equal(affiliationFor(g,'wen').name,'鬼灵门');
+ assert.doesNotMatch(markup,/枯潮|归脉|万息|MVP/);assert.match(markup,/血色禁地|紫猴花/);
+ const chat=agentContext(v,{mode:'guide'});assert.equal(chat.facts.canon.source,'凡人修仙传');assert.match(chat.facts.canon.era,/血色禁地/);
+ assert.ok(!chat.facts.canon.completed.includes('fight_mojiao'));
 });
-test('新散修只在本地可挑战和取袋，旧散修仍按原规则斗法',()=>{
-  for(const [id,place]of [['duheng','river'],['chisong','quarry'],['shouque','ruins'],['luohu','woods']]){
-    let g=createGame();assert.throws(()=>combatAction(g,{type:'start',enemyId:id}),/所在的区域/);
-    g=travel(g,place);g=combatAction(g,{type:'start',enemyId:id}).game;g.exploration.battle.enemyHp=1;
-    g=combatAction(g,{type:'turn',move:'attack'},()=>.5).game;g=combatAction(g,{type:'claim',enemyId:id}).game;
-    assert.ok(g.exploration.enemies[id].looted);assert.equal(g.exploration.battle,null);
-  }
+test('模型可同时设计交易与禁地路线，且预览不写档、不替NPC决定未来',async()=>{
+ const game=openingComplete(),before=structuredClone(game);
+ const plan=actions=>({title:'禁地采药换丹',rationale:'凭升仙令入谷，采药交付宗门。',risk:'禁地交锋会损失气血。',actions:actions.map(type=>({type}))});
+ const preview=previewPlan(game,plan(CANON_ROUTE));assert.equal(preview.steps.length,11);assert.deepEqual(game,before);
+ let sent;const planner=createRoutePlanner({generate:async messages=>{sent=JSON.parse(messages[1].content);return {text:'可以交易，也可以通过宗门试炼取得筑基丹。',followUps:[],plans:[plan(CANON_ROUTE),{title:'卖草议价',rationale:'卖一株灵草后足够报价。',risk:'需要出售药草。',actions:[{type:'sell_herbs'},{type:'negotiate',offer:240,leverage:'none'}]}]};}});
+ const reply=await planner.respond(game);assert.equal(reply.source,'model');assert.equal(reply.plans.length,2);assert.equal(sent.canon.source,'凡人修仙传');assert.deepEqual(game,before);
+ const lost=structuredClone(game);lost.pill.owner='xu';assert.equal(previewPlan(lost,plan(CANON_ROUTE)).steps.at(-1).action.type,'deliver_spirit_herbs');
+});
+test('禁地斗法仍需本地挑战，胜利取袋仅结算一次',()=>{
+ let g=throughCampaign('enter_forbidden');assert.throws(()=>combatAction(g,{type:'start',enemyId:'shouque'}),/所在的区域/);
+ g=travel(g,'ruins');g=combatAction(g,{type:'start',enemyId:'shouque'}).game;
+ assert.throws(()=>travel(g,'quarry'),/斗法/);g.exploration.battle.enemyHp=1;
+ g=combatAction(g,{type:'turn',move:'attack'},()=>.5).game;g=combatAction(g,{type:'claim',enemyId:'shouque'}).game;
+ assert.ok(g.exploration.enemies.shouque.looted);assert.throws(()=>combatAction(g,{type:'claim',enemyId:'shouque'}),/取空/);
 });

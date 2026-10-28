@@ -49,7 +49,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     $('#battle-enemy-realm').textContent = `${enemy.realm} · ${affiliationText(enemy.affiliation)}`;
     $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
     $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
-    $('#battle-intent').textContent = active ? `${battle.intentSource==='model'?'Agent 决策':'基础应对'} · ${battle.intentSpeech || battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? '对方已败退。收取储物袋后可在行囊中研习、换装。' : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
+    $('#battle-intent').textContent = active ? `${battle.ward?`金刚护罩 ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 决策':'基础应对'} · ${battle.intentSpeech || battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? '对方已败退。收取储物袋后可在行囊中研习、换装。' : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
     $('#combat-controls').hidden = !active;
     $('#combat-result').hidden = active;
     $('#combat-error').textContent = '';

@@ -1,5 +1,5 @@
 import * as THREE from '/vendor/three.module.js';
-import { WANDERERS } from './combat-data.js';
+import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { createBattleEffects, playerEffect, enemyEffect } from './battle-fx.js';
 
 // 独立斗法场景与相机。主地图的人物、位置和镜头不参与战斗动画。

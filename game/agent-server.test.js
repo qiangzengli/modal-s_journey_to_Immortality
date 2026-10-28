@@ -20,7 +20,7 @@ test('Agent 接口不修改存档、不阻塞行动；拒绝过期建议且保�
     const context = JSON.parse(payload.messages[1].content);
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ title: '当面核验', text: context.text || '先请白芷核验丹纹，再带着证据找徐宁。', followUps: ['鉴定需要什么条件？'], suggestionIds: context.mode === 'guide' ? ['bai'] : ['inspect_pill'] }) } }] }));
+    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ title: '当面核验', text: context.text || '先请马师兄核验丹纹，再带着证据找吴风。', followUps: ['鉴定需要什么条件？'], suggestionIds: context.mode === 'guide' ? ['bai'] : ['inspect_pill'] }) } }] }));
   });
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');

@@ -19,6 +19,17 @@ export const NPC_SECTS = {
   yan: ['jinhuo', '门主之女'], wen: ['xuanming', '少主']
 };
 
+const CANON_AFFILIATIONS={
+  gu:['qinglan','结丹修士'],liu:['lingshu','结丹修士'],yan:['jinhuo','门人'],wen:['xuanming','少主'],
+  bai:['qinglan','百药园管事'],xu:['qinglan','弟子'],lu:['qinglan','执事'],wei:['qinglan','李化元弟子'],qing:['qinglan','李化元弟子'],
+  yue:['qinglan','弟子'],song:['qinglan','弟子'],yuan:['qinglan','结丹修士'],ji:['lingshu','修士'],shouque:['lingshu','弟子'],duheng:['qinglan','弟子'],
+  tao:['lingshoushan','弟子'],qiao:['lingshoushan','弟子'],han:['tianquebao','弟子'],chisong:['tianquebao','弟子']
+};
+export const OTHER_SECTS={lingshoushan:'灵兽山',tianquebao:'天阙堡',jujianmen:'巨剑门',huadaowu:'化刀坞',qingxumen:'清虚门'};
+
+for(const [id,affiliation]of Object.entries(CANON_AFFILIATIONS))if(!['gu','liu'].includes(id))NPC_SECTS[id]=affiliation;
+NPC_SECTS.lihuayuan=['qinglan','结丹修士'];
+
 // Goals/temperaments below guide sandbox Agent interaction, not quotations or scripted outcomes.
 export const SECT_PEOPLE = [
   { id:'gu',name:'钟灵道',role:'黄枫谷掌门',place:'qinglan',spot:[214,-4],stones:120,goal:'处理黄枫谷门务，审慎接待求道的修士',publicGoal:'处理宗门事务',links:[],color:'#c8b66f',realm:'筑基期',bio:'黄枫谷掌门，原著中曾接待持升仙令入谷的韩立。',temperament:'以宗门事务和可核实的来历为重，审慎判断来客' },
@@ -32,4 +43,4 @@ export const SECT_SITES = Object.fromEntries([
   ['lingshu','掩月宗山门',[276,7],'越国七派之首。宣乐在此接洽来客，当前尚未演进到迁宗北凉国的时期。'],
   ['jinhuo','魔焰门山门',[336,7],'天南魔道六宗之一。可与怜飞花接洽，陈述自己的来意。'],
   ['xuanming','鬼灵门山门',[396,7],'天南魔道六宗之一。王蝉在此接洽来客。']
-].map(([sect,name,spot,detail])=>['sect_'+sect,{name,spot,detail,sect,place:sect,role:SECTS[sect].name+' · 山门',seal:'门',actions:[]} ]));
+].map(([sect,name,spot,detail])=>['sect_'+sect,{name,spot,detail,sect,place:sect,role:SECTS[sect].name+' · 山门',seal:'门',actions:sect==='qinglan'?['huangfeng_register','forbidden_enlist','deliver_spirit_herbs','take_master']:[]} ]));

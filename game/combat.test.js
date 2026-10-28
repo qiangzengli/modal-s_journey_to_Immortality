@@ -80,13 +80,13 @@ test('胜利不受死敌反击，储物袋跨保存保留、只可领取一次',
 test('战利品能装备、研习和使用，强化下一场斗法且不可凭空取物', () => {
   let game = act(win(), { type: 'claim', enemyId: 'luohu' });
   game = inventoryAction(game, { type: 'equip', itemId: 'green_sword' }).game;
-  game = inventoryAction(game, { type: 'learn', itemId: 'wind_manual' }).game;
-  assert.ok(game.exploration.learned.includes('wind_blade'));
-  assert.equal(game.exploration.inventory.wind_manual, 0);
+  game = inventoryAction(game, { type: 'learn', itemId: 'fireball_manual' }).game;
+  assert.ok(game.exploration.learned.includes('fireball'));
+  assert.equal(game.exploration.inventory.fireball_manual, 0);
   assert.throws(() => inventoryAction(game, { type: 'equip', itemId: 'thunder_blade' }), /没有/);
   game = act(game, { type: 'start', enemyId: 'suqin' });
-  game = turn(game, 'skill', { skillId: 'wind_blade' });
-  assert.equal(game.exploration.battle.enemyHp, 45);
+  game = turn(game, 'skill', { skillId: 'fireball' });
+  assert.equal(game.exploration.battle.enemyHp, 43);
 });
 
 test('丹药按实际恢复消耗，阵盘打断敌人，非法回合完全不改原档', () => {
@@ -175,7 +175,7 @@ test('普攻与所有伤害功法的面板威力和实战一致；筑基、武�
   }
 });
 
-test('回春术使用基础法力且不吃兵器，治疗封顶；丹药和阵盘保持固定效果', () => {
+test('回春功使用基础法力且不吃兵器，治疗封顶；丹药和阵盘保持固定效果', () => {
   for (const breakthrough of [0, 1]) for (const weapon of ['worn_sword', 'thunder_blade']) {
     const game = start('mochi');
     game.flags.playerBreakthrough = breakthrough;

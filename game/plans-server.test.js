@@ -18,7 +18,7 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
     let body = ''; for await (const chunk of req) body += chunk;
     const payload = JSON.parse(body), context = JSON.parse(payload.messages[1].content);
     assert.equal(payload.model, 'deepseek-v4-flash');
-    assert.equal(context.objective, '取得这枚筑基丹');
+    assert.equal(context.objective, '取得一枚筑基丹');
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
     const actions = [...(context.facts.player.stones < 240 ? [{ type: 'sell_herbs' }] : []), { type: 'negotiate', offer: 240, leverage: 'none' }];
     res.setHeader('content-type', 'application/json');

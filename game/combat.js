@@ -1,6 +1,7 @@
+import {applyVolumeAction} from './volume.js';
 import { npcPublic, npcPosition, npcWallet, ensureNpcState, withdrawNpcOffers } from './npc-state.js';
 import { GameError } from './errors.js';
-import { ITEMS, SKILLS, WANDERERS, lootEntries } from './combat-data.js';
+import { ITEMS, SKILLS, ALL_ENEMIES as WANDERERS, enemyAvailable, lootEntries } from './combat-data.js';
 import { getCombatStats, getSkillScaling } from './combat-stats.js';
 import { affiliationFor } from './sects.js';
 
@@ -41,9 +42,10 @@ export function combatAction(source, input, random = Math.random) {
     if (battle) throw new GameError('请先结束当前斗法结算。');
     const enemy = enemyById(input.enemyId);
     if (!enemy || game.player.place !== (enemy.place || 'woods')) throw new GameError('请先到这位散修所在的区域。');
+    if(!enemyAvailable(game,enemy))throw new GameError('这场交锋尚未开放，请先完成战前调查。');
     if (state.enemies[enemy.id]?.defeated) throw new GameError('此人已经败退，不可重复挑战。');
     if (game.player.hp < 20) throw new GameError('气血不足 20，请先服用回春丹或前往听雨亭疗伤。');
-    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, mana: stats.maxMana, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。你先出手，每次行动后敌人会回应。` }] };
+    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, ward:enemy.ward||0, mana: stats.maxMana, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。你先出手，每次行动后敌人会回应。` }] };
     return { game, result: `与${enemy.name}的斗法开始。` };
   }
   if (input.type === 'leave') {
@@ -67,6 +69,7 @@ export function combatAction(source, input, random = Math.random) {
     if (battle?.enemyId === enemy.id) state.battle = null;
     const result = `收起${enemy.name}的储物袋：${lootEntries(loot).map(item => `${item.name} ×${item.quantity}`).join('、')}。`;
     writeEvent(game, result);
+    if(enemy.completion&&!game.volume.flags[enemy.completion])return {game,result:result+' '+applyVolumeAction(game,enemy.completion)};
     return { game, result };
   }
   if (input.type !== 'turn' || !battle || battle.status !== 'active') throw new GameError('当前没有可继续的斗法。');
@@ -88,8 +91,8 @@ export function combatAction(source, input, random = Math.random) {
     const skill = Object.hasOwn(SKILLS, input.skillId || '') && SKILLS[input.skillId];
     if (!skill || !state.learned.includes(input.skillId)) throw new GameError('你尚未学会这门功法。');
     if (battle.cooldowns[input.skillId] > 0) throw new GameError('这门功法尚在冷却中。');
-    if (battle.mana < skill.cost) throw new GameError('真气不足，可普攻、防御回气或服用聚气丹。');
-    if (skill.effect === 'heal' && game.player.hp >= 100) throw new GameError('气血已满，无需施展回春术。');
+    if (battle.mana < skill.cost) throw new GameError('真气不足，可普攻、防御回气或服用黄龙丹。');
+    if (skill.effect === 'heal' && game.player.hp >= 100) throw new GameError('气血已满，无需施展回春功。');
     battle.mana -= skill.cost;
     usedSkill = input.skillId;
     const scaling = getSkillScaling(stats, skill);
@@ -110,7 +113,7 @@ export function combatAction(source, input, random = Math.random) {
     const item = checkItem(state, input.itemId);
     if (!['pill', 'array'].includes(item.kind)) throw new GameError('此物不能在斗法中使用。');
     if (item.heal && game.player.hp >= 100) throw new GameError('气血已满，无需服用回春丹。');
-    if (item.mana && battle.mana >= stats.maxMana) throw new GameError('真气已满，无需服用聚气丹。');
+    if (item.mana && battle.mana >= stats.maxMana) throw new GameError('真气已满，无需服用黄龙丹。');
     state.inventory[input.itemId]--;
     if (item.heal || item.mana) {
       const amount = item.heal ? Math.min(item.heal, 100 - game.player.hp) : Math.min(item.mana, stats.maxMana - battle.mana);
@@ -130,6 +133,10 @@ export function combatAction(source, input, random = Math.random) {
     log('player', '脱身失败，对方封住了去路！');
   } else throw new GameError('请选择普攻、功法、防御、物品或逃跑。');
 
+  if(hit>0&&battle.ward>0){
+    const absorbed=Math.min(battle.ward,hit);battle.ward-=absorbed;hit-=absorbed;
+    log('enemy',`金刚护罩抵消 ${absorbed} 点伤害，护罩余力 ${battle.ward}。${battle.ward?'继续寻找破绽。':'护罩已破！'}`);
+  }
   battle.enemyHp = Math.max(0, battle.enemyHp - hit);
   for (const id of Object.keys(battle.cooldowns)) battle.cooldowns[id] = Math.max(0, battle.cooldowns[id] - 1);
   if (usedSkill) battle.cooldowns[usedSkill] = SKILLS[usedSkill].cooldown;
@@ -183,7 +190,7 @@ export function inventoryAction(source, input) {
     state.inventory[input.itemId]--;
     game.player.hp += amount;
     result = `服用${item.name}，恢复 ${amount} 气血。`;
-  } else throw new GameError('这件物品无法这样使用；聚气丹与阵盘需在斗法中使用。');
+  } else throw new GameError('这件物品无法这样使用；黄龙丹与阵盘需在斗法中使用。');
   return { game, result };
 }
 
@@ -195,7 +202,7 @@ export function getCombatView(game) {
   const intent = enemy && intentFor(battle);
   return {
     combatStats: stats,
-    roamers: WANDERERS.map(enemy => ({ ...enemy, affiliation: affiliationFor(game, enemy.id), place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
+    roamers: WANDERERS.filter(enemy=>enemyAvailable(game,enemy)).map(enemy => ({ ...enemy, affiliation: affiliationFor(game, enemy.id), place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
     inventory: Object.entries(state.inventory).filter(([,n]) => n > 0).map(([id, quantity]) => ({ id, ...ITEMS[id], quantity, equipped: state.weapon === id, learned: state.learned.includes(ITEMS[id].skill) })),
     skills: state.learned.map(id => {
       const skill = SKILLS[id];

@@ -8,7 +8,7 @@ import * as THREE from '/vendor/three.module.js';
 import { decorateWorld } from './scenery.js';
 import { createNavigator } from './navigation.js';
 import { SITES } from './content.js';
-import { WANDERERS } from './combat-data.js';
+import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { createBattleWorld } from './battle-world.js';
 import { createGardenWorld } from './garden-world.js';
 import { placeNpcs, arrangeNameplates } from './npc-layout.js';
@@ -252,7 +252,7 @@ function createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets, makeB
     const stone = put(scene, new THREE.DodecahedronGeometry(0.1 + (i % 4) * 0.035), material(x < 0 ? 0x757967 : 0x657262), x, 0.03, z);
     stone.rotation.y = i * 0.5;
   }
-  obstacleTargets.push(makeBuilding(scene, -25, -9, 6.2, 4.6, 0x5b503c, '青闻牙行'));
+  obstacleTargets.push(makeBuilding(scene, -25, -9, 6.2, 4.6, 0x5b503c, '刘靖牙行'));
   obstacleTargets.push(makeBuilding(scene, -17, 9, 6.5, 4.7, 0x566651, '百草药铺'));
   obstacleTargets.push(makeBuilding(scene, -6, 9, 6, 4.6, 0x655747, '巡坊司'));
   obstacleTargets.push(makeStall(scene, -15, -7.9, 0x957456));
@@ -378,7 +378,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const player = makePerson('player', '你');
   scene.add(player);
   const people = Object.fromEntries(Object.keys(NPC_SPOTS).map(id => {
-    const actor = makePerson(id, [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS].find(actor=>actor.id===id)?.name || { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
+    const actor = makePerson(id, [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS].find(actor=>actor.id===id)?.name || { shen: '许掌柜', bai: '马师兄', xu: '吴风', lu: '叶师叔', qing: '刘靖', wei: '宋蒙', han: '封岳', ning: '萧翠儿' }[id]);
     scene.add(actor);
     return [id, actor];
   }));

@@ -1,10 +1,11 @@
-import { regionPath } from './regions.js';
+import { canonContext } from './cultivation.js';
+import { regionPath, regionName } from './regions.js';
 import { createHash } from 'node:crypto';
 import { ACTION_DEFS } from './content.js';
 import { applyAction, advanceTurn, getView, GameError } from './engine.js';
 
 const definitions = new Map(ACTION_DEFS.map(action => [action.type, action]));
-const allowed = new Set([...definitions.keys()].filter(type => type !== 'breakthrough' && !definitions.get(type).campaign));
+const allowed = new Set([...definitions.keys()].filter(type => type !== 'breakthrough' && (!definitions.get(type).campaign || !['frontier_rest','take_master'].includes(type))));
 allowed.add('negotiate');
 const goalReached = game => game.pill.owner === 'player' || Boolean(game.flags.playerBreakthrough) || Boolean(game.campaign?.alternatePill);
 const parse = raw => typeof raw === 'string' ? JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')) : raw;
@@ -45,9 +46,9 @@ export function previewPlan(source, proposed) {
     game = outcome.game;
     steps.push({
       action, target,
-      title: action.type === 'advance' ? '推进一旬' : action.type === 'negotiate' ? `向沈秋报价 ${action.offer} 灵石` : def.title,
+      title: action.type === 'advance' ? '推进一旬' : action.type === 'negotiate' ? `向许掌柜报价 ${action.offer} 灵石` : def.title,
       detail: outcome.result,
-      travel: place && !travel && before.player.place !== place ? `先前往${place === 'woods' ? '黑风林' : '地下坊市'}` : null,
+      travel: place && !travel && before.player.place !== place ? `先前往${regionName(place)}` : null,
       cost: { stones: game.player.stones - before.player.stones, hp: game.player.hp - before.player.hp, reputation: game.player.reputation - before.player.reputation, turns: game.turn - before.turn }
     });
   }
@@ -66,19 +67,20 @@ export function plannerContext(game, input = {}) {
   if (input.refresh !== undefined && typeof input.refresh !== 'boolean') throw new GameError('重新规划参数无效。');
   if (input.preferredPlan !== undefined && (typeof input.preferredPlan !== 'string' || input.preferredPlan.length > 80)) throw new GameError('已选方案名称无效。');
   return {
-    objective: '取得这枚筑基丹', preference: input.text?.trim() || '', constraints: preferenceConstraints(input.text), preferredPlan: input.preferredPlan || '',
-    facts: { society: view.society, garden: view.garden, turn: view.turn, player: view.player, pill: view.pill, world: view.world, people: view.people, recentEvents: view.events.slice(0, 8) },
+    canon:canonContext(game), objective: '取得一枚筑基丹', preference: input.text?.trim() || '', constraints: preferenceConstraints(input.text), preferredPlan: input.preferredPlan || '',
+    facts: { society: view.society, garden: view.garden, turn: view.turn, player: view.player, pill: view.pill, world: view.world, people: view.people, campaign:view.campaign, recentEvents: view.events.slice(0, 8) },
     capabilities: [
       ...ACTION_DEFS.filter(def => allowed.has(def.type)).map(def => ({ type: def.type, title: def.title, detail: def.detail, cost: def.cost, place: def.place, current: view.actionOptions[def.type] })),
-      { type: 'negotiate', detail: '仅沈秋仍持丹且在坊市时可议价；offer 是整数灵石报价，leverage 是 none/authentic/smuggling。筹码必须先实际取得。无证词最低240；有禁运证词最低200；丹药争议中无证词最低190。成功直接取得丹药，失败会降低信任。' },
+      { type: 'negotiate', detail: '仅许掌柜仍持丹且在坊市时可议价；offer 是整数灵石报价，leverage 是 none/authentic/smuggling。筹码必须先实际取得。无证词最低240；有禁运证词最低200；丹药争议中无证词最低190。成功直接取得丹药，失败会降低信任。' },
       // NPC 的未来决定不能被当作已知步骤模拟。
     ],
     rules: [
+      '黄枫谷主线提供另一枚真实筑基丹：入门、百药园修炼、报名、入禁地、采两味药、遇南宫婉、应对墨蛟、离开、交药。先查已完成经历，不能跳过前置。一次最多12步，若气血不足应先调息。',
       '最终必须取得丹药；不要求先鉴定或合资，不含取得后的筑基。可以自由组合不同动作，不存在路线类别。',
       '每次卖一株草得80；林中剩余灵草可以采集；跨区行动会自动先走到该区，无需单独加旅行步骤。',
-      '鉴定消耗10灵石且要求沈秋携丹在坊市。合资先要真丹鉴定，获得100并欠120，若已有未结清约定不能再借。',
-      '证词来自investigate_route；递交后陆执事自主决定是否及何时查验，不能保证下一旬查封。仅已公售时可直接筹足150购买。',
-      'lure只是邀请，沈秋自主决定赴约；仅已经在林中才能设阵伏击。不要规划依赖未来NPC选择的必胜路线。',
+      '鉴定消耗10灵石且要求许掌柜携丹在坊市。合资先要真丹鉴定，获得100并欠120，若已有未结清约定不能再借。',
+      '证词来自investigate_route；递交后叶师叔自主决定是否及何时查验，不能保证下一旬查封。仅已公售时可直接筹足150购买。',
+      'lure只是邀请，许掌柜自主决定赴约；仅已经在林中才能设阵伏击。不要规划依赖未来NPC选择的必胜路线。',
       '世界由人物自主决策，未来传播、降价、买丹都不确定。方案仅验证当前局势下的玩家动作；等待NPC回应时如实建议交谈，不能保证未来结果。',
       '优先给出2至4个行动组合确有差别的方案，方案数量随局势变化；如果已经能直接公售买丹，只给直接购买这一条。不要为了凑数用不同报价、同一动作换序、添加非必要卖草或购符充当新获取方式。',
       '不允许编造NPC转让、炼丹、委托奖励等不存在的机制；模型负责规划，规则负责结算。'
@@ -123,7 +125,7 @@ export function createRoutePlanner({ generate, modelName = null } = {}) {
     const context = plannerContext(game, input);
     const empty = (reason, text) => ({ source: 'rules', reason, modelName, text, plans: [], followUps: [] });
     if (goalReached(game)) return empty('complete', '筑基机缘已备齐，可到听雨亭修炼、履行承诺或继续游历。');
-    if (!['shen', 'lu'].includes(game.pill.owner)) return empty('unavailable_goal', '这枚丹药已归他人。道途仍可继续：打开「天下与故事」，前往云渡药庐寻找归脉丹方。');
+    // Even if the market pill is lost, the canonical herb trial remains a real acquisition route.
     if (!generate) return empty('offline', '模型未连接，暂时无法设计新方案。仍可在地图中查看人物与可用行动。');
     const key = JSON.stringify([game, context.preference, context.preferredPlan]);
     if (!input.refresh && cache.has(key)) return structuredClone(cache.get(key));

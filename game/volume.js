@@ -4,11 +4,15 @@ import { VOLUME_ACTIONS, VOLUME_CHAPTERS, VOLUME_PEOPLE } from './volume-data.js
 export const inOpening = game => Boolean(game.volume && !game.volume.flags.enter_xianmen);
 export function ensureVolume(game) {
   if (!game.volume) return game; // 旧存档不改写故事、修为、资产或位置。
+  if(game.volume.version!==2){
+    game.volume.legacyCompleted=game.volume.flags.enter_xianmen?['probe_tainan','fight_qingwen','fight_hupinggu']:[];
+    game.volume.version=2;
+  }
   for (const actor of VOLUME_PEOPLE) game.people[actor.id] ??= {...structuredClone(actor),knowledge:{},trust:0,condition:'正常'};
   return game;
 }
 export function startVolume(game) {
-  game.volume={version:1,flags:{},startedTurn:game.turn};
+  game.volume={version:2,legacyCompleted:[],flags:{},startedTurn:game.turn};
   game.player.place='qixuan'; game.player.name='韩立';
   game.player.stones=0; game.player.herbs=0; game.player.talismans=0;
   game.exploration.learned=[];
@@ -29,14 +33,15 @@ export function applyVolumeAction(game,type) {
   const def=VOLUME_ACTIONS.find(action=>action.type===type),f=game.volume.flags;
   if (!def) throw new GameError('未知的第一卷行动。');
   if (game.player.place!==def.place) throw new GameError('请先前往任务所在地点。');
-  if (f[type]&&!def.repeatable) throw new GameError('这段经历已经完成，奖励不会重复领取。');
-  const missing=def.requires.find(key=>!f[key]);
+  if ((f[type]||game.volume.legacyCompleted?.includes(type))&&!def.repeatable) throw new GameError('这段经历已经完成，奖励不会重复领取。');
+  const missing=def.requires.find(key=>!f[key]&&!game.volume.legacyCompleted?.includes(key));
   if (missing) throw new GameError(`先完成「${VOLUME_ACTIONS.find(action=>action.type===missing).title}」。`);
   if(type==='help_zhang'&&f.confront_mo)throw new GameError('张铁已遭变故，这段少年时的支线已经错过。');
-  const damage={qixuan_exam:8,confront_mo:12,defend_qixuan:10}[type]||0;
+  if(def.encounter&&!game.exploration.enemies[def.encounter]?.looted)throw new GameError('需亲自赢下这场交锋并收取战利品，才能继续主线。');
+  const damage={qixuan_exam:8,confront_mo:12}[type]||0;
   if(game.player.hp<=damage)throw new GameError('气血不足，请先使用回春丹或在神手谷休养。');
   if(['aid_lifeiyu','trade_tainan'].includes(type)&&game.player.herbs<1)throw new GameError('需要一株灵草，可在神手谷试验绿液或收取灵圃产物。');
-  if(type==='valley_rest'&&game.player.hp>=100)throw new GameError('气血充盈，无需休养。');
+  if(['valley_rest','tainan_rest'].includes(type)&&game.player.hp>=100)throw new GameError('气血充盈，无需休养。');
   game.player.hp-=damage;
   const item=id=>{game.exploration.inventory[id]=(game.exploration.inventory[id]||0)+1;};
   let text='';
@@ -52,20 +57,24 @@ export function applyVolumeAction(game,type) {
     case 'confront_mo': item('mo_letter');game.people.modafu.condition='已故';game.people.zhangtie.condition='炼尸之祸';
       for(const offer of game.society.offers.filter(o=>['modafu','zhangtie'].includes(o.npcId)&&['open','accepted'].includes(o.status))){game.people[offer.npcId].stones+=offer.reward;offer.status='withdrawn';}
       text='凭事先调查与长春功根基，你在墨大夫的夺舍危局中保住自身。真相与张铁的遭遇终于浮出水面；墨大夫留下遗书，寒毒仍需去嘉元城化解。';break;
-    case 'scout_jinguang': text='你观察金光上人的护罩与符宝，记下其施术间隙，准备以御剑之术破局。';break;
-    case 'defend_qixuan': item('ascension_token');item('sword_talisman');game.exploration.learned.push('object_control');game.people.wangjuechu.trust+=20;text='你抓住金光上人护罩的破绽，解开七玄门之围，取得升仙令与剑符宝。这场风波后，你决定先履行墨府遗书。';break;
+    case 'scout_jinguang': if(!game.exploration.learned.includes('object_control'))game.exploration.learned.push('object_control');item('healing_pill');text='你观察金光上人的护罩与符宝，记下其施术间隙，将御物术用于御剑，另备一枚回春丹。接下来要亲自迎战，护罩的余力会随交锋消耗。';break;
+    case 'defend_qixuan':game.people.wangjuechu.trust+=20;text='你抓住金光上人护罩的破绽，解开七玄门之围，取得升仙令与剑符宝。这场风波后，你决定先履行墨府遗书。';break;
     case 'deliver_mo_letter': item('warm_jade');game.people.yanshi.trust+=15;text='严氏核验了墨大夫遗书。你说明来意并完成遗书交代，取得暖阳宝玉，可以着手化解寒毒。';break;
     case 'comfort_caihuan': game.people.mocaihuan.trust+=20;text='你向墨彩环说明这段来路，也认真听她说起对修仙的向往。告别尚未到来，这份相识已记在彼此心里。';break;
     case 'cure_cold_poison': game.player.hp=100;text='暖阳宝玉驱散寒毒，气血恢复。墨府旧事暂告一段落，你循着修仙者的消息，前往太南小会。';break;
     case 'meet_wan': game.people.wanxiaoshan.trust+=10;text='万小山向你讲解灵根、越国七派与升仙大会。升仙令的用途渐渐清楚，你终于知道黄枫谷是下一站。';break;
     case 'trade_tainan': game.player.herbs--;item('fireball_manual');item('huanglong_recipe');text='你以一株催生药草换得火弹术与黄龙丹方。法术可在行囊研习，丹方记入第一卷所得；资源的来路仍需保密。';break;
-    case 'enter_xianmen': game.player.stones+=180;text='你收好升仙令，准备拜入黄枫谷。第一卷「七玄问道」完成，获得后续游历资粮 180 灵石。天下图已开放，七玄门、墨府的旧人仍可重访。';break;
+    case 'probe_tainan': item('healing_pill');text='你向万小山核对消息，对青纹一行的热络邀约留了心眼。谷外果然有人封路，你备好一枚回春丹，先应对青纹道士，之后仍要留意他的同伙。';break;
+    case 'fight_qingwen': text='你亲手击退青纹道士，夺回了主动。胡萍姑仍封住另一侧退路；先整理伤势和法术，再决定何时继续突围。';break;
+    case 'fight_hupinggu': text='你突破胡萍姑的阻截，摆脱青纹一行的围堵。小会上的热络与谷外的杀机，让你真正认识到散修交往的风险。';break;
+    case 'tainan_rest': game.player.hp=Math.min(100,game.player.hp+35);text='你回到小会歇脚处，梳理灵力、包扎伤口，恢复最多 35 气血。';break;
+    case 'enter_xianmen': game.player.stones+=180;game.player.hp=100;text='摆脱劫修后，你休整至气血充盈，收好升仙令，准备拜入黄枫谷。七玄门到太南小会的经历已完成，获得游历资粮 180 灵石。接下来前往黄枫谷山门登记入门，接下百药园差事；故人仍可重访。';break;
     case 'valley_rest': game.player.hp=Math.min(100,game.player.hp+35);text='你在药庐整理行装、安静休养，恢复最多 35 气血。';break;
   }
   const id=record(game,'第一卷',text,def.requires.map(key=>f[key]));
   if(!def.repeatable)f[type]=id;
   if(type==='enter_xianmen'){
-    const rumor=record(game,'邸报','游历消息：地下坊市的沈秋持有一枚筑基丹，开价 280 灵石。你可继续问计，自行筹划取丹路径。',[id]);
+    const rumor=record(game,'邸报','游历消息：黄枫谷坊市的许掌柜持有一枚筑基丹，开价 280 灵石。你可继续问计，自行筹划取丹路径。',[id]);
     game.events.at(-1).scope='public';game.flags.pillRumorEvent=rumor;
     for(const person of ['shen','bai','xu','qing','wei'])game.people[person].knowledge.pill=rumor;
   }
@@ -74,7 +83,7 @@ export function applyVolumeAction(game,type) {
 export function volumeView(game) {
   if(!game.volume)return null;
   const f=game.volume.flags;
-  const objectives=VOLUME_ACTIONS.filter(a=>!a.repeatable).map(a=>({type:a.type,title:a.title,detail:a.detail,cost:a.cost,target:a.person||a.site,place:a.place,optional:Boolean(a.optional),done:Boolean(f[a.type]),unlocked:a.requires.every(key=>f[key])&&!(a.type==='help_zhang'&&f.confront_mo&&!f.help_zhang),missed:a.type==='help_zhang'&&Boolean(f.confront_mo)&&!f.help_zhang}));
+  const objectives=VOLUME_ACTIONS.filter(a=>!a.repeatable).map(a=>({type:a.type,title:a.title,detail:a.detail,cost:a.cost,target:a.person||a.site,place:a.place,optional:Boolean(a.optional),encounter:a.encounter,done:Boolean(f[a.type]||game.volume.legacyCompleted?.includes(a.type)),legacy:Boolean(game.volume.legacyCompleted?.includes(a.type)),unlocked:a.requires.every(key=>f[key]||game.volume.legacyCompleted?.includes(key))&&!(a.type==='help_zhang'&&f.confront_mo&&!f.help_zhang),missed:a.type==='help_zhang'&&Boolean(f.confront_mo)&&!f.help_zhang}));
   const next=objectives.find(a=>!a.optional&&!a.done);
   return {title:'卷一 · 七玄问道',complete:Boolean(f.enter_xianmen),chapters:VOLUME_CHAPTERS.map(ch=>({...ch,done:Boolean(f[ch.end])})),objectives,next,completed:objectives.filter(a=>!a.optional&&a.done).length,total:objectives.filter(a=>!a.optional).length,
     realm:f.enter_xianmen?'炼气九层':f.confront_mo?'炼气四层':f.study_changchun?'炼气一层':'凡人',

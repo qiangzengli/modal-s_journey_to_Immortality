@@ -30,7 +30,7 @@ test('四门派各有道统、独立山门与接引人，旧档补充不改变�
     assert.equal(rep.place,id);assert.equal(rep.affiliation.sectId,id);
     assert.ok(REGIONS[id]);assert.ok(view.sects.schools.find(s=>s.id===id).members.some(m=>m.actorId===rep.id));
   }
-  assert.equal(view.people.find(p=>p.id==='xu').affiliation.sectId,null);
+  assert.equal(view.people.find(p=>p.id==='xu').affiliation.sectId,'qinglan');
   assert.deepEqual(old,once);
 });
 
@@ -70,7 +70,7 @@ test('断线、非法输出、婉拒与暂缓都不会自动入门；可重审�
 
 test('入门必须与正确接引人同区域，邀请不能转门派；斗法期间不能借门派事务脱身', async () => {
   let game=applicant();await reviewSectApplication(game,model('invite'));
-  const other=travel(game,'xuanming');
+  game.flags.playerBreakthrough=1;const other=travel(game,'xuanming');
   assert.throws(()=>action(other,'join'),/所在区域/);
   assert.throws(()=>action(other,'join',{sectId:'xuanming'}),/邀请/);
   const fighting=combatAction(travel(game,'woods'),{type:'start',enemyId:'luohu'}).game;
@@ -81,12 +81,12 @@ test('所有跨图入口共用修为校验，直接传送不访问中间地图�
   const game=createGame();const before=structuredClone(game);
   for(const id of ['lingshu','jinhuo'])assert.throws(()=>travel(game,id),/筑基/);
   for(const id of ['__proto__','constructor','nowhere'])assert.throws(()=>travel(game,id),/目的地/);
-  const remote=travel(game,'xuanming');
+  const remote=travel(game,'qinglan');
   assert.deepEqual(regionPath('market','xuanming'),['xuanming']);
   assert.equal(remote.turn,game.turn);assert.equal(remote.player.stones,game.player.stones);
-  assert.deepEqual(remote.campaign.visited,['market','woods','xuanming']);
+  assert.deepEqual(remote.campaign.visited,['market','woods','qinglan']);
   assert.deepEqual(game,before);
-  const advanced=structuredClone(game);advanced.flags.playerBreakthrough=1;
+  const advanced=structuredClone(game);advanced.flags.playerBreakthrough=1;advanced.campaign.storyFlags={huangfeng_register:1,forbidden_enlist:1,enter_forbidden:1};
   for(const id of Object.keys(REGIONS))if(id!=='market')assert.equal(travel(advanced,id).player.place,id);
   assert.equal(applyAction(remote,{type:'travel_market'}).game.player.place,'market');
 });

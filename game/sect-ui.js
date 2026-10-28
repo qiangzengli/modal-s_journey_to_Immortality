@@ -25,8 +25,8 @@ export function createSectUI({ element, getState, request, navigate }) {
     const disabled = value => value ? 'disabled' : '';
     const candidates = schools.filter(sect => filter === 'all' || sect.alignment === filter);
     element.innerHTML = `<section class="sect-player"><small>我的道途</small><strong>${esc(affiliationText(player))}</strong><p>${player.sectId ? `${esc(player.rank)} · 第 ${view.sects.joinedTurn} 旬入门` : '尚未拜入门派，可自由游历后再作选择。'}</p></section>
-      <p class="panel-tip">宗门采用原著设定。这里的“正道”指越国七派一侧，并非正道盟；入门交互由本局人物自主决定。</p>
-      <nav class="sect-filters" aria-label="道统筛选">${[['all', '全部'], ['righteous', '正道'], ['demonic', '魔道']].map(([id, name]) => `<button type="button" data-sect-filter="${id}" aria-pressed="${filter === id}">${name}</button>`).join('')}</nav>
+      <p class="panel-tip">越国七派与魔道六宗各有门规。身份影响人物的判断，善恶仍看各自的行为。</p>
+      <nav class="sect-filters" aria-label="道统筛选">${[['all', '全部'], ['righteous', '越国七派'], ['demonic', '魔道六宗']].map(([id, name]) => `<button type="button" data-sect-filter="${id}" aria-pressed="${filter === id}">${name}</button>`).join('')}</nav>
       <div class="sect-directory">${candidates.map(sect => `<button type="button" class="sect-card" data-sect-select="${sect.id}" aria-pressed="${school.id === sect.id}" style="--sect-color:${sect.color}"><small>${esc(sect.alignmentName)}${player.sectId === sect.id ? ' · 本门' : ''}</small><strong>${esc(sect.name)}</strong><span>${esc(sect.specialty)}</span><em>接引 · ${esc(sect.representative.name)} / ${esc(regionName(sect.representative.place))}</em></button>`).join('')}</div>
       <section class="sect-detail" aria-label="门派详情" style="--sect-color:${school.color}"><small>${esc(school.alignmentName)} · ${esc(school.faction)}</small><h3>${esc(school.name)}</h3><p>${esc(school.doctrine)}</p><p class="panel-tip">${esc(school.approach)}</p>
       <div class="sect-members"><strong>已知门人</strong>${school.members.map(member => `<button type="button" data-sect-person="${member.actorId}" ${disabled(locked)}>${esc(names.get(member.actorId))}<small>${esc(member.rank)}</small></button>`).join('')}</div>

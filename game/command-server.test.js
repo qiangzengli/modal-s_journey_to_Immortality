@@ -23,7 +23,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
     try { context = JSON.parse(payload.messages[1].content); } catch {}
     if (context) contexts.push(context);
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
-    const reply = context ? { title: '筹措灵石', text: '你还差 100 灵石，可以先请白芷验丹，再与徐宁商量合资。', followUps: ['鉴定需要多少灵石？'], suggestionIds: ['bai'] } : { type: 'inspect_pill' };
+    const reply = context ? { title: '筹措灵石', text: '你还差 100 灵石，可以先请马师兄验丹，再与吴风商量合资。', followUps: ['鉴定需要多少灵石？'], suggestionIds: ['bai'] } : { type: 'inspect_pill' };
     res.setHeader('content-type', 'application/json');
     res.end(JSON.stringify({ choices: [{ message: { content: malformed ? 'not-json' : JSON.stringify(reply) } }] }));
   });
@@ -44,7 +44,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
       child.once('exit', () => { clearTimeout(timer); reject(new Error('测试服务退出')); });
       child.stdout.on('data', chunk => { if (chunk.toString().includes('已启动')) { clearTimeout(timer); resolve(); } });
     });
-    for (const text of ['我接下来该怎么做？', '买筑基丹还差多少灵石？', '验丹需要什么条件', '我不想举报，还有别的办法吗', '你是谁', '我想问白芷验丹的事', '我想了解徐宁合资的事', '介绍一下合资', '我不需要买筑基丹', '别帮我买丹', '听说这枚丹药有毒']) {
+    for (const text of ['我接下来该怎么做？', '买筑基丹还差多少灵石？', '验丹需要什么条件', '我不想举报，还有别的办法吗', '你是谁', '我想问马师兄验丹的事', '我想了解吴风合资的事', '介绍一下合资', '我不需要买筑基丹', '别帮我买丹', '听说这枚丹药有毒']) {
       const result = await intent(text);
       assert.equal(result.status, 200, result.error);
       assert.equal(result.action, undefined, '提问不能被执行为行动');
@@ -59,7 +59,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
     assert.equal(contexts.at(-1).facts.selectedPlan, '采草换石后议价');
     assert.deepEqual(contexts.at(-1).history, history);
     assert.equal((await intent('我有些拿不定主意')).reply.source, 'model');
-    assert.deepEqual((await intent('请白芷验丹')).action, { type: 'inspect_pill' });
+    assert.deepEqual((await intent('请马师兄验丹')).action, { type: 'inspect_pill' });
     const interpreted = await intent('请替我辨认这颗药丸');
     assert.deepEqual(interpreted.action, { type: 'inspect_pill' });
     assert.equal(interpreted.parserModelName, 'deepseek-v4-flash');

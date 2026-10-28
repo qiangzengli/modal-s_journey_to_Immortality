@@ -55,7 +55,7 @@ export function advanceGarden(game) {
 export function applyGardenAction(game, type) {
   ensureGarden(game);
   const garden = game.garden;
-  if (game.player.place !== 'woods' && !(game.volume && game.player.place==='shenshou')) throw new GameError('请先到黑风林的灵草坡照看灵圃。');
+  if (game.player.place !== 'woods' && !(game.volume && game.player.place==='shenshou')) throw new GameError('请先到太岳山脉的灵草坡照看灵圃。');
   if (type === 'discover_bottle') {
     if(game.volume)throw new GameError('小绿瓶须在神手谷完成拾取与月下试验。');
     if (garden.bottle) throw new GameError('小绿瓶已认主，不能重复获取。');
@@ -89,7 +89,7 @@ export function applyGardenAction(game, type) {
     game.player.herbs += amount;
     garden.harvested += amount;
     garden.stored = 0;
-    result = `收取灵草 ${amount} 株，已放入行囊，可交给白芷出售。`;
+    result = `收取灵草 ${amount} 株，已放入行囊，可交给马师兄出售。`;
   } else if (type === 'buy_spirit_soil') {
     if (garden.spiritSoil) throw new GameError('息壤盆已经炼成，无需重复投入。');
     if (game.player.stones < SOIL_PRICE) throw new GameError(`炼制息壤盆需要 ${SOIL_PRICE} 灵石。`);

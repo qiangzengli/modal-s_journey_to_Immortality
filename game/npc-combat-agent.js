@@ -1,4 +1,4 @@
-import { WANDERERS } from './combat-data.js';
+import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { affiliationFor } from './sects.js';
 
 export async function planEnemyTurn(game, complete) {

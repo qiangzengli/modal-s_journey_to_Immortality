@@ -1,7 +1,8 @@
+import { ensureCanonIdentities } from './canon.js';
 import { ensureVolume, inOpening } from './volume.js';
 import { VOLUME_PEOPLE } from './volume-data.js';
 import { ensureCampaign } from './campaign.js';
-import { WANDERERS } from './combat-data.js';
+import { WANDERERS, STORY_ENEMIES, enemyAvailable } from './combat-data.js';
 import { GameError } from './errors.js';
 import { stationOffset } from './npc-layout.js';
 import { ensureSects } from './sects.js';
@@ -24,20 +25,25 @@ export function ensureNpcState(game) {
   ensureCampaign(game);
   ensureSects(game);
   ensureVolume(game);
+  const migrating=game.canonVersion!==1;
+  ensureCanonIdentities(game);
   game.society ??= { paused: false, epoch: 0, minds: {}, offers: [], nextOffer: 1 };
-  for (const npc of [...Object.values(game.people), ...WANDERERS]) {
+  for (const npc of [...Object.values(game.people), ...WANDERERS, ...STORY_ENEMIES]) {
     game.society.minds[npc.id] ??= {
       goal: npc.goal || `在当地生存，精进${npc.role}的技艺，保护自己的物品`,
-      temperament: TEMPERAMENTS[npc.id] || npc.temperament || npc.bio,
+      temperament: npc.temperament || npc.bio || TEMPERAMENTS[npc.id],
       activity: '观察周围局势', speech: '', station: null, memories: [], conversation: [],
       decisionTurn: null, herbs: 0, stones: npc.loot?.stones || 0
     };
+  }
+  if(migrating)for(const npc of Object.values(game.people)) {
+    const mind=game.society.minds[npc.id];mind.speech='';mind.activity='整理当前见闻';mind.goal=npc.goal;mind.temperament=npc.temperament||npc.bio||mind.temperament;
   }
   return game;
 }
 export function npcActors(game) {
   if(inOpening(game))return Object.values(game.people).filter(p=>VOLUME_PEOPLE.some(a=>a.id===p.id)&&!['已故','炼尸之祸'].includes(p.condition)&&(!['jiayuan','tainan'].includes(p.place)||Boolean(game.volume.flags[p.place==='jiayuan'?'defend_qixuan':'cure_cold_poison'])));
-  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)), ...WANDERERS.filter(npc => !game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
+  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)), ...WANDERERS.filter(npc => enemyAvailable(game,npc)&&!game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
 }
 export function npcPosition(game, id, place) {
   const station = game.society?.minds[id]?.station;

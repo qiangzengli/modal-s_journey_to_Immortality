@@ -1,3 +1,4 @@
+import {throughCampaign} from './canon-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -9,21 +10,16 @@ import { join } from 'node:path';
 import { createGame, applyAction } from './engine.js';
 import { regionPath } from './regions.js';
 
-test('结局后自主行动经接口原子保存，拒绝过期决策，重启后不重复扣款',async()=>{
+test('禁地自主援助经接口原子保存，拒绝过期决策，重启后不重复扣款',async()=>{
   const directory=await mkdtemp(join(tmpdir(),'niminglu-aftermath-'));
   const savePath=join(directory,'save.json');
-  let game=createGame();
-  const act=type=>{game=applyAction(game,{type}).game;};
-  const travel=to=>{for(const place of regionPath(game.player.place,to))game=applyAction(game,{type:'travel_region',place}).game;};
-  travel('river');act('read_manifest');act('sample_water');
-  travel('quarry');act('inspect_vein');act('mine_ore');act('mine_ore');
-  travel('ruins');act('open_archive');act('read_core');act('read_names');act('lease_core');
+  let game=throughCampaign('enter_forbidden');game.people.song.trust=10;
   await writeFile(savePath,JSON.stringify(game));
   let child,invalid=false;
   const model=createServer(async(req,res)=>{
     let body='';for await(const chunk of req)body+=chunk;
     const context=JSON.parse(JSON.parse(body).messages[1].content);
-    const decisions=context.actors.map(actor=>({actorId:actor.id,actionId:actor.id==='song'&&(invalid||actor.candidates.some(c=>c.id==='rebuild_livelihood'))?'rebuild_livelihood':'observe',goal:'为矿工安排后续生计',speech:'我会按手头的钱财来安排。'}));
+    const decisions=context.actors.map(actor=>({actorId:actor.id,actionId:actor.id==='song'&&(invalid||actor.candidates.some(c=>c.id==='share_trial_notes'))?'share_trial_notes':'observe',goal:'为同门整理禁地见闻',speech:'我会按手头的钱财来安排。'}));
     res.setHeader('content-type','application/json');
     res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({decisions})}}]}));
   });
@@ -46,16 +42,16 @@ test('结局后自主行动经接口原子保存，拒绝过期决策，重启�
     await start();
     const step=await post('/api/world/step',{expectedRevision:0});
     assert.equal(step.status,200);assert.equal(step.advanced,true);
-    assert.equal(step.view.campaign.ending.id,'lease');
-    assert.equal(step.view.campaign.aftermath.find(item=>item.target==='song').done,true);
+    assert.equal(step.view.campaign.title,'卷二 · 黄枫仙途');
+    assert.equal(Boolean(step.view.campaign.flags.scout_help),true);
     const saved=JSON.parse(await readFile(savePath,'utf8'));
-    assert.equal(saved.people.song.stones,game.people.song.stones-30);
+    assert.equal(saved.people.song.stones,game.people.song.stones-20);
     assert.equal(saved.campaign.endingEvent,game.campaign.endingEvent);
-    assert.ok(saved.society.minds.song.memories.some(memory=>memory.text.includes('工棚')));
+    assert.ok(saved.society.minds.song.memories.some(memory=>memory.text.includes('禁地')));
     assert.equal((await post('/api/world/step',{expectedRevision:0})).status,409);
     await stop();await start();
     const restored=(await (await fetch(origin+'/api/state')).json()).view;
-    assert.equal(restored.campaign.aftermath.find(item=>item.target==='song').done,true);
+    assert.equal(Boolean(restored.campaign.flags.scout_help),true);
     invalid=true;
     const before=await readFile(savePath,'utf8');
     assert.equal((await post('/api/world/step',{expectedRevision:restored.revision})).advanced,false);
@@ -65,7 +61,7 @@ test('结局后自主行动经接口原子保存，拒绝过期决策，重启�
     assert.equal(observing.advanced,true);
     const after=JSON.parse(await readFile(savePath,'utf8'));
     assert.equal(after.people.song.stones,saved.people.song.stones);
-    assert.equal(after.campaign.flags.recovery,saved.campaign.flags.recovery);
+    assert.equal(after.campaign.storyFlags.scout_help,saved.campaign.storyFlags.scout_help);
   }finally{
     await stop();model.closeAllConnections();await new Promise(resolve=>model.close(resolve));
     await rm(directory,{recursive:true,force:true});

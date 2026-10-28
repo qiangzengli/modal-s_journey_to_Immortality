@@ -185,7 +185,7 @@ function showSite(id, focusUI = true) {
   $('#world-role').textContent=site.role;
   $('#world-name').textContent=site.name;
   $('#world-goal').textContent=id==='herbs'&&current.garden.bottle?'小绿瓶在月华中凝液，灵圃会随旬数自行生长。成熟的灵草留在此地，等你游历归来收取。':site.detail;
-  const state=site.place!=='woods'?`${regionName(site.place)} · 灵矿 ${current.campaign.ore} · 灵草 ${current.player.herbs}`:id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
+  const state=site.place!=='woods'?`${regionName(site.place)} · 灵草 ${current.player.herbs} · 主药 ${(current.campaign.questHerbs||[]).length} 味`:id==='herbs'?`可采 ${current.world.herbsRemaining} 株`:id==='formation'?(current.world.trapReady?'天雷符已布下':'阵位尚未布置'):`气血 ${current.player.hp} / 100`;
   $('#person-meta').innerHTML=`<span>${esc(state)}</span>`;
   $('#person-dialogue').hidden=true;$('#person-memory').hidden=true;$('#trade-form').hidden=true;$('#npc-activity').hidden=true;
   $('#world-actions').innerHTML=site.actions.map(actionMarkup).join('') + (site.sect ? `<button type="button" class="challenge-button" data-view-sect="${site.sect}">查看门规与拜帖 →</button>` : '');
@@ -324,7 +324,7 @@ function render(view, modelName) {
   $('#mode').textContent=modelName?`自然语言模型：${modelName}。可在心念传音中问计、追问或下达行动。`:'DeepSeek 暂未连接；可继续使用行动按钮，交谈恢复后再试。';
   const entries=[['境界',view.world.realm],['所在',regionName(view.player.place)],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
   $('#stats').innerHTML=entries.map(([key,value])=>`<div><span>${key}</span><strong>${esc(value)}</strong></div>`).join('');
-  $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与徐宁的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
+  $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与吴风的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
   $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(affiliationText(p.affiliation))}<br>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${regionName(p.place)} ↗</span></button>`).join('');
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
   $('#actions').innerHTML=ACTION_DEFS.filter(def=>(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins'].includes(view.player.place)))&&!def.garden&&(!def.volume||view.story)).map(def=>{

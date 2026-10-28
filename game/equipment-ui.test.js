@@ -29,7 +29,7 @@ test('部位与功法分离，读图不改存档；法宝认主后更新同一�
   ui.render(getView(game));
   assert.match(element.innerHTML, /<h4>小绿瓶<\/h4>/);
   assert.match(element.innerHTML, /2 \/ 3 滴/); assert.match(element.innerHTML, /7 株/);
-  await click('screen', 'skills'); assert.match(element.innerHTML, /<h5>凝气诀<\/h5>/);
+  await click('screen', 'skills'); assert.match(element.innerHTML, /<h5>冰锥术<\/h5>/);
   assert.equal(calls, 0);
 });
 
@@ -51,7 +51,7 @@ test('选择与对比不换装；确认后等待真实结算，拦截重复请�
   finish(); await pending;
   assert.equal(game.exploration.weapon, 'green_sword');
   assert.equal(game.exploration.inventory.green_sword, 1); assert.equal(game.exploration.inventory.worn_sword, 1);
-  assert.match(element.innerHTML, /<h4>青锋剑<\/h4>/); assert.match(element.innerHTML, /普攻加成<\/dt><dd>\+7/);
+  assert.match(element.innerHTML, /<h4>青竹剑<\/h4>/); assert.match(element.innerHTML, /普攻加成<\/dt><dd>\+7/);
   await click('action', 'equip', { itemId: 'green_sword' });
   await click('action', 'equip', { itemId: 'healing_pill' }); assert.equal(calls, 1);
 });
@@ -104,7 +104,7 @@ test('中文输入法组合期间保留输入框，刷新不打断；搜索后�
   await click('action', 'learn', { itemId: 'wind_manual' });
   assert.equal(calls, 2); assert.equal(game.exploration.inventory.wind_manual, 0);
   assert.ok(game.exploration.learned.includes('wind_blade'));
-  assert.match(element.innerHTML, /data-screen="skills"/); assert.match(element.innerHTML, /<h5>疾风剑诀<\/h5>/);
+  assert.match(element.innerHTML, /data-screen="skills"/); assert.match(element.innerHTML, /<h5>青元剑诀<\/h5>/);
 });
 
 test('属性与功法显示服务端的基础值、加成及总威力，换装和筑基后同步刷新', async () => {

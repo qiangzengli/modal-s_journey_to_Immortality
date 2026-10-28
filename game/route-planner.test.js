@@ -15,7 +15,7 @@ test('模型自由组合完整路线，动态报价和跨区采草可执行，�
   const game = createGame(), original = structuredClone(game);
   const planner = createRoutePlanner({ generate: async messages => {
     const context = JSON.parse(messages[1].content);
-    assert.equal(context.objective, '取得这枚筑基丹');
+    assert.equal(context.objective, '取得一枚筑基丹');
     assert.equal(context.preference, '不借贷不动武');
     assert.equal(context.facts.route, undefined);
     assert.equal(context.facts.flags, undefined);
@@ -27,8 +27,8 @@ test('模型自由组合完整路线，动态报价和跨区采草可执行，�
   assert.deepEqual(result.plans.map(plan => plan.title), ['卖草当面议价', '入林自筹不借贷']);
   assert.equal(result.plans[0].forecast.stones, 20);
   assert.equal(result.plans[1].forecast.stones, 60);
-  assert.equal(result.plans[1].steps[0].travel, '先前往黑风林');
-  assert.equal(result.plans[1].steps[1].travel, '先前往地下坊市');
+  assert.equal(result.plans[1].steps[0].travel, '先前往太岳山脉');
+  assert.equal(result.plans[1].steps[1].travel, '先前往黄枫谷坊市');
   assert.throws(() => previewPlan(game, reportThenBuy), /invalid_plan_action/); // 不能预言执事的自主选择
   assert.deepEqual(game, original);
 });
@@ -89,7 +89,7 @@ test('方案随局势收缩，公售可一步取丹；已得丹、已失手与�
   game = applyAction(game, action('buy_pill')).game;
   assert.equal((await planner.respond(game)).reason, 'complete');
   const lost = applyNpcEffect(applyNpcEffect(createGame(), 'qing', 'lend_stones'), 'xu', 'buy_pill');
-  assert.equal((await planner.respond(lost)).reason, 'unavailable_goal');
+  assert.equal((await planner.respond(lost)).reason, 'invalid');
   assert.equal((await createRoutePlanner().respond(createGame())).reason, 'offline');
 });
 
