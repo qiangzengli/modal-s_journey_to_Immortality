@@ -11,14 +11,15 @@ export function createGardenUI({ getState, executeAction, navigate }) {
     const { view, site, busy } = getState();
     if (!view) return;
     const garden = view.garden;
-    $('#garden-card').hidden = site !== 'herbs' || Boolean(view.battle);
+    $('#garden-card').hidden = !['herbs','valley_bottle'].includes(site) || Boolean(view.battle);
     $('#garden-hud').hidden = !garden.bottle;
     $('#garden-hud').textContent = garden.stored ? `⚘ 待收 ${garden.stored} 株` : `⚘ 灵液 ${garden.drops} / ${garden.capacity}`;
     $('#garden-hud').classList.toggle('ripe', garden.stored > 0);
     $('#garden-hud').disabled = busy || Boolean(view.battle);
-    $('#garden-summary').innerHTML = `<h3>灵植神器</h3><button type="button" data-garden-open><span>${garden.bottle ? '小绿瓶' + (garden.spiritSoil ? ' · 息壤盆' : '') : '灵草坡的青光'}</span><strong>${garden.bottle ? `待收 ${garden.stored} 株 · 凝液 ${garden.drops}/${garden.capacity}` : '前往寻得小绿瓶 ↗'}</strong><small>${garden.bottle ? `已收获 ${garden.harvested} 株 · ${garden.plots.filter(p => p.planted).length}/${garden.plots.length} 畦在生长` : '黑风林的旧石龛里，一只古瓶正在吸纳月华。'}</small></button>`;
-    if (site !== 'herbs') return;
+    $('#garden-summary').innerHTML = `<h3>灵植神器</h3><button type="button" data-garden-open><span>${garden.bottle ? '小绿瓶' + (garden.spiritSoil ? ' · 息壤盆' : '') : view.story?'神手谷的青光':'灵草坡的青光'}</span><strong>${garden.bottle ? `待收 ${garden.stored} 株 · 凝液 ${garden.drops}/${garden.capacity}` : '前往寻得小绿瓶 ↗'}</strong><small>${garden.bottle ? `已收获 ${garden.harvested} 株 · ${garden.plots.filter(p => p.planted).length}/${garden.plots.length} 畦在生长` : view.story?'沿神手谷石径调查小绿瓶的秘密。':'黑风林的旧石龛里，一只古瓶正在吸纳月华。'}</small></button>`;
+    if (!['herbs','valley_bottle'].includes(site)) return;
     const bottle = '<div class="jade-bottle" aria-hidden="true"><i></i><span>生</span></div>';
+    if (!garden.bottle && view.story) { $('#garden-card').innerHTML='<p class="garden-note">先完成石径的拾取与月下试验，小绿瓶才会开启灵圃。</p>';return; }
     if (!garden.bottle) {
       $('#garden-card').innerHTML = `<div class="garden-heading">${bottle}<div><small>林中奇遇 / 月华凝露</small><h3>小绿瓶</h3><p>石龛旁一株幼苗青翠未枯，瓶内隐约可见灵液。</p></div></div><p class="garden-note">认主后每旬凝聚 1 滴灵液，自动催生并留种。无需守在林中，外出游历时也会生长。</p>${button('discover_bottle', '认主小绿瓶 · 安置幼苗')}`;
       return;
@@ -37,7 +38,7 @@ export function createGardenUI({ getState, executeAction, navigate }) {
     const target = event.target.closest('[data-garden-action]');
     if (target && !getState().busy) executeAction({ type: target.dataset.gardenAction });
   });
-  for (const selector of ['#garden-summary', '#actions']) $(selector).addEventListener('click', event => { if (event.target.closest('[data-garden-open]')) navigate('herbs'); });
-  $('#garden-hud').addEventListener('click', () => navigate('herbs'));
+  for (const selector of ['#garden-summary', '#actions']) $(selector).addEventListener('click', event => { if (event.target.closest('[data-garden-open]')) navigate(getState().view?.story?'valley_bottle':'herbs'); });
+  $('#garden-hud').addEventListener('click', () => navigate(getState().view?.story?'valley_bottle':'herbs'));
   return { render };
 }

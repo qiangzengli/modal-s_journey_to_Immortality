@@ -1,3 +1,5 @@
+import { VOLUME_PEOPLE } from './volume-data.js';
+import { startVolume, ensureVolume, applyVolumeAction, volumeView, inOpening } from './volume.js';
 import { SECT_PEOPLE } from './sect-data.js';
 import { FRONTIER_PEOPLE } from './campaign-data.js';
 import { ensureCampaign, applyCampaignAction, travelRegion, campaignView } from './campaign.js';
@@ -87,6 +89,8 @@ export function createGame() {
   return ensureNpcState(ensureGarden(ensureExploration(game)));
 }
 
+export function createOpeningGame() { return ensureNpcState(startVolume(createGame())); }
+
 export const ACTIONS = ['travel_region', 'ask', 'negotiate', ...ACTION_DEFS.map(action => action.type)];
 
 export function dialogueFor(game, target) {
@@ -99,21 +103,23 @@ export function dialogueFor(game, target) {
 export function applyAction(source, action) {
   assertPeace(source);
   if (!action || !ACTIONS.includes(action.type)) throw new GameError('未识别的行动。可以试试「验丹」「调查货道」「找徐宁合资」。');
-  const game = ensureCampaign(structuredClone(source));
+  const game = ensureVolume(ensureCampaign(structuredClone(source)));
   game.ap = null;
   const type = action.type;
   const target = action.target;
   const participant = ACTION_DEFS.find(def => def.type === type)?.person;
-  if (participant && type !== 'buy_pill' && game.people[participant].place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
+  if (participant && type !== 'buy_pill' && game.people[participant]?.place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
   let result = '';
   if (['travel_region', 'travel_market', 'travel_woods'].includes(type)) return travelRegion(game, type === 'travel_region' ? action.place || action.target : type === 'travel_market' ? 'market' : 'woods');
+  if (ACTION_DEFS.find(def=>def.type===type)?.volume) return {game,result:applyVolumeAction(game,type)};
+  if (inOpening(game) && type!=='ask' && !(GARDEN_ACTIONS.includes(type)&&type!=='discover_bottle'&&game.garden.bottle)) throw new GameError('请先完成七玄门第一卷，再开启这段游历。');
   if (ACTION_DEFS.find(def=>def.type===type)?.campaign) return {game,result:applyCampaignAction(game,type)};
   if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 
   switch (type) {
     case 'ask': {
       const person = game.people[target];
-      if (!person) throw new GameError('请选择一位在场人物交谈。');
+      if (!person || ['已故','炼尸之祸'].includes(person.condition)) throw new GameError('请选择一位在场人物交谈。');
       if (person.place !== game.player.place) throw new GameError(`${person.name}不在此处。`);
       result = dialogueFor(game, target);
       game.player.dialogues ??= {};
@@ -130,7 +136,7 @@ export function applyAction(source, action) {
       game.player.stones -= 10;
       game.people.bai.stones += 10;
       game.player.clues.push('authentic');
-      const id = note(game, '白芷', '白芷当面验出丹纹真实，为你出具可核对的鉴定记录。你付了 10 灵石。', [1]);
+      const id = note(game, '白芷', '白芷当面验出丹纹真实，为你出具可核对的鉴定记录。你付了 10 灵石。', [game.flags.pillRumorEvent || 1]);
       game.player.clueEvents.authentic = id;
       know(game, 'bai', 'authentic', id);
       result = '鉴定完成：筑基丹是真品。你现在可以用这份记录说服徐宁合资。';
@@ -140,7 +146,7 @@ export function applyAction(source, action) {
       at(game, MARKET);
       if (game.player.clues.includes('smuggling')) throw new GameError('你已拿到宁素的货道证词。');
       game.player.clues.push('smuggling');
-      const id = note(game, '宁素', '宁素向你提供了禁运货道的车号与时间，可交给陆执事核对。', [1], 'player');
+      const id = note(game, '宁素', '宁素向你提供了禁运货道的车号与时间，可交给陆执事核对。', [game.flags.pillRumorEvent || 1], 'player');
       game.player.clueEvents.smuggling = id;
       know(game, 'ning', 'smuggling', id);
       result = '你取得可核对的走私线索。陆执事可能据此行动。';
@@ -173,7 +179,7 @@ export function applyAction(source, action) {
       game.pill.owner = 'player';
       if (owner === 'shen') game.people.shen.stones += price;
       else game.flags.auction = false;
-      game.flags.pillSale = note(game, '你', `以 ${price} 灵石从${owner === 'shen' ? '沈秋' : '执事公售'}处取得筑基丹。`, owner === 'lu' ? [game.flags.report] : game.flags.partnerEvent ? [game.flags.partnerEvent] : [1]);
+      game.flags.pillSale = note(game, '你', `以 ${price} 灵石从${owner === 'shen' ? '沈秋' : '执事公售'}处取得筑基丹。`, owner === 'lu' ? [game.flags.report] : game.flags.partnerEvent ? [game.flags.partnerEvent] : [game.flags.pillRumorEvent || 1]);
       result = `筑基丹入手，花费 ${price} 灵石。${game.flags.partnerDebt ? '别忘了与徐宁的合资承诺。' : ''}`;
       break;
     }
@@ -188,7 +194,7 @@ export function applyAction(source, action) {
       if (leverage !== 'none' && !game.player.clues.includes(leverage)) throw new GameError('你尚未掌握所声称的证据，无法据此议价。');
       requireStones(game, offer);
       const minimum = leverage === 'smuggling' ? 200 : game.flags.disputed ? 190 : 240;
-      const causes = leverage === 'none' ? [1] : [game.player.clueEvents[leverage]];
+      const causes = leverage === 'none' ? [game.flags.pillRumorEvent || 1] : [game.player.clueEvents[leverage]];
       if (offer < minimum) {
         game.people.shen.trust -= 5;
         note(game, '沈秋', `你出价 ${offer} 灵石${leverage === 'smuggling' ? '并亮出货道证词' : ''}。沈秋认为低于底线，拒绝交易。`, causes);
@@ -371,7 +377,8 @@ export function advanceTurn(source) {
 }
 
 export function getView(game) {
-  const names = Object.fromEntries(PEOPLE.map(p => [p.id, p.name]));
+  const names = Object.fromEntries(Object.values(game.people).map(p => [p.id, p.name]));
+  const story=volumeView(game);
   names.player = '你';
   names.consumed = '已炼化';
   const visible = game.events.filter(e => e.scope !== 'private');
@@ -379,6 +386,7 @@ export function getView(game) {
   const pillOwner = game.pill.owner;
   return {
     ...getCombatView(game),
+    story,
     sects: sectView(game),
     garden: getGardenView(game),
     society: societyView(game),
@@ -394,7 +402,7 @@ export function getView(game) {
       disputed: game.flags.disputed,
       partnerDebt: game.flags.partnerDebt
     },
-    people: PEOPLE.map(p => ({
+    people: Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)&&(!inOpening(game)||VOLUME_PEOPLE.some(a=>a.id===p.id))).map(p => ({
       id: p.id, name: p.name, role: p.role, goal: p.publicGoal,
       affiliation: affiliationFor(game, p.id),
       place: game.people[p.id].place, condition: game.people[p.id].condition,
@@ -404,7 +412,7 @@ export function getView(game) {
       dialogue: game.player.dialogues?.[p.id] || null,
       memories: visible.filter(e => e.actor === p.name || e.text.includes(p.name)).slice(-3).map(e => ({ turn: e.turn, text: e.text, id: e.id }))
     })),
-    world: { herbsRemaining: Math.max(0, 2 - game.flags.herbGathered), trapReady: Boolean(game.flags.trap), meetingPlanned: Boolean(game.flags.lured), reportFiled: Boolean(game.flags.report), partnered: Boolean(game.flags.partnerEvent), breakthrough: Boolean(game.flags.playerBreakthrough), realm: game.flags.playerBreakthrough ? '筑基初期' : '炼气九层' },
+    world: { herbsRemaining: Math.max(0, 2 - game.flags.herbGathered), trapReady: Boolean(game.flags.trap), meetingPlanned: Boolean(game.flags.lured), reportFiled: Boolean(game.flags.report), partnered: Boolean(game.flags.partnerEvent), breakthrough: Boolean(game.flags.playerBreakthrough), realm: game.flags.playerBreakthrough ? '筑基初期' : story?.realm || '炼气九层' },
     actionOptions: Object.fromEntries(ACTION_DEFS.map(def => {
       try {
         const after = applyAction(game, { type: def.type }).game;
@@ -416,7 +424,7 @@ export function getView(game) {
       }
     })),
     events: visible.map(e => ({ ...e, causes: e.causes.filter(id => visibleIds.has(id)) })).reverse(),
-    outcome: game.flags.playerBreakthrough ? `筑基已成。${game.flags.partnerDebt ? '与徐宁的欠款仍待偿还。' : '这场机缘的因果仍将继续。'}` : pillOwner === 'player'
+    outcome: inOpening(game) ? story.summary : game.flags.playerBreakthrough ? `筑基已成。${game.flags.partnerDebt ? '与徐宁的欠款仍待偿还。' : '这场机缘的因果仍将继续。'}` : pillOwner === 'player'
       ? game.flags.partnerDebt ? '筑基丹已入手；徐宁的合资承诺仍待履行。' : '筑基丹已入手。可以继续推进时间，观察人物的后续反应。'
       : pillOwner === 'xu' ? '徐宁已取得坊市筑基丹，机缘失手。道途未断：可在云渡药庐寻找归脉丹方，继续游历。' : ''
   };
@@ -427,7 +435,7 @@ export function parseLocal(text) {
   const input = text.trim();
   const destination=Object.entries(REGIONS).find(([,region])=>input.includes(region.name));
   if(destination && /传送|前往|返回|去|到/.test(input))return {type:'travel_region',place:destination[0]};
-  const frontier = ACTION_DEFS.find(def=>def.campaign && input.includes(def.title));
+  const frontier = ACTION_DEFS.find(def=>(def.campaign||def.volume) && input.includes(def.title));
   if(frontier)return {type:frontier.type};
   if (/认主.*小绿瓶|寻.*小绿瓶/.test(input)) return { type: 'discover_bottle' };
   if (/炼.*息壤|扩建.*灵圃/.test(input)) return { type: 'buy_spirit_soil' };
@@ -463,7 +471,7 @@ export function parseLocal(text) {
   if (/采.*灵草|采药|采集.*药/.test(input)) return { type: 'gather_herbs' };
   if (/卖.*灵草|卖.*药草/.test(input)) return { type: 'sell_herbs' };
   if (/买.*筑基丹|购买.*丹|竞买.*丹|出价.*丹/.test(input)) return { type: 'buy_pill' };
-  const person = PEOPLE.find(p => input.includes(p.name));
+  const person = [...PEOPLE,...VOLUME_PEOPLE].find(p => input.includes(p.name));
   if (person && /问|聊|交谈|打听|找/.test(input)) return { type: 'ask', target: person.id };
   throw new GameError('这条计策暂时无法执行。可试试「请白芷验丹」「找徐宁合资」「向陆执事举报」或点击行动按钮。');
 }

@@ -7,6 +7,7 @@ export function ensureSects(game) {
 }
 
 export function affiliationFor(game, actorId = 'player') {
+  if(game.volume && (['modafu','zhangtie','lifeiyu','wangjuechu'].includes(actorId)||(actorId==='player'&&game.volume.flags.qixuan_exam&&!game.volume.flags.enter_xianmen)))return {sectId:'qixuan',name:'七玄门',rank:actorId==='player'?'神手谷弟子':'门人',alignment:'unaffiliated',alignmentName:'江湖门派',color:'#acbb92',doctrine:'彩霞山江湖门派，神手谷传授医术与基础修炼。'};
   const [sectId, rank] = actorId === 'player'
     ? [game.sects?.membership?.sectId, '外门弟子'] : NPC_SECTS[actorId] || [];
   const sect = Object.hasOwn(SECTS, sectId || '') ? SECTS[sectId] : null;

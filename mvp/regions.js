@@ -1,4 +1,6 @@
+import { VOLUME_REGIONS } from './volume-data.js';
 export const REGIONS = {
+  ...VOLUME_REGIONS,
   qinglan: { name:'青岚山门',short:'青岚',bounds:[192,238,-19,19],entry:[204,0],color:'#567b70',description:'云阶剑碑与青瓦大殿。顾长青在问剑台接引来客。',risk:'正道 · 青岚剑宗',requiredTier:0 },
   lingshu: { name:'灵枢山门',short:'灵枢',bounds:[252,298,-19,19],entry:[264,0],color:'#5e8662',description:'药泉灵雾浓郁，须筑基后才能稳住灵息。柳闻溪在药庐前候客。',risk:'正道 · 灵枢谷',requiredTier:1 },
   jinhuo: { name:'烬火山门',short:'烬火',bounds:[312,358,-19,19],entry:[324,0],color:'#815746',description:'玄石山门立于地火之上，筑基修士方能抵御火息。晏赤霄守着丹炉。',risk:'魔道 · 烬火门',requiredTier:1 },
@@ -10,7 +12,7 @@ export const REGIONS = {
   ruins: { name: '归墟遗府', short: '归墟', bounds: [132, 178, -19, 19], entry: [136, 0], color: '#525d75', description: '一座替人保存灵气的古府，也可能是一座囚笼。', risk: '筑基守关者 · 可避战' }
 };
 const ATLAS = {qinglan:[18,15],lingshu:[51,10],jinhuo:[83,17],market:[19,48],river:[51,45],quarry:[83,47],woods:[19,80],xuanming:[51,82],ruins:[83,80]};
-for (const [id, region] of Object.entries(REGIONS)) { region.mapPosition = ATLAS[id]; region.requiredTier ??= 0; }
+for (const [id, region] of Object.entries(REGIONS)) { region.mapPosition ??= ATLAS[id]; region.requiredTier ??= 0; }
 export const REGION_IDS = Object.keys(REGIONS);
 export const regionName = id => REGIONS[id]?.name || id;
 export function regionAt(x) { return REGION_IDS.find(id => x >= REGIONS[id].bounds[0] && x <= REGIONS[id].bounds[1]) || REGION_IDS.reduce((best,id)=>Math.abs(REGIONS[id].entry[0]-x)<Math.abs(REGIONS[best].entry[0]-x)?id:best,'market'); }
@@ -21,6 +23,11 @@ export function regionPath(from, to) {
 }
 export function travelAccess(game, to) {
   if (!Object.hasOwn(REGIONS, to || '')) return { available: false, reason: '请选择已知的传送目的地。' };
+  if (game.volume && !game.volume.flags.enter_xianmen) {
+    const required = {qixuan:null,shenshou:'qixuan_exam',jiayuan:'defend_qixuan',tainan:'cure_cold_poison'};
+    const available = Object.hasOwn(required,to) && (!required[to] || Boolean(game.volume.flags[required[to]]));
+    return {available, requiredRealm:'剧情开放', reason:available?'':'请先推进第一卷主线，完成对应经历后开放此地。'};
+  }
   const requiredRealm = REGIONS[to].requiredTier ? '筑基初期' : '炼气九层';
   const available = !REGIONS[to].requiredTier || Boolean(game.flags?.playerBreakthrough);
   return { available, requiredRealm, reason: available ? '' : `需达到${requiredRealm}，才能承受${REGIONS[to].name}的灵压。` };

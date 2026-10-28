@@ -12,5 +12,8 @@
   },
   "dependencies": {
     "three": "0.186.1"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.12"
   }
 }

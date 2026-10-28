@@ -33,7 +33,7 @@ export function createPlanUI({ getState, executeAction, advance, onStale, onChan
   async function ask(refresh = false) {
     clearTimeout(timer);
     const { view } = getState();
-    if (!view || view.battle || executing) return;
+    if (!view || (view.story&&!view.story.complete) || view.battle || executing) return;
     const ticket = ++generation, expectedRevision = view.revision;
     controller?.abort(); controller = new AbortController(); pending = true; draw();
     try {
@@ -52,7 +52,7 @@ export function createPlanUI({ getState, executeAction, advance, onStale, onChan
   function changed() {
     const { view } = getState();
     if (!view) return;
-    if (view.battle) { controller?.abort(); clearTimeout(timer); generation++; pending = false; revision = null; reply = null; draw(); return; }
+    if (view.battle || (view.story&&!view.story.complete)) { controller?.abort(); clearTimeout(timer); generation++; pending = false; revision = null; reply = null; draw(); return; }
     if (view.revision === revision) { draw(); return; }
     revision = view.revision; controller?.abort(); clearTimeout(timer); generation++; pending = false;
     draw();

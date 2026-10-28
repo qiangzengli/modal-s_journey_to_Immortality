@@ -1,3 +1,5 @@
+import { ensureVolume, inOpening } from './volume.js';
+import { VOLUME_PEOPLE } from './volume-data.js';
 import { ensureCampaign } from './campaign.js';
 import { WANDERERS } from './combat-data.js';
 import { GameError } from './errors.js';
@@ -21,6 +23,7 @@ const TEMPERAMENTS = {
 export function ensureNpcState(game) {
   ensureSects(game);
   ensureCampaign(game);
+  ensureVolume(game);
   game.society ??= { paused: false, epoch: 0, minds: {}, offers: [], nextOffer: 1 };
   for (const npc of [...Object.values(game.people), ...WANDERERS]) {
     game.society.minds[npc.id] ??= {
@@ -33,7 +36,8 @@ export function ensureNpcState(game) {
   return game;
 }
 export function npcActors(game) {
-  return [...Object.values(game.people), ...WANDERERS.filter(npc => !game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
+  if(inOpening(game))return Object.values(game.people).filter(p=>VOLUME_PEOPLE.some(a=>a.id===p.id)&&!['已故','炼尸之祸'].includes(p.condition)&&(!['jiayuan','tainan'].includes(p.place)||Boolean(game.volume.flags[p.place==='jiayuan'?'defend_qixuan':'cure_cold_poison'])));
+  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)), ...WANDERERS.filter(npc => !game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
 }
 export function npcPosition(game, id, place) {
   const station = game.society?.minds[id]?.station;

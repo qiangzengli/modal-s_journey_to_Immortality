@@ -22,7 +22,7 @@ test('四门派各有道统、独立山门与接引人，旧档补充不改变�
   for (const key of ['player','pill','flags','events','exploration','garden']) assert.deepEqual(old[key],before[key]);
   assert.equal(affiliationFor(old).sectId,null);
   const once=structuredClone(old);ensureSects(old);ensureNpcState(old);assert.deepEqual(old,once);
-  const view=getView(old);assert.equal(view.campaign.regions.length,9);
+  const view=getView(old);assert.equal(view.campaign.regions.length,13);
   assert.equal(view.sects.schools.filter(s=>s.alignment==='righteous').length,2);
   assert.equal(view.sects.schools.filter(s=>s.alignment==='demonic').length,2);
   for(const [id,sect] of Object.entries(SECTS)) {

@@ -1,3 +1,5 @@
+import { VOLUME_PEOPLE, VOLUME_SITES } from './volume-data.js';
+import { createVolumeWorld, volumeWalkable, VOLUME_BLOCKERS } from './volume-world.js';
 import { SECT_PEOPLE, SECT_SITES } from './sect-data.js';
 import { createSectWorld, sectWalkable, SECT_BLOCKERS } from './sect-world.js';
 import * as THREE from '/vendor/three.module.js';
@@ -22,11 +24,11 @@ const NPC_SPOTS = {
   han: { woods: [16, 5] },
   ning: { market: [-7, 5] }
 };
-for (const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...WANDERERS]) NPC_SPOTS[actor.id] = { [actor.place || 'woods']: actor.spot };
+for (const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS]) NPC_SPOTS[actor.id] = { [actor.place || 'woods']: actor.spot };
 
 
 const SITE_SPOTS = { herbs: [20, 2], formation: [15, -6.5], camp: [25, -7] };
-for (const [id, site] of Object.entries({...FRONTIER_SITES,...SECT_SITES})) SITE_SPOTS[id] = site.spot;
+for (const [id, site] of Object.entries({...FRONTIER_SITES,...SECT_SITES,...VOLUME_SITES})) SITE_SPOTS[id] = site.spot;
 const FOREST_TREES = [
   [5, -10, 1], [8, -8, 1.25], [13, -10, 1.1], [19, -9, 1.4], [25, -10, 1],
   [4, 8, 1.2], [7, 10, 1.4], [12, 9, 1], [18, 10, 1.3], [24, 8, 1.1],
@@ -49,7 +51,7 @@ const COLORS = {
   han: { robe: 0x413e42, trim: 0xab6b55, skin: 0xb98d75, hair: 0x1d2020 },
   ning: { robe: 0xb1a486, trim: 0x70685e, skin: 0xe2bb9e, hair: 0x272926 }
 };
-for (const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...WANDERERS]) COLORS[actor.id] = { robe: Number(actor.color.replace('#','0x')), trim: 0xd3c392, skin: 0xcfad8e, hair: 0x292b29 };
+for (const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS]) COLORS[actor.id] = { robe: Number(actor.color.replace('#','0x')), trim: 0xd3c392, skin: 0xcfad8e, hair: 0x292b29 };
 
 
 const WOODS = 'woods';
@@ -382,6 +384,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const terrain = createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets);
   const frontier = createFrontier(scene, { clickSurfaces, siteTargets, obstacleTargets }, { put, material, label, makeBuilding, makeTree });
   const sectWorld = createSectWorld(scene, {clickSurfaces, siteTargets, obstacleTargets}, {THREE, put, material, label, makeBuilding, makeTree});
+  createVolumeWorld(scene, {clickSurfaces,siteTargets,obstacleTargets}, {THREE,put,material,label,makeBuilding,makeTree});
   const gardenWorld = createGardenWorld(scene, siteTargets, ...SITE_SPOTS.herbs);
   const gardenReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   // Keep each destination visually separate; coordinates are only local rendering offsets.
@@ -403,7 +406,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const player = makePerson('player', '你');
   scene.add(player);
   const people = Object.fromEntries(Object.keys(NPC_SPOTS).map(id => {
-    const actor = makePerson(id, [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...WANDERERS].find(actor=>actor.id===id)?.name || { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
+    const actor = makePerson(id, [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS].find(actor=>actor.id===id)?.name || { shen: '沈秋', bai: '白芷', xu: '徐宁', lu: '陆执事', qing: '青闻', wei: '魏守', han: '寒沙', ning: '宁素' }[id]);
     scene.add(actor);
     return [id, actor];
   }));
@@ -582,6 +585,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     terrain.arrayRing.material.transparent = true;
     const allPeople = [...nextView.people, ...nextView.roamers];
     const placements = placeNpcs(allPeople.map(person => ({ ...person, point: person.position || positionFor(person.id, person.place), home: !person.position })), npcCanStand);
+    for(const actor of Object.values(people))actor.visible=false;
     for (const person of allPeople) {
       const actor = people[person.id];
       const spot = placements.get(person.id);
@@ -624,7 +628,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     const [minX, maxX, minZ, maxZ] = REGIONS[location].bounds;
     if (x < minX || x > maxX || z < minZ || z > maxZ) return false;
     if (location === MARKET) return !MARKET_BLOCKERS.some(([bx, bz, rx, rz]) => Math.abs(x - bx) < rx && Math.abs(z - bz) < rz);
-    if (location !== WOODS) return frontierWalkable(location, x, z) && sectWalkable(location, x, z);
+    if (location !== WOODS) return frontierWalkable(location, x, z) && sectWalkable(location, x, z) && volumeWalkable(location,x,z);
     return !FOREST_TREES.some(([tx, tz, size]) => Math.hypot(x - tx, z - tz) < 0.67 * size)
       && !FOREST_ROCKS.some(([rx, rz]) => Math.hypot(x - rx, z - rz) < 1.18);
   }
@@ -735,7 +739,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   renderer.domElement.addEventListener('pointerup', event => {
     const start = pointerDown;
     pointerDown = null;
-    if (busy || view?.battle || !start || Math.hypot(event.clientX - start[0], event.clientY - start[1]) > 8) return;
+    if (!view || document.body.dataset.uiBlocked==='true' || busy || view?.battle || !start || Math.hypot(event.clientX - start[0], event.clientY - start[1]) > 8) return;
     pointerRay(event);
     const siteHit = raycaster.intersectObjects(siteTargets).filter(visibleHit)[0];
     if (siteHit) {
@@ -759,13 +763,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   renderer.domElement.addEventListener('wheel', event => {
     event.preventDefault();
+    if(document.body.dataset.uiBlocked==='true')return;
     zoom = THREE.MathUtils.clamp(zoom + Math.sign(event.deltaY) * 1.7, 15, 37);
     resize();
   }, { passive: false });
 
   window.addEventListener('keydown', event => {
     if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || event.target instanceof HTMLSelectElement || event.target?.isContentEditable || document.querySelector('dialog[open]')) return;
-    if (view?.battle) return;
+    if (view?.battle || document.body.dataset.uiBlocked==='true' || event.target.closest?.('#map-panel,#world-person,.command-dock,#help-card')) return;
     if (event.key.toLowerCase() === 'q') { azimuth -= 0.22; return; }
     if (event.key.toLowerCase() === 'e') { azimuth += 0.22; return; }
     if (busy) return;
@@ -791,7 +796,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     ctx.fillStyle='#a59a78';ctx.fillRect(0,py(-1.8),width,py(1.8)-py(-1.8));
     if(place==='river'){ctx.fillStyle='#69a9b1';ctx.fillRect(px(51.5),0,px(58.5)-px(51.5),height);ctx.fillStyle='#d0b77f';ctx.fillRect(px(51.5),py(-2),px(58.5)-px(51.5),py(2)-py(-2));}
     ctx.fillStyle='#263a35';
-    for(const [x,z,rx,rz] of (place===MARKET?MARKET_BLOCKERS:FRONTIER_BLOCKERS[place]||SECT_BLOCKERS[place]||[]))ctx.fillRect(px(x-rx),py(z-rz),rx*2/(max-min)*width,rz*2/(maxZ-minZ)*height);
+    for(const [x,z,rx,rz] of (place===MARKET?MARKET_BLOCKERS:FRONTIER_BLOCKERS[place]||SECT_BLOCKERS[place]||VOLUME_BLOCKERS[place]||[]))ctx.fillRect(px(x-rx),py(z-rz),rx*2/(max-min)*width,rz*2/(maxZ-minZ)*height);
     for(const [id,[x,z]]of Object.entries(SITE_SPOTS)){if(SITES[id].place!==place)continue;ctx.fillStyle='#f5d594';ctx.fillRect(px(x)-3,py(z)-3,6,6);}
     for(const person of [...view.people,...view.roamers]){if(person.looted||person.place!==place)continue;const actor=people[person.id];ctx.fillStyle=person.defeated?'#e5bf71':person.id===view.pill.ownerId?'#f6ce65':person.affiliation?.color || '#d1e6d4';ctx.beginPath();ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill();}
     ctx.save();ctx.translate(px(player.position.x),py(player.position.z));ctx.rotate(-player.rotation.y);
@@ -964,6 +969,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   return {
     sync,
     goTo,
+    stopMovement() { keys.clear(); },
     cancel() { navigation.cancel(); keys.clear(); },
     reset() { navigation.cancel(); initialized=false; select(null); },
     interact() { if (nearby) return goTo(nearby.id); },

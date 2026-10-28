@@ -3,8 +3,8 @@ import { cultivatorArt, equipmentIcon } from './equipment-art.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const fact = (label, value) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd></div>`;
-const categories = { all: '全部', equipment: '装备', pill: '丹药', manual: '玉简', array: '阵盘' };
-const kindNames = { weapon: '兵器', head: '头冠', body: '衣袍', hands: '护腕', feet: '靴履', waist: '腰饰', ring: '戒指', artifact: '法宝', pill: '丹药', manual: '功法玉简', array: '阵盘' };
+const categories = { story:'信物', all: '全部', equipment: '装备', pill: '丹药', manual: '玉简', array: '阵盘' };
+const kindNames = { story:'剧情信物', weapon: '兵器', head: '头冠', body: '衣袍', hands: '护腕', feet: '靴履', waist: '腰饰', ring: '戒指', artifact: '法宝', pill: '丹药', manual: '功法玉简', array: '阵盘' };
 
 export function combatScalingText(scaling) {
   return `${scaling.attribute === 'attack' ? '基础攻击力' : '基础法力'} ${scaling.base}${scaling.skillBonus ? ` + 功法 ${scaling.skillBonus}` : ''}${scaling.weaponBonus ? ` + 兵器 ${scaling.weaponBonus}` : ''} = ${scaling.total}`;
@@ -82,7 +82,7 @@ function itemDetails(item, view, { inBag = false, locked = false, pending = fals
     const action = actionFor(item);
     const label = worn ? '已装备' : item.learned ? '已掌握' : action === 'equip' ? '装备到 · 兵器' : action === 'learn' ? '研习功法' : action === 'use' ? '服用丹药' : '';
     if (action) html += `<button type="button" class="equipment-primary" data-equipment-action="${action}" data-equipment-focus="action" data-item-id="${esc(item.id)}" ${locked || actionUnavailable(item, view) ? 'disabled' : ''}>${pending ? '正在结算…' : label}</button>${view.battle?.status === 'active' ? '<p class="equipment-note">斗法中不可在此换装或使用物品。</p>' : item.heal && view.player.hp >= 100 ? '<p class="equipment-note">气血已满，无需服用。</p>' : ''}`;
-    else html += `<p class="equipment-note">${['pill', 'array'].includes(item.kind) ? '在斗法中的「灵丹与阵法」页使用。' : '此物当前没有可用操作。'}</p>`;
+    else html += `<p class="equipment-note">${['pill', 'array'].includes(item.kind) ? '在斗法中的「灵丹与阵法」页使用。' : item.kind==='story'?'随主线经历使用与保管，可在天下手记查看进度。':'此物当前没有可用操作。'}</p>`;
   }
   return html;
 }

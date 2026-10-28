@@ -10,7 +10,7 @@ export function npcCapabilities(game, actor) {
     try { applyNpcEffect(game, actor.id, id); result.push({ id, label }); } catch {}
   }
   result.push(...campaignNpcOptions(game,actor.id));
-  for (const station of Object.keys(STATIONS[actor.place])) {
+  for (const station of Object.keys(STATIONS[actor.place] || {})) {
     if (game.society.minds[actor.id].station !== station) result.push({ id: `move:${station}`, label: `前往${({ court:'山门接引台', hall:'门中大殿前', square: '坊市街心', gate: '坊市东街', west: '西街', trail: '林道', herbs: '灵草坡附近', camp: '听雨亭附近', dock:'云渡渡口', fields:'枯泉药田', lodge:'回澜药庐', shelter:'风尘工棚', mine:'赤砂矿脉', sluice:'分流旧闸', door:'归墟石门', core:'万息灵枢', memorial:'无名碑林' })[station]}` });
   }
   const active = game.society.offers.filter(offer => ['open', 'accepted'].includes(offer.status));
@@ -31,6 +31,7 @@ export function societyContext(source) {
         affiliation: affiliationFor(game, actor.id), playerAffiliation: affiliationFor(game),
         temperament: mind.temperament, ownStones: npcWallet(game, actor.id).stones, acquiredHerbs: mind.herbs,
         knowledge: actor.knowledge || {}, trust: actor.trust ?? null,
+        firstVolume: game.volume ? {completed:Object.keys(game.volume.flags),currentPlace:game.player.place,rule:'七玄门开篇；只依据已发生经历回应，不预知墨大夫阴谋，不替玩家完成任务。'} : null,
         localCampaign: { ending: campaign.ending, evidence: Object.fromEntries(['manifest','water','vein','aid','sluice','opened','truth','names','support'].map(key=>[key,Boolean(game.campaign.flags[key])])), aftermath: campaign.aftermath },
         memories: [...memories, ...mind.memories.slice(-6)],
         lastConversation: mind.conversation.slice(-6), lastActivity: mind.activity,

@@ -5,9 +5,9 @@ export const sourceText = reply => reply.source === 'model' ? `AI · ${reply.mod
 export function createAgentUI({ getState, executeAction, onStale, notice }) {
   let chatRequest = 0, chatController, chatPending = false;
   let pendingQuestion = null;
-  let shownPerson = null, lastRevision = null;
+  let shownPerson = null, lastRevision = null, inputVersion=0, restoreScroll=false;
   const threads = new Map();
-  const getThread = id => { if (!threads.has(id)) threads.set(id, { messages: [], reply: null, revision: null }); return threads.get(id); };
+  const getThread = id => { if (!threads.has(id)) threads.set(id, { messages: [], reply: null, revision: null, draft:'', scroll:null }); return threads.get(id); };
   function discardPendingQuestion() {
     if (pendingQuestion) pendingQuestion.thread.messages = pendingQuestion.thread.messages.filter(message => message !== pendingQuestion.message);
     pendingQuestion = null;
@@ -28,6 +28,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
     if (!person) return;
     const thread = getThread(personId);
     if (!chatPending && person.agent?.conversation?.length && !thread.messages.length) thread.messages = person.agent.conversation.map(message=>({...message}));
+    const log=$('#agent-chat-log'),pinned=log.scrollHeight-log.clientHeight-log.scrollTop<36,previousScroll=log.scrollTop;
     $('#agent-chat-log').innerHTML = thread.messages.map(message => `<p class="agent-message ${message.role}"><small>${message.role === 'user' ? '你' : esc(person.name)}</small>${esc(message.text)}</p>`).join('') || '<p class="agent-empty">问一问缘由、试探动机，或商量下一步。交谈不会直接完成任务。</p>';
     $('#agent-chat-source').textContent = chatPending ? `${person.name}正在斟酌…` : thread.reply ? sourceText(thread.reply) : '人物交谈';
     $('#agent-chat-source').title = thread.reply?.modelName || '';
@@ -36,6 +37,8 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
     $('#agent-chat-actions').innerHTML = fresh && thread.reply ? thread.reply.suggestions.map((suggestion, index) => `<button type="button" data-agent-action="${index}"><b>${esc(suggestion.label)}</b><small>${esc(suggestion.cost)} · 点击执行</small>${suggestion.budgetNote ? `<small>${esc(suggestion.budgetNote)}</small>` : ''}</button>`).join('') : '';
     $('#agent-chat-send').disabled = chatPending;
     $('#agent-chat-input').placeholder = `对${person.name}说些什么…`;
+    log.scrollTop=restoreScroll?(thread.scroll??log.scrollHeight):pinned?log.scrollHeight:previousScroll;
+    restoreScroll=false;
   }
   function personChanged() {
     const { view, personId } = getState();
@@ -44,7 +47,10 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
       chatRequest++; chatController?.abort(); chatPending = false;
       discardPendingQuestion();
       $('#agent-chat-error').textContent = '';
-      if (shownPerson !== personId) $('#agent-chat-input').value = '';
+      if(shownPerson!==personId){
+        if(shownPerson){const previous=getThread(shownPerson);previous.draft=$('#agent-chat-input').value;previous.scroll=$('#agent-chat-log').scrollTop;}
+        $('#agent-chat-input').value=personId?getThread(personId).draft:'';inputVersion++;restoreScroll=true;
+      }
       shownPerson = personId; lastRevision = view.revision;
     }
     drawChat();
@@ -52,6 +58,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   async function talk(text) {
     const { view, personId, plan, busy } = getState();
     if (chatPending || busy || view?.battle || ![...(view?.people||[]),...(view?.roamers||[]).filter(person=>!person.defeated)].some(person => person.id === personId) || !text.trim()) return;
+    const submittedVersion=inputVersion;
     const thread = getThread(personId), ticket = ++chatRequest, history = thread.messages.slice(-6);
     chatController?.abort(); chatController = new AbortController(); chatPending = true;
     const message = { role: 'user', text: text.trim() };
@@ -67,14 +74,15 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
       thread.messages.push({ role: 'assistant', text: reply.text }); thread.messages = thread.messages.slice(-10);
       thread.reply = reply; thread.revision = reply.revision;
       pendingQuestion = null;
-      $('#agent-chat-input').value = '';
+      if(inputVersion===submittedVersion&&$('#agent-chat-input').value.trim()===text.trim()){$('#agent-chat-input').value='';thread.draft='';}
       if (reply.view) { lastRevision = reply.revision; chatPending = false; onStale({view:reply.view,modelName:reply.modelName}); }
     } catch (error) {
       if (ticket === chatRequest) { discardPendingQuestion(); if (error.name !== 'AbortError') $('#agent-chat-error').textContent = error.message; }
     } finally {
-      if (ticket === chatRequest) { discardPendingQuestion(); chatPending = false; drawChat(); log.scrollTop = log.scrollHeight; }
+      if (ticket === chatRequest) { discardPendingQuestion(); chatPending = false; drawChat(); }
     }
   }
+  $('#agent-chat-input').addEventListener('input',()=>{inputVersion++;const id=getState().personId;if(id)getThread(id).draft=$('#agent-chat-input').value;});
   $('#agent-chat-form').addEventListener('submit', event => { event.preventDefault(); talk($('#agent-chat-input').value.trim()); });
   $('#agent-chat-input').addEventListener('keydown', event => { if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) { event.preventDefault(); $('#agent-chat-form').requestSubmit(); } });
   $('#agent-chat-followups').addEventListener('click', event => { const button = event.target.closest('[data-chat-question]'); const thread = threads.get(getState().personId); if (button && thread?.reply) talk(thread.reply.followUps[Number(button.dataset.chatQuestion)]); });
@@ -89,6 +97,6 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   return {
     personChanged, talk,
     isPending:()=>chatPending,
-    reset() { discardPendingQuestion(); threads.clear(); chatRequest++; chatController?.abort(); chatPending = false; }
+    reset() { discardPendingQuestion(); threads.clear();shownPerson=null;lastRevision=null;$('#agent-chat-input').value='';inputVersion++; chatRequest++; chatController?.abort(); chatPending = false; }
   };
 }

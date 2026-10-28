@@ -34,7 +34,7 @@ export function createSocietyUI({ getState, sync, request, navigate, notice }) {
     if (polling || document.hidden || !getState().view) return;
     polling = true;
     const state = getState();
-    const engaged = Boolean(state.busy || state.personId || state.siteId || state.navigating || state.chatPending || state.view.battle || document.activeElement?.matches('input,textarea'));
+    const engaged = Boolean(state.busy || state.panel || state.blocked || state.personId || state.siteId || state.navigating || state.chatPending || state.view.battle || document.activeElement?.matches('input,textarea'));
     try {
       const response = await fetch('/api/world/pulse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ engaged }) });
       if (response.ok) receive(await response.json());
@@ -43,7 +43,7 @@ export function createSocietyUI({ getState, sync, request, navigate, notice }) {
   }
   async function step() {
     const { view, busy } = getState();
-    if (busy || stepping || view.battle) return;
+    if (!view || busy || stepping || view.battle) return;
     stepping = true; render();
     try {
       const response = await fetch('/api/world/step', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedRevision: view.revision }) });

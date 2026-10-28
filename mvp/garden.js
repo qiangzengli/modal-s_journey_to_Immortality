@@ -55,8 +55,9 @@ export function advanceGarden(game) {
 export function applyGardenAction(game, type) {
   ensureGarden(game);
   const garden = game.garden;
-  if (game.player.place !== 'woods') throw new GameError('请先到黑风林的灵草坡照看灵圃。');
+  if (game.player.place !== 'woods' && !(game.volume && game.player.place==='shenshou')) throw new GameError('请先到黑风林的灵草坡照看灵圃。');
   if (type === 'discover_bottle') {
+    if(game.volume)throw new GameError('小绿瓶须在神手谷完成拾取与月下试验。');
     if (garden.bottle) throw new GameError('小绿瓶已认主，不能重复获取。');
     garden.bottle = true;
     garden.lastTurn = game.turn;

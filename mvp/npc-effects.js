@@ -82,7 +82,7 @@ export function applyNpcEffect(source, actorId, action) {
       game.people.xu.stones -= game.pill.price;
       game.people.shen.stones += game.pill.price;
       game.pill.owner = 'xu';
-      game.flags.xuBought = note(game, '徐宁', `徐宁为求突破，以 ${game.pill.price} 灵石买下筑基丹。`, game.flags.rumorSpread ? [game.flags.rumorSpread] : [1]);
+      game.flags.xuBought = note(game, '徐宁', `徐宁为求突破，以 ${game.pill.price} 灵石买下筑基丹。`, game.flags.rumorSpread ? [game.flags.rumorSpread] : [game.flags.pillRumorEvent || 1]);
     }
     if (choice === 'qing:lend_stones' && !game.flags.partner && !game.flags.xuLoan) {
       const loan = game.pill.price - game.people.xu.stones;
@@ -90,7 +90,7 @@ export function applyNpcEffect(source, actorId, action) {
         game.people.qing.stones -= loan;
         game.people.xu.stones += loan;
         game.flags.xuLoan = loan;
-        note(game, '青闻', `青闻借给徐宁 ${loan} 灵石，押他突破后偿还。`, [1]);
+        note(game, '青闻', `青闻借给徐宁 ${loan} 灵石，押他突破后偿还。`, [game.flags.pillRumorEvent || 1]);
       }
     }
   }

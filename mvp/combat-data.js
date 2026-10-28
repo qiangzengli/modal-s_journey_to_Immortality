@@ -1,4 +1,7 @@
 export const SKILLS = {
+  changchun: {name:'长春功',cost:8,attribute:'spellPower',effect:'heal',bonus:5,cooldown:2,description:'调匀木灵之气，恢复气血。',color:'#9fc79a'},
+  object_control: {name:'御物术',cost:10,attribute:'attack',effect:'damage',bonus:12,cooldown:1,description:'以灵力御剑，攻其不备。',color:'#b6cbbc'},
+  fireball: {name:'火弹术',cost:12,attribute:'spellPower',effect:'damage',bonus:16,cooldown:1,description:'凝聚火弹，初入修仙界的基础法术。',color:'#dfad7b'},
   qi_bolt: { name: '凝气诀', cost: 12, attribute: 'spellPower', effect: 'damage', bonus: 5, cooldown: 1, description: '凝气成刃。以基础法力施展，冷却 1 回合。', color: '#9fcbd3' },
   wind_blade: { name: '疾风剑诀', cost: 14, attribute: 'attack', effect: 'damage', bonus: 20, cooldown: 1, description: '剑气破空。以基础攻击力施展，冷却 1 回合。', color: '#b7d9ac' },
   spring_art: { name: '回春术', cost: 16, attribute: 'spellPower', effect: 'heal', bonus: 12, cooldown: 2, description: '以基础法力疗愈自身，不受兵器加成，冷却 2 回合。', color: '#93cba5' },
@@ -7,6 +10,13 @@ export const SKILLS = {
 };
 
 export const ITEMS = {
+  changchun_manual:{name:'长春功',kind:'manual',skill:'changchun',description:'墨大夫传下的基础修炼功法。'},
+  fireball_manual:{name:'火弹术',kind:'manual',skill:'fireball',description:'太南小会换得的法术，研习后可用于斗法。'},
+  sword_talisman:{name:'剑符宝',kind:'array',power:35,description:'金光上人遗下的符宝，释放剑光并打断攻势；消耗一次。'},
+  mo_letter:{name:'墨大夫遗书',kind:'story',description:'送往嘉元城墨府的凭据，记录在第一卷经历中。'},
+  warm_jade:{name:'暖阳宝玉',kind:'story',description:'从墨府取得的解毒之物，在墨府内堂使用。'},
+  ascension_token:{name:'升仙令',kind:'story',description:'黄枫谷的入门信物，随第一卷主线推进使用。'},
+  huanglong_recipe:{name:'黄龙丹方',kind:'story',description:'太南小会换得的丹方，作为后续炼丹的线索收藏。'},
   worn_sword: { name: '旧铁剑', kind: 'weapon', attack: 2, description: '普攻与伤害功法威力 +2。' },
   green_sword: { name: '青锋剑', kind: 'weapon', attack: 7, description: '普攻与伤害功法威力 +7。' },
   vine_staff: { name: '青藤杖', kind: 'weapon', attack: 5, description: '普攻与伤害功法威力 +5。' },
@@ -40,7 +50,7 @@ export const WANDERERS = [
     loot: { stones: 70, herbs: 2, items: { thunder_blade: 1, thunder_manual: 1, spirit_pill: 2, binding_array: 2, thunder_array: 2 } } }
 ];
 
-export const ITEM_KINDS = { weapon: '武器', manual: '功法', pill: '灵丹', array: '阵法' };
+export const ITEM_KINDS = { story:'剧情信物', weapon: '武器', manual: '功法', pill: '灵丹', array: '阵法' };
 export function lootEntries(loot) {
   return [
     { name: '灵石', quantity: loot.stones, kind: '灵石' },

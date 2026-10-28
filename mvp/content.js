@@ -1,7 +1,8 @@
+import { VOLUME_ACTIONS, VOLUME_PEOPLE, VOLUME_SITES } from './volume-data.js';
 import { SECT_PEOPLE, SECT_SITES } from './sect-data.js';
 import { FRONTIER_ACTIONS, FRONTIER_PEOPLE, FRONTIER_SITES } from './campaign-data.js';
 export const ACTION_DEFS = [
-  ...FRONTIER_ACTIONS,
+  ...VOLUME_ACTIONS, ...FRONTIER_ACTIONS,
   { type: 'discover_bottle', title: '寻得小绿瓶', detail: '认主古瓶并安置一株幼苗，每旬自动凝液催生', cost: '奇遇 · 每局一次', place: 'woods', site: 'herbs', garden: true },
   { type: 'plant_herb', title: '栽种一株灵草', detail: '种入空畦，自然生长 4 旬，灵液可加速', cost: '灵草 1', place: 'woods', site: 'herbs', garden: true },
   { type: 'water_herb', title: '灵液催熟', detail: '为长势最好的一畦增加 1 点生长', cost: '灵液 1 滴', place: 'woods', site: 'herbs', garden: true },
@@ -55,6 +56,7 @@ export const PERSON_DETAILS = {
   ning: { color: '#d6c39b', realm: '炼气六层', bio: '一筒传音符系在腰间。她游走于坊市各处，靠消息的可信度维持生意。' }
 };
 
-for(const person of [...FRONTIER_PEOPLE, ...SECT_PEOPLE]){PERSON_DETAILS[person.id]={color:person.color,realm:person.realm,bio:person.bio};PERSON_ACTIONS[person.id]=['ask'];}
-Object.assign(SITES,FRONTIER_SITES,SECT_SITES);
+for(const person of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE]){PERSON_DETAILS[person.id]={color:person.color,realm:person.realm,bio:person.bio};PERSON_ACTIONS[person.id]=['ask'];}
+Object.assign(SITES,FRONTIER_SITES,SECT_SITES,VOLUME_SITES);
+for(const a of VOLUME_ACTIONS)if(a.person)PERSON_ACTIONS[a.person].push(a.type);
 for(const site of Object.values(SITES))site.place ??= 'woods';

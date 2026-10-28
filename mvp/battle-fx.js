@@ -31,6 +31,7 @@ export function createBattleEffects(THREE, scene) {
     active.delete(effect);
   }
   function spawn(kind, from, to, { start = performance.now(), duration = 1000, reducedMotion = false } = {}) {
+    kind=({changchun:'spring_art',object_control:'wind_blade',fireball:'fire_art',sword_talisman:'thunder_array'})[kind]||kind;
     const root = new THREE.Group();
     const updates = [];
     const source = from.clone().setY(1.25), target = to.clone().setY(1.25);
