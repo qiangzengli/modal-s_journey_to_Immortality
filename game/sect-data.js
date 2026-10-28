@@ -1,35 +1,35 @@
+// Original-novel names; legacy IDs intentionally stay stable for existing saves.
+// Sources and the boundary between canon and sandbox mechanics: docs/SECT_CANON.md.
 export const ALIGNMENTS = {
-  righteous: { name: '正道', color: '#9acbbd', description: '重名分、门规与公开秩序，但各人仍有自己的欲望与取舍。' },
-  demonic: { name: '魔道', color: '#d9a0ad', description: '重自主、力量与契约，不代表所有门人都嗜杀或背信。' },
+  righteous: { name: '正道', color: '#9acbbd', description: '此处指越国七派一侧，并非天南正道盟。阵营不替人物决定善恶。' },
+  demonic: { name: '魔道', color: '#d9a0ad', description: '天南魔道六宗一侧；人物仍按自身利益与经历作出决定。' },
   unaffiliated: { name: '无阵营', color: '#c4bea2', description: '不受门规约束，凭自身经历与各方往来。' }
 };
 
 export const SECTS = {
-  qinglan: { name: '青岚剑宗', alignment: 'righteous', representative: 'gu', specialty: '剑修 · 护商 · 立誓', doctrine: '以剑护道，凭证据定是非。重承诺，也要面对宗门名声与个人公道的冲突。', approach: '看重守信与实证，愿听散修陈述；不会仅因对方出身魔道便定罪。' },
-  lingshu: { name: '灵枢谷', alignment: 'righteous', representative: 'liu', specialty: '丹医 · 灵植 · 济世', doctrine: '草木与生灵皆有其命。精研丹医，反对以无辜者性命换取突破。', approach: '看重救治与灵草用途，愿与魔道医修合作；先判断行为，再判断门第。' },
-  jinhuo: { name: '烬火门', alignment: 'demonic', representative: 'yan', specialty: '离火 · 炼器 · 护矿', doctrine: '以火炼身，以契立足。追求力量与资源，要求门人承担自己许诺的代价。', approach: '看重担当与交换，认可救亲护友；与正道有利益分歧，也能谈成合作。' },
-  xuanming: { name: '玄冥阁', alignment: 'demonic', representative: 'wen', specialty: '阵术 · 情报 · 隐行', doctrine: '藏锋于影，明价守契。善用阵法、消息与隐秘盟约，容许野心，不容许假账。', approach: '看重谋略与消息可信度，交易有价；不会仅因同属魔道就无条件信任。' }
+  qinglan: { name: '黄枫谷', alignment: 'righteous', faction: '越国七派', representative: 'gu', specialty: '太岳山脉 · 越国七派', doctrine: '越国七大修仙门派之一，山门位于建州太岳山脉。韩立凭升仙令拜入此谷，曾照料百药园。', approach: '钟灵道为黄枫谷掌门。可与他交谈并递交拜帖。', hall: '黄枫谷大殿', lodge: '百药园' },
+  lingshu: { name: '掩月宗', alignment: 'righteous', faction: '越国七派', representative: 'liu', specialty: '越国 · 七派之首', doctrine: '越国七大修仙门派之首，南宫婉、穹老怪所属宗门。当前呈现其越国时期，未使用后来迁往北凉国的山门。', approach: '宣乐是掩月宗对外管事之一。可与他交谈，了解宗门并表达入门意愿。', hall: '掩月宗大殿', lodge: '掩月宗客舍' },
+  jinhuo: { name: '魔焰门', alignment: 'demonic', faction: '魔道六宗', representative: 'yan', specialty: '天罗国 · 魔道六宗', doctrine: '天南魔道六宗之一，原著中参与魔道入侵，后来势力扩展至元武国。怜飞花为门主独女。', approach: '可与怜飞花接洽。她如何回应取决于对话与本局经历，不能仅凭同属魔道获得信任。', hall: '魔焰门大殿', lodge: '魔焰门客舍' },
+  xuanming: { name: '鬼灵门', alignment: 'demonic', faction: '魔道六宗', representative: 'wen', specialty: '天罗国 · 驱鬼役妖', doctrine: '天南魔道六宗之一，擅长驱鬼役妖之术。王蝉是鬼灵门少主，与燕家及血灵大法有关。', approach: '可与王蝉接洽。他会权衡自身与宗门利益；对话不会预先触发原著的后续战事。', hall: '鬼灵门大殿', lodge: '鬼灵门客舍' }
 };
 
-// Public background identities. Independent cultivators remain genuinely unaffiliated.
+// Only documented novel affiliations are assigned. Existing sandbox NPCs remain unaffiliated.
 export const NPC_SECTS = {
-  gu: ['qinglan', '接引长老'], liu: ['lingshu', '接引医修'], yan: ['jinhuo', '接引长老'], wen: ['xuanming', '接引使'],
-  lu: ['qinglan', '外务执事'], wei: ['qinglan', '护商弟子'], duheng: ['qinglan', '游历剑修'], shouque: ['qinglan', '试剑客卿'],
-  bai: ['lingshu', '丹师'], tao: ['lingshu', '接引医修'], suqin: ['lingshu', '采药弟子'],
-  shen: ['jinhuo', '外行丹师'], qiao: ['jinhuo', '护矿执事'], chisong: ['jinhuo', '护契客卿'], peijin: ['jinhuo', '离火弟子'],
-  qing: ['xuanming', '行商执事'], han: ['xuanming', '外行门人'], mochi: ['xuanming', '阵师']
+  gu: ['qinglan', '掌门'], liu: ['lingshu', '对外管事'],
+  yan: ['jinhuo', '门主之女'], wen: ['xuanming', '少主']
 };
 
+// Goals/temperaments below guide sandbox Agent interaction, not quotations or scripted outcomes.
 export const SECT_PEOPLE = [
-  { id:'gu',name:'顾长青',role:'青岚接引长老',place:'qinglan',spot:[214,-4],stones:120,goal:'寻找守信而有独立判断的门人，维护山门秩序',publicGoal:'接引问道之人',links:['lu','wei'],color:'#91c4bf',realm:'筑基中期',bio:'剑碑前的长老不问出身，先问来者愿为何事拔剑。',temperament:'克制、重证据与承诺，能容纳异议' },
-  { id:'liu',name:'柳闻溪',role:'灵枢接引医修',place:'lingshu',spot:[274,-4],stones:140,goal:'将灵植丹医传给尊重生命之人，守住谷中药泉',publicGoal:'照看药泉与来客',links:['tao','bai'],color:'#b4d39b',realm:'筑基初期',bio:'她在药泉旁接待来客，愿意听他们如何看待救人与修行。',temperament:'温和但有原则，反对为求突破牺牲无辜' },
-  { id:'yan',name:'晏赤霄',role:'烬火接引长老',place:'jinhuo',spot:[334,-4],stones:160,goal:'招揽敢承担代价的修士，守住地火与门人契约',publicGoal:'守护地火山门',links:['qiao','shen'],color:'#dca27d',realm:'筑基中期',bio:'地火照着旧铠。他不忌野心，却鄙薄推卸代价的人。',temperament:'直率、重担当与契约，不因道统不同拒绝合作' },
-  { id:'wen',name:'闻夜',role:'玄冥接引使',place:'xuanming',spot:[394,-4],stones:130,goal:'寻找善于核验消息的同行，让隐阁之约保持可信',publicGoal:'甄别来客与消息',links:['qing','mochi'],color:'#bba6d8',realm:'筑基初期',bio:'雾桥尽头的人将传音符一一封存。他相信秘密，也要求可追溯的代价。',temperament:'谨慎、善试探，重谋略但厌恶失信' }
+  { id:'gu',name:'钟灵道',role:'黄枫谷掌门',place:'qinglan',spot:[214,-4],stones:120,goal:'处理黄枫谷门务，审慎接待求道的修士',publicGoal:'处理宗门事务',links:[],color:'#c8b66f',realm:'筑基期',bio:'黄枫谷掌门，原著中曾接待持升仙令入谷的韩立。',temperament:'以宗门事务和可核实的来历为重，审慎判断来客' },
+  { id:'liu',name:'宣乐',role:'掩月宗对外管事',place:'lingshu',spot:[274,-4],stones:140,goal:'处理掩月宗对外事务，权衡来客的价值与风险',publicGoal:'接洽宗门外务',links:[],color:'#b6c5dd',realm:'筑基期',bio:'掩月宗对外管事，原著中参与灵矿驻地的相关事件。',temperament:'谨慎权衡利益，重视自身处境与宗门立场' },
+  { id:'yan',name:'怜飞花',role:'魔焰门门主之女',place:'jinhuo',spot:[334,-4],stones:160,goal:'维护魔焰门利益，判断来客是否值得合作',publicGoal:'观察来客的意图',links:[],color:'#dca27d',realm:'筑基期',bio:'魔焰门门主独女，原著中曾率人进攻七派的灵矿驻地。',temperament:'自信而有戒心，重视实力与宗门利益' },
+  { id:'wen',name:'王蝉',role:'鬼灵门少主',place:'xuanming',spot:[394,-4],stones:130,goal:'维护鬼灵门与自身利益，甄别接近山门之人的目的',publicGoal:'权衡来客与宗门利益',links:[],color:'#bba6d8',realm:'筑基期',bio:'鬼灵门少主，原著中修习血灵大法，与燕家有重要关联。',temperament:'重利、警惕，善于试探，不轻易信任来客' }
 ];
 
 export const SECT_SITES = Object.fromEntries([
-  ['qinglan','问剑台',[216,7],'剑碑列于云阶旁，远处是青岚正殿。可在此了解门规，再找顾长青递交拜帖。'],
-  ['lingshu','丹医堂',[276,7],'药泉绕堂而过，灵植沿泉生长。柳闻溪在堂前接引愿研丹医之人。'],
-  ['jinhuo','炉心殿',[336,7],'玄铁炉与地火脉相连。晏赤霄守在殿前，门规重契与担当。'],
-  ['xuanming','明契阁',[396,7],'月色照着阵柱与隐阁，闻夜在雾桥前接待求道的来客。']
+  ['qinglan','太岳山脉 · 黄枫谷',[216,7],'黄枫谷位于越国建州太岳山脉。可了解宗门，再与钟灵道交谈。'],
+  ['lingshu','掩月宗山门',[276,7],'越国七派之首。宣乐在此接洽来客，当前尚未演进到迁宗北凉国的时期。'],
+  ['jinhuo','魔焰门山门',[336,7],'天南魔道六宗之一。可与怜飞花接洽，陈述自己的来意。'],
+  ['xuanming','鬼灵门山门',[396,7],'天南魔道六宗之一。王蝉在此接洽来客。']
 ].map(([sect,name,spot,detail])=>['sect_'+sect,{name,spot,detail,sect,place:sect,role:SECTS[sect].name+' · 山门',seal:'门',actions:[]} ]));

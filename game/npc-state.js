@@ -21,8 +21,8 @@ const TEMPERAMENTS = {
   han: '警惕而贪利，会试探，不盲目出手', ning: '关注消息可信度，担心假消息反噬自己'
 };
 export function ensureNpcState(game) {
-  ensureSects(game);
   ensureCampaign(game);
+  ensureSects(game);
   ensureVolume(game);
   game.society ??= { paused: false, epoch: 0, minds: {}, offers: [], nextOffer: 1 };
   for (const npc of [...Object.values(game.people), ...WANDERERS]) {

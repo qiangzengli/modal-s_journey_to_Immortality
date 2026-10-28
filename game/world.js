@@ -1,3 +1,5 @@
+import { createBuildingWorld } from './building-world.js';
+import { buildingWalkable } from './building-layout.js';
 import { VOLUME_PEOPLE, VOLUME_SITES } from './volume-data.js';
 import { createVolumeWorld, volumeWalkable, VOLUME_BLOCKERS } from './volume-world.js';
 import { SECT_PEOPLE, SECT_SITES } from './sect-data.js';
@@ -214,39 +216,6 @@ function makeStall(scene, x, z, cloth, rotation = 0) {
   return root;
 }
 
-function makeBuilding(scene, x, z, width, depth, roofColor, title) {
-  const root = new THREE.Group();
-  root.position.set(x, 0, z);
-  scene.add(root);
-  put(root, new THREE.BoxGeometry(width, 3.4, depth), material(0x494b3b), 0, 1.7, 0);
-  const roofShape = new THREE.Shape();
-  roofShape.moveTo(-width * 0.64, 0.12);
-  roofShape.lineTo(-width * 0.46, 0.28);
-  roofShape.lineTo(0, 1.65);
-  roofShape.lineTo(width * 0.46, 0.28);
-  roofShape.lineTo(width * 0.64, 0.12);
-  roofShape.lineTo(width * 0.58, -0.12);
-  roofShape.lineTo(0, 1.33);
-  roofShape.lineTo(-width * 0.58, -0.12);
-  roofShape.closePath();
-  put(root, new THREE.ExtrudeGeometry(roofShape, { depth: depth * 1.28, bevelEnabled: false }), material(roofColor), 0, 3.45, -depth * 0.64);
-  put(root, new THREE.CylinderGeometry(0.11, 0.11, depth * 1.4, 8), material(0xb29b70), 0, 5.10, 0).rotation.x = Math.PI / 2;
-  for (let z = -depth * 0.63; z <= depth * 0.64; z += 0.38) {
-    const points = [[-width * 0.63, 3.59, z], [-width * 0.46, 3.75, z], [0, 5.12, z], [width * 0.46, 3.75, z], [width * 0.63, 3.59, z]].map(p => new THREE.Vector3(...p));
-    root.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), new THREE.LineBasicMaterial({ color: 0x35473f, transparent: true, opacity: 0.5 })));
-  }
-  for (const side of [-1, 1]) {
-    put(root, new THREE.BoxGeometry(0.15, 3.5, depth + 0.15), material(0x73553c), side * width * 0.44, 1.75, 0);
-    put(root, new THREE.BoxGeometry(1.0, 1.0, 0.06), material(0xb39c69), side * width * 0.28, 2.0, depth / 2 + 0.10);
-    for (let i = -1; i <= 1; i++) put(root, new THREE.BoxGeometry(0.055, 1.05, 0.08), material(0x4c3f2f), side * width * 0.28 + i * 0.3, 2.0, depth / 2 + 0.14);
-  }
-  put(root, new THREE.BoxGeometry(1.1, 2.25, 0.15), material(0x2b2d28), 0, 1.12, depth / 2 + 0.08);
-  const sign = label(title, { width: 270, font: 29 });
-  sign.position.set(0, 3.08, depth / 2 + 0.25);
-  root.add(sign);
-  return root;
-}
-
 function makeTree(scene, x, z, size = 1) {
   const root = new THREE.Group();
   root.position.set(x, 0, z);
@@ -270,7 +239,7 @@ function makeLantern(scene, x, z) {
   root.add(light);
 }
 
-function createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets) {
+function createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets, makeBuilding) {
   const market = put(scene, new THREE.BoxGeometry(29, 0.4, 26), material(0x566052), -14.5, -0.25, 0);
   const woods = put(scene, new THREE.BoxGeometry(29, 0.4, 26), material(0x3b5141), 14.5, -0.25, 0);
   clickSurfaces.push(market, woods);
@@ -381,11 +350,14 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const siteTargets = [];
   const obstacleTargets = [];
   const sceneBeforeMaps = new Set(scene.children);
-  const terrain = createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets);
+  const buildings = createBuildingWorld({ THREE, put, material, label, regionAt });
+  const { makeBuilding } = buildings;
+  const terrain = createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets, makeBuilding);
   const frontier = createFrontier(scene, { clickSurfaces, siteTargets, obstacleTargets }, { put, material, label, makeBuilding, makeTree });
   const sectWorld = createSectWorld(scene, {clickSurfaces, siteTargets, obstacleTargets}, {THREE, put, material, label, makeBuilding, makeTree});
-  createVolumeWorld(scene, {clickSurfaces,siteTargets,obstacleTargets}, {THREE,put,material,label,makeBuilding,makeTree});
+  const volumeWorld = createVolumeWorld(scene, {clickSurfaces,siteTargets,obstacleTargets}, {THREE,put,material,label,makeBuilding,makeTree});
   const gardenWorld = createGardenWorld(scene, siteTargets, ...SITE_SPOTS.herbs);
+  clickSurfaces.push(...buildings.buildings.map(building => building.floor));
   const gardenReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
   // Keep each destination visually separate; coordinates are only local rendering offsets.
   const mapHolders = scene.children.filter(root => !sceneBeforeMaps.has(root)).map(root => {
@@ -452,9 +424,30 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   bubble.className = 'world-bubble'; bubble.hidden = true;
   container.appendChild(bubble);
   let speech = null;
+  let currentRoom = null;
+  const roomHud = document.createElement('aside');
+  roomHud.className = 'room-hud'; roomHud.hidden = true;
+  const roomTitle = document.createElement('strong'), exitButton = document.createElement('button');
+  exitButton.type = 'button'; exitButton.textContent = '离开房屋 ↗';
+  roomHud.append(roomTitle, exitButton); container.appendChild(roomHud);
+  exitButton.addEventListener('click', () => {
+    if (currentRoom && document.body.dataset.uiBlocked !== 'true') void goTo('exit:' + currentRoom.id);
+  });
+  function updateRoom(dt) {
+    const room = buildings.update(place, player.position, dt);
+    currentRoom = room;
+    roomHud.hidden = !room || Boolean(view?.battle) || document.body.dataset.uiBlocked === 'true';
+    roomTitle.textContent = room ? room.title + ' · 室内' : '';
+    exitButton.disabled = busy;
+    volumeWorld.updateRoom(room?.id);
+  }
 
   function locate(target) {
     if (typeof target === 'object') return target;
+    if (target.startsWith('room:') || target.startsWith('exit:')) {
+      const exit = target.startsWith('exit:'), room = buildings.buildings.find(b => b.room.id === target.slice(5))?.room;
+      return room ? { kind: exit ? 'exit' : 'room', id: target, name: (exit ? '离开' : '进入') + room.title, place: room.place, ...(exit ? room.entry : room.inside) } : null;
+    }
     if (target.startsWith('region:') || target.startsWith('gate:')) { const to=target.split(':')[1]; return REGIONS[to] ? {kind:'gate',name:regionName(to),place:to} : null; }
     const person = view && [...view.people,...view.roamers].find(p => p.id === target && !p.looted);
     if (person) {
@@ -462,7 +455,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       if (!destination) return null;
       return { kind: 'person', id: target, name: person.defeated?`${person.name}的储物袋`:person.name, place: person.place, x: destination.x, z: destination.z };
     }
-    if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: SITES[target].place || WOODS, x, z }; }
+    if (SITE_SPOTS[target]) { const [x,z] = SITE_SPOTS[target]; return { kind: 'site', id: target, name: SITES[target].name, place: SITES[target].place || WOODS, room: SITES[target].room, x, z }; }
     return null;
   }
   function stopWalking() {
@@ -473,15 +466,15 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     getPlace: () => place, locate, stop: stopWalking,
     waitForTransition: () => crossing?.done,
     walk: goal => new Promise(resolve => {
-      if (goal.kind !== 'point' && Math.hypot(player.position.x-goal.x,player.position.z-goal.z) <= 2.8) { resolve(true); return; }
+      if (['person','site'].includes(goal.kind) && (!goal.room || currentRoom?.id === goal.room) && clearSegment(player.position,goal) && Math.hypot(player.position.x-goal.x,player.position.z-goal.z) <= 2.8) { resolve(true); return; }
       let x = goal.x, z = goal.z;
       if (goal.kind === 'person') {
         const approaches = Array.from({length:16}, (_,i) => ({ x:goal.x+Math.cos(i*Math.PI/8)*1.9, z:goal.z+Math.sin(i*Math.PI/8)*1.9 }))
           .filter(p=>walkable(p.x,p.z) && Object.values(people).every(actor => !actor.visible || actor.userData.place !== place || Math.hypot(p.x-actor.position.x,p.z-actor.position.z) >= 1.25)).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z));
         if (!approaches.length) { resolve(false); return; }
         ({x,z} = approaches[0]);
-      } else if (goal.kind === 'site') { x += goal.id === 'herbs' ? -1.7 : 0; z += goal.id === 'herbs' ? 0 : 2.2; }
-      walkTo(x,z,success => resolve(success && (goal.kind === 'point' || Math.hypot(player.position.x-goal.x,player.position.z-goal.z) <= 3.2)));
+      } else if (goal.kind === 'site' && !goal.room) { x += goal.id === 'herbs' ? -1.7 : 0; z += goal.id === 'herbs' ? 0 : 2.2; }
+      walkTo(x,z,success => resolve(success && (goal.kind === 'point' || (Math.hypot(player.position.x-goal.x,player.position.z-goal.z) <= (['room','exit'].includes(goal.kind) || goal.room ? .2 : 3.2) && clearSegment(player.position,goal)))));
     }),
     cross: async next => {
       if (travelPending || busy) return false;
@@ -495,7 +488,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     onChange: state => { onNavigation?.(state); },
     onArrive: goal => {
       if (goal.kind === 'person') { select(goal.id); onSelectPerson(goal.id); }
-      else if (goal.kind === 'site') { selectSite(goal.id); onSelectSite(goal.id); }
+      else if (goal.kind === 'site' && !goal.room) { selectSite(goal.id); onSelectSite(goal.id); }
     }
   });
   function goTo(target) {
@@ -627,8 +620,9 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   function walkableAt(location, x, z) {
     const [minX, maxX, minZ, maxZ] = REGIONS[location].bounds;
     if (x < minX || x > maxX || z < minZ || z > maxZ) return false;
-    if (location === MARKET) return !MARKET_BLOCKERS.some(([bx, bz, rx, rz]) => Math.abs(x - bx) < rx && Math.abs(z - bz) < rz);
-    if (location !== WOODS) return frontierWalkable(location, x, z) && sectWalkable(location, x, z) && volumeWalkable(location,x,z);
+    if (!buildings.buildings.filter(b=>b.room.place===location).every(b=>buildingWalkable(b.room,x,z))) return false;
+    if (location === MARKET) return !MARKET_BLOCKERS.slice(3).some(([bx, bz, rx, rz]) => Math.abs(x - bx) < rx && Math.abs(z - bz) < rz);
+    if (location !== WOODS) return frontierWalkable(location, x, z, {includeBuildings:false}) && sectWalkable(location, x, z, {includeBuildings:false}) && volumeWalkable(location,x,z,{includeBuildings:false});
     return !FOREST_TREES.some(([tx, tz, size]) => Math.hypot(x - tx, z - tz) < 0.67 * size)
       && !FOREST_ROCKS.some(([rx, rz]) => Math.hypot(x - rx, z - rz) < 1.18);
   }
@@ -750,7 +744,11 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     const hits = raycaster.intersectObjects(Object.values(people), true).filter(visibleHit);
     const id = hits.find(hit => hit.object.userData.personId)?.object.userData.personId;
     if (id) { goTo(id); return; }
-    if (raycaster.intersectObjects(obstacleTargets, true).filter(visibleHit).length) {
+    const obstacle = raycaster.intersectObjects(obstacleTargets, true).filter(hit => visibleHit(hit) && !hit.object.userData.walkableSurface)[0];
+    if (obstacle?.object.userData.buildingId && obstacle.object.userData.buildingId !== currentRoom?.id) {
+      goTo('room:' + obstacle.object.userData.buildingId); return;
+    }
+    if (obstacle) {
       onHint('这里有障碍物。请点击道路或空地移动。');
       return;
     }
@@ -826,8 +824,12 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
   function updateNearby() {
     let candidates = view ? [...view.people,...view.roamers].filter(p=>p.place===place&&!p.looted).map(p=>locate(p.id)).filter(Boolean) : [];
-    candidates.push(...Object.keys(SITE_SPOTS).map(locate).filter(site => site.place === place));
-    nearby = !busy && !view?.battle && !navigation.active && !crossing ? candidates.filter(p=>Math.hypot(p.x-player.position.x,p.z-player.position.z)<3).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0] : null;
+    candidates.push(...Object.keys(SITE_SPOTS).map(locate).filter(site => site.place === place && (!site.room || currentRoom?.id === site.room)));
+    for (const {room} of buildings.buildings) if (room.place === place) {
+      const target = locate((currentRoom?.id === room.id ? 'exit:' : 'room:') + room.id);
+      if (Math.hypot(player.position.x-room.entry.x,player.position.z-room.entry.z)<3.2) candidates.push({...target, ...room.entry});
+    }
+    nearby = !busy && !view?.battle && !navigation.active && !crossing ? candidates.filter(p=>clearSegment(player.position,p) && Math.hypot(p.x-player.position.x,p.z-player.position.z)<3).sort((a,b)=>Math.hypot(a.x-player.position.x,a.z-player.position.z)-Math.hypot(b.x-player.position.x,b.z-player.position.z))[0] : null;
     if ((nearby?.id || null) !== nearbyId) { nearbyId=nearby?.id || null; onNearby?.(nearby || null); }
   }
 
@@ -920,6 +922,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
         moving = Math.hypot(player.position.x - oldX, player.position.z - oldZ) > 0.001;
       }
     }
+    updateRoom(dt);
     player.userData.body.position.y = moving ? Math.sin(elapsed * 12) * 0.07 : Math.sin(elapsed * 2.4) * 0.025;
     player.userData.leftArm.rotation.z = moving ? Math.sin(elapsed * 10) * 0.25 : -0.08;
     player.userData.rightArm.rotation.z = moving ? -Math.sin(elapsed * 10) * 0.25 : 0.08;

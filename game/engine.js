@@ -433,7 +433,7 @@ export function getView(game) {
 export function parseLocal(text) {
   if (typeof text !== 'string' || !text.trim() || text.length > MAX_COMMAND) throw new GameError('请输入 1～280 字的行动描述。');
   const input = text.trim();
-  const destination=Object.entries(REGIONS).find(([,region])=>input.includes(region.name));
+  const destination=Object.entries(REGIONS).find(([,region])=>input.includes(region.name) || (region.short && input.includes(region.short)));
   if(destination && /传送|前往|返回|去|到/.test(input))return {type:'travel_region',place:destination[0]};
   const frontier = ACTION_DEFS.find(def=>(def.campaign||def.volume) && input.includes(def.title));
   if(frontier)return {type:frontier.type};

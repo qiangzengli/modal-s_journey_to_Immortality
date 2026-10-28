@@ -7,9 +7,9 @@ export const FRONTIER_BLOCKERS = {
   quarry:[[89,15,3.4,2.4],[119,-13,3.4,2.4],[106,-17,2.2,1.2]],
   ruins:[[150,-14,3.2,2.4],[172,-15,3.4,2.4]]
 };
-export function frontierWalkable(place,x,z){
+export function frontierWalkable(place,x,z,{includeBuildings=true}={}){
   if(place==='river'&&x>51.5&&x<58.5&&Math.abs(z)>2.5)return false;
-  return !(FRONTIER_BLOCKERS[place]||[]).some(([bx,bz,rx,rz])=>Math.abs(x-bx)<rx&&Math.abs(z-bz)<rz);
+  return !includeBuildings || !(FRONTIER_BLOCKERS[place]||[]).some(([bx,bz,rx,rz])=>Math.abs(x-bx)<rx&&Math.abs(z-bz)<rz);
 }
 export function createFrontier(scene, targets, helpers) {
   const {put,material,label,makeBuilding,makeTree}=helpers;

@@ -18,9 +18,9 @@ export const VOLUME_PEOPLE = [
 export const VOLUME_SITES = {
   qixuan_trial:{name:'彩霞山试炼道',role:'七玄门 · 入门考核',place:'qixuan',spot:[446,-7],seal:'试',detail:'山路与绳桥考验脚力。通过考核，才有机会被门内长辈选中。',actions:['qixuan_exam','help_zhang']},
   qixuan_square:{name:'落日峰演武场',role:'七玄门 · 山门危局',place:'qixuan',spot:[469,7],seal:'武',detail:'野狼帮逼近山门。先查清金光上人的护身手段，再决定如何迎敌。',actions:['scout_jinguang','defend_qixuan']},
-  valley_room:{name:'神手谷药庐',role:'神手谷 · 拜师与修行',place:'shenshou',spot:[511,-8],seal:'药',detail:'墨大夫留下的无名口诀名为长春功。练功之外，留意药柜与同门的变化。',actions:['study_changchun','investigate_mo','confront_mo','valley_rest']},
+  valley_room:{name:'神手谷药庐',role:'神手谷 · 拜师与修行',place:'shenshou',spot:[518,-13.7],room:'shenshou:518:-14',seal:'药',detail:'墨大夫留下的无名口诀名为长春功。练功之外，留意药柜与同门的变化。',actions:['study_changchun','investigate_mo','confront_mo','valley_rest']},
   valley_bottle:{name:'谷中石径',role:'神手谷 · 小绿瓶',place:'shenshou',spot:[514,8],seal:'瓶',detail:'石缝里的小瓶似乎会在月下变化。谨慎试验，别把秘密轻易告诉别人。',actions:['find_green_bottle','test_green_dew']},
-  mofu_letter:{name:'墨府内堂',role:'嘉元城 · 遗书与解毒',place:'jiayuan',spot:[570,-8],seal:'书',detail:'遗书是你与墨府交涉的凭据。完成交代，才能取得暖阳宝玉化解旧患。',actions:['deliver_mo_letter','cure_cold_poison']},
+  mofu_letter:{name:'墨府内堂',role:'嘉元城 · 遗书与解毒',place:'jiayuan',spot:[578,-13.7],room:'jiayuan:578:-14',seal:'书',detail:'遗书是你与墨府交涉的凭据。完成交代，才能取得暖阳宝玉化解旧患。',actions:['deliver_mo_letter','cure_cold_poison']},
   tainan_fair:{name:'太南小会',role:'太南谷 · 修仙之门',place:'tainan',spot:[640,-7],seal:'会',detail:'会场以物易物。向万小山了解修仙界，再以灵草换取法术与丹方。',actions:['trade_tainan','enter_xianmen']}
 };
 const step=(type,title,detail,place,target,requires=[],extra={})=>({type,title,detail,place,...(VOLUME_SITES[target]?{site:target}:{person:target}),requires,cost:'一次经历 · 无灵石消耗',volume:true,...extra});

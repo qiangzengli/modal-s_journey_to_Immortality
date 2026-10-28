@@ -13,7 +13,7 @@
     <div class="top-actions"><div class="turn-card"><span id="turn">第 1 旬</span><small>行动 <b>不限</b></small></div><button id="advance" class="primary compact" type="button">推进一旬 <span>→</span></button></div>
   </header>
   <div class="society-clock"><span id="world-clock-status" role="status">众生正在醒来</span><button id="world-rest" type="button" hidden title="只结算修炼、灵圃和已签约定；人物仍等待模型决策">静修一旬</button><button id="world-pause" type="button">暂停演化</button></div>
-  <div class="world-top"><span class="eyebrow">乱星海 · 东境</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击人物交谈，探索属于你的机缘</span></div>
+  <div class="world-top"><span class="eyebrow">天南 · 游历</span><strong id="world-location">地下坊市</strong><span id="world-hint" class="world-hint">点击人物交谈，探索属于你的机缘</span></div>
 
   <div id="navigation-status" class="navigation-status" role="status" hidden><span class="walking-dot"></span><span id="navigation-copy"></span><button id="navigation-cancel" type="button">停止</button></div>
   <button id="nearby-interact" class="nearby-interact" type="button" hidden><kbd>F</kbd><span id="nearby-name"></span><small>交互</small></button>
@@ -80,11 +80,11 @@
     <div id="message" class="message" role="status" aria-live="polite">写下疑问向 AI 问计，或直接说出要做的行动。</div>
   </section>
 
-  <section class="mini-map-panel" aria-label="区域导航"><div><span>乱星海图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="当前区域导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
+  <section class="mini-map-panel" aria-label="区域导航"><div><span>区域舆图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="当前区域导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
   <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>跨地图直接传送，按修为开放；点击人物后传送到所在区域，再自动走近。靠近时按 F 交互，按方向键或 Esc 可取消追踪。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；前台探索约每 90 秒触发一次众生决策，也可点击「听候风声」。交谈、斗法或隐藏页面时暂停，可随时暂停演化。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
   <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
   <section id="combat-stage" class="combat-stage" aria-label="回合制斗法" hidden>
-    <header class="battle-heading"><span class="eyebrow">乱星海 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>
+    <header class="battle-heading"><span class="eyebrow">天南 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>
     <div class="duelist duelist-player"><small>你 · <span id="battle-weapon"></span></small><strong>守住这一线生机</strong><div class="duelist-stat"><span>气血</span><b id="battle-player-hp"></b></div><div class="battle-bar"><i id="battle-player-bar"></i></div><div class="duelist-stat"><span>真气</span><b id="battle-mana"></b></div><div class="battle-bar mana"><i id="battle-mana-bar"></i></div></div>
     <div class="duelist duelist-enemy"><small id="battle-enemy-realm"></small><strong id="battle-enemy"></strong><div class="duelist-stat"><span>气血</span><b id="battle-enemy-hp"></b></div><div class="battle-bar enemy"><i id="battle-enemy-bar"></i></div><p id="battle-intent"></p></div>
     <div class="battle-console"><div id="battle-log" class="battle-log" role="log" aria-live="polite"></div><details class="battle-history"><summary>查看交锋记录</summary><div id="battle-history"></div></details><p id="combat-error" class="combat-error" role="alert"></p><fieldset id="combat-inputs"><div id="combat-controls"><div id="combat-basics" class="combat-basics"></div><div id="combat-tabs" class="combat-tabs"></div><div id="combat-options" class="combat-options"></div></div><div id="combat-result" hidden></div></fieldset></div>

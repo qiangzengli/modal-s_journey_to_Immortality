@@ -69,7 +69,7 @@ test('四张第一卷地图有独立地面与可点击任务点，出生点、�
  assert.equal(targets.clickSurfaces.length,4);
  for(const [id,r]of Object.entries(VOLUME_REGIONS)){assert.ok(volumeWalkable(id,...r.entry));for(const [x,z]of VOLUME_BLOCKERS[id])assert.equal(volumeWalkable(id,x,z),false);}
  for(const person of VOLUME_PEOPLE)assert.ok(volumeWalkable(person.place,...person.spot));
- for(const [id,site]of Object.entries(VOLUME_SITES)){assert.ok(volumeWalkable(site.place,...site.spot));assert.ok(targets.siteTargets.some(o=>o.userData.siteId===id));}
+ for(const [id,site]of Object.entries(VOLUME_SITES)){assert.ok(volumeWalkable(site.place,...site.spot,{includeBuildings:false}));assert.ok(targets.siteTargets.some(o=>o.userData.siteId===id));}
  scene.traverse(o=>{assert.ok(o.position.toArray().every(Number.isFinite));o.geometry?.dispose();o.material?.dispose();});
 });
 

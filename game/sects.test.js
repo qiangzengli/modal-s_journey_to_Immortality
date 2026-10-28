@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createGame, getView, applyAction } from './engine.js';
+import { createGame, getView, applyAction, parseLocal } from './engine.js';
 import { ensureNpcState, remember } from './npc-state.js';
 import { SECTS, SECT_PEOPLE } from './sect-data.js';
 import { ensureSects, affiliationFor, sectAction, reviewSectApplication, admissionContext } from './sects.js';
@@ -40,14 +40,14 @@ test('递帖、Agent邀请、确认入门和退出持久化，入门不送资源
   await reviewSectApplication(game,model('invite'));
   assert.equal(game.sects.membership,null);assert.equal(game.sects.application.status,'invited');
   game=action(JSON.parse(JSON.stringify(game)),'join');
-  assert.equal(affiliationFor(game).alignment,'righteous');assert.equal(getView(game).sects.player.name,'青岚剑宗');
+  assert.equal(affiliationFor(game).alignment,'righteous');assert.equal(getView(game).sects.player.name,'黄枫谷');
   for(const key of ['player','pill','flags','exploration','garden','campaign'])assert.deepEqual(game[key],before[key]);
   assert.throws(()=>action(game,'join'),/邀请/);
   assert.throws(()=>action(game,'apply',{reason:'再入门'}),/归属/);
   const members=structuredClone(game);
   assert.equal(getView(JSON.parse(JSON.stringify(game))).sects.player.sectId,'qinglan');
   game=action(game,'leave');assert.equal(affiliationFor(game).alignment,'unaffiliated');
-  assert.ok(game.events.some(e=>e.text.includes('退出青岚剑宗')));
+  assert.ok(game.events.some(e=>e.text.includes('退出黄枫谷')));
   assert.equal(members.sects.membership.sectId,'qinglan');
 });
 
@@ -102,9 +102,45 @@ test('Agent知道自身和玩家道统，拜帖只交给接引人；私人对话
   assert.equal(own.facts.sects.application.status,'invited');
   const elsewhere=travel(game,'market');
   const stranger=agentContext(getView(elsewhere),{mode:'dialogue',personId:'shen',text:'你属于哪个门派？'});
-  assert.equal(stranger.facts.sects.application,null);assert.equal(stranger.facts.people[0].affiliation.sectId,'jinhuo');
+  assert.equal(stranger.facts.sects.application,null);assert.equal(stranger.facts.people[0].affiliation.sectId,null);
   game=action(game,'join');
   const all=societyContext(game);
   assert.equal(all.actors.find(a=>a.id==='wen').affiliation.alignment,'demonic');
   assert.equal(all.actors.find(a=>a.id==='wen').playerAffiliation.sectId,'qinglan');
+});
+
+
+test('旧门派存档更新原著身份，拜帖、归属、资产、进度和因果编号均保留', () => {
+  const game=applicant(); delete game.sects.catalogVersion;
+  game.sects.membership={sectId:'qinglan',joinedTurn:2};
+  game.sects.application.status='invited';game.sects.application.message='顾长青愿接引你拜入青岚剑宗';
+  Object.assign(game.people.gu,{name:'顾长青',goal:'以剑护道',bio:'旧设定',role:'青岚接引长老'});
+  game.society.minds.gu.goal='旧人物执念';game.society.minds.gu.memories.push({turn:3,text:'顾长青记得递交拜帖',kind:'sect'});
+  const before=structuredClone(game);ensureNpcState(game);
+  for(const key of ['player','flags','pill','exploration','garden','campaign'])assert.deepEqual(game[key],before[key]);
+  assert.deepEqual(game.sects.membership,before.sects.membership);
+  assert.equal(game.sects.application.status,'invited');assert.equal(game.sects.application.reason,before.sects.application.reason);
+  assert.equal(game.people.gu.name,'钟灵道');assert.equal(game.people.gu.role,'黄枫谷掌门');
+  assert.equal(game.society.minds.gu.memories.at(-1).text,'钟灵道记得递交拜帖');
+  assert.deepEqual(game.events.map(e=>[e.id,e.causes]),before.events.map(e=>[e.id,e.causes]));
+  const once=structuredClone(game);ensureNpcState(game);assert.deepEqual(game,once);
+  const serialized=JSON.stringify(getView(game));assert.doesNotMatch(serialized,/青岚|灵枢谷|灵枢山门|烬火|玄冥阁|顾长青|柳闻溪|晏赤霄|闻夜/);
+  assert.deepEqual(Object.values(SECTS).map(s=>s.name),['黄枫谷','掩月宗','魔焰门','鬼灵门']);
+});
+
+test('模型计费、权限、限流、超时等错误与接引人的决定分离，重试成功清除故障', async () => {
+  for(const [error,reason,pattern] of [[new Error('model_http_402'),'billing',/额度不足.*402/], [new Error('model_http_401'),'auth',/API Key/], [new Error('model_http_429'),'rate_limit',/限流/], [new DOMException('secret','TimeoutError'),'timeout',/超时/], [new SyntaxError('secret'),'invalid_response',/有效/], [new Error('secret-key-value'),'unavailable',/连接/]]) {
+    const game=applicant(), events=structuredClone(game.events);
+    await reviewSectApplication(game,async()=>{throw error;});
+    assert.equal(game.sects.application.status,'pending');assert.equal(game.sects.membership,null);
+    assert.equal(game.sects.application.failureReason,reason);assert.match(game.sects.application.message,pattern);
+    assert.doesNotMatch(game.sects.application.message,/secret/);assert.deepEqual(game.events,events);
+    await reviewSectApplication(game,model('invite'));
+    assert.equal(game.sects.application.status,'invited');assert.equal(game.sects.application.failureReason,undefined);
+  }
+});
+
+
+test('原著宗门名可直接用于自然语言传送', () => {
+  for(const [id,sect] of Object.entries(SECTS)) assert.deepEqual(parseLocal('传送到'+sect.name),{type:'travel_region',place:id});
 });
