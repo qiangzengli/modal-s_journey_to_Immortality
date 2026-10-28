@@ -12,7 +12,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&a
 const names = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action.title]));
 names.ask = '探问近况';
 const defs = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action]));
-const titles = { opportunity: '筑基丹去向', self: '行囊与处境', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
+const titles = { opportunity: '筑基丹去向', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
 let current;
 let busy = false;
 let selectedPerson = null;

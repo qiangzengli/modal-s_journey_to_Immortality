@@ -1,4 +1,3 @@
-import { ITEM_KINDS } from './combat-data.js';
 import { createEquipmentUI } from './equipment-ui.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -14,8 +13,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
   const stage = $('#combat-stage');
   const equipmentUI = createEquipmentUI({
     element: $('#equipment'),
-    onEquip: itemId => submit('/api/inventory', { type: 'equip', itemId }),
-    onOpenInventory: () => { $('#inventory').scrollIntoView({ block: 'start' }); $('#inventory').focus({ preventScroll: true }); }
+    onAction: input => submit('/api/inventory', input)
   });
   function updateRoundLabel() {
     const battle = current?.battle;
@@ -27,12 +25,6 @@ export function createCombatUI({ request, navigate, openInventory }) {
   }
   function renderInventory() {
     equipmentUI.render(current, { pending });
-    $('#inventory').innerHTML = current.inventory.map(item => {
-      const type = item.kind === 'weapon' ? 'equip' : item.kind === 'manual' ? 'learn' : item.heal ? 'use' : '';
-      const unavailable = item.equipped || item.learned || (item.heal && current.player.hp >= 100);
-      const label = item.equipped ? '已装备' : item.learned ? '已掌握' : type === 'equip' ? '装备' : type === 'learn' ? '研习' : '服用';
-      return `<article class="inventory-item"><div><small>${ITEM_KINDS[item.kind]} · ${item.quantity} 件</small><strong>${esc(item.name)}</strong><p>${esc(item.description)}</p></div>${type ? `<button type="button" data-inventory-action="${type}" data-item-id="${item.id}" ${unavailable ? 'disabled' : ''}>${label}</button>` : '<span class="item-use-hint">斗法中使用</span>'}</article>`;
-    }).join('');
     $('#roamers').innerHTML = current.roamers.map(enemy => `<button type="button" class="roamer-row" data-roamer="${enemy.id}" ${enemy.looted ? 'disabled' : ''}><span style="--roamer-color:${enemy.color}">${enemy.defeated ? '袋' : enemy.name[0]}</span><div><strong>${enemy.name} <small>${enemy.realm}</small></strong><p>${enemy.looted ? '已败退 · 储物袋已取空' : enemy.defeated ? '储物袋待拾取' : `${enemy.role} · 气血 ${enemy.hp}`}</p></div><b>↗</b></button>`).join('');
   }
   function render(view) {
@@ -98,10 +90,6 @@ export function createCombatUI({ request, navigate, openInventory }) {
       const data = await submit('/api/combat', { type, enemyId: current.battle.enemyId });
       if (data && type === 'claim') openInventory();
     }
-  });
-  $('#inventory').addEventListener('click', event => {
-    const button = event.target.closest('[data-inventory-action]');
-    if (button) submit('/api/inventory', { type: button.dataset.inventoryAction, itemId: button.dataset.itemId });
   });
   $('#roamers').addEventListener('click', event => {
     const button = event.target.closest('[data-roamer]');
