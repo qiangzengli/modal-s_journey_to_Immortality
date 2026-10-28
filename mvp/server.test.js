@@ -68,6 +68,9 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.world.breakthrough, false);
     assert.equal(initial.roamers.length,WANDERERS.length);
     assert.equal(initial.skills[0].id,'qi_bolt');
+    assert.equal(initial.combatStats.baseAttack, 14);
+    assert.equal(initial.combatStats.baseSpellPower, 20);
+    assert.equal(initial.skills[0].scaling.total, 27);
     assert.equal(initial.people.length,14);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,5);
     for (const input of [null, [], 'invalid']) {
       assert.equal((await post('/api/combat',input)).status,400);
@@ -124,8 +127,11 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(started.status,200);
     const rejected=await post('/api/advance',{expectedRevision:started.view.revision});
     assert.equal(rejected.status,400);
-    const moved=await post('/api/combat',{type:'turn',move:'skill',skillId:'qi_bolt',expectedRevision:started.view.revision});
+    const moved=await post('/api/combat',{type:'turn',move:'skill',skillId:'qi_bolt',expectedRevision:started.view.revision,baseAttack:9999,baseSpellPower:9999,power:9999,combatStats:{baseAttack:9999,baseSpellPower:9999}});
     assert.equal(moved.status,200);
+    assert.deepEqual(moved.view.combatStats, started.view.combatStats);
+    assert.equal(moved.view.skills[0].scaling.total, 27);
+    assert.ok(moved.view.battle.enemyHp >= 37 && moved.view.battle.enemyHp <= 43);
     const duplicate=await post('/api/combat',{type:'turn',move:'attack',expectedRevision:started.view.revision});
     assert.equal(duplicate.status,409);
     assert.deepEqual(duplicate.view,moved.view);

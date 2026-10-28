@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, applyAction, advanceTurn, getView } from './engine.js';
 import { combatAction, inventoryAction, ensureExploration } from './combat.js';
+import { SKILLS } from './combat-data.js';
 
 const act = (game, input, roll = 0.5) => combatAction(game, input, () => roll).game;
 const turn = (game, move, extra = {}, roll) => act(game, { type: 'turn', move, ...extra }, roll);
@@ -128,4 +129,90 @@ test('场外和未击败时不能获取储物袋，真气不足不能出招', ()
   assert.throws(() => turn(game, 'skill', { skillId: 'qi_bolt' }), /真气不足/);
   const roaming = createGame(); roaming.player.place = 'woods';
   assert.throws(() => act(roaming, { type: 'claim', enemyId: 'luohu' }), /击败/);
+});
+
+test('人物基础属性随境界成长；换装只增加附加威力，旧档读取不写入属性', () => {
+  const old = createGame(); delete old.exploration;
+  const snapshot = structuredClone(old);
+  const initial = getView(old).combatStats;
+  assert.equal(initial.baseAttack, 14);
+  assert.equal(initial.baseSpellPower, 20);
+  assert.equal(initial.basicAttack.total, 16);
+  assert.equal(initial.maxMana, 40);
+  assert.deepEqual(old, snapshot);
+  let game = createGame(); game.exploration.inventory.green_sword = 1;
+  game = inventoryAction(game, { type: 'equip', itemId: 'green_sword' }).game;
+  const equipped = getView(game);
+  assert.equal(equipped.combatStats.baseAttack, initial.baseAttack);
+  assert.equal(equipped.combatStats.baseSpellPower, initial.baseSpellPower);
+  assert.equal(equipped.combatStats.basicAttack.total, 21);
+  assert.equal(equipped.skills[0].scaling.total, 32);
+  game.flags.playerBreakthrough = 1;
+  const advanced = getView(game);
+  assert.equal(advanced.combatStats.baseAttack, 19);
+  assert.equal(advanced.combatStats.baseSpellPower, 25);
+  assert.equal(advanced.combatStats.basicAttack.total, 26);
+  assert.equal(advanced.skills[0].scaling.total, 37);
+  assert.equal(advanced.combatStats.maxMana, 40);
+});
+
+test('普攻与所有伤害功法的面板威力和实战一致；筑基、武器、防御与波动只结算一次', () => {
+  for (const breakthrough of [0, 1]) for (const weapon of ['worn_sword', 'green_sword']) {
+    const source = start('mochi');
+    source.flags.playerBreakthrough = breakthrough;
+    source.exploration.weapon = weapon;
+    source.exploration.inventory[weapon] = 1;
+    source.exploration.learned = Object.keys(SKILLS);
+    const view = getView(source);
+    const moves = [{ move: 'attack', total: view.combatStats.basicAttack.total, pierce: false }, ...view.skills.filter(skill => skill.effect === 'damage').map(skill => ({ move: 'skill', skillId: skill.id, total: skill.scaling.total, pierce: skill.pierce }))];
+    for (const intent of ['attack', 'guard']) for (const roll of [0, 0.5, 1]) for (const { total, pierce, ...move } of moves) {
+      source.exploration.battle.agentIntent = intent;
+      const next = act(source, { type: 'turn', ...move }, roll);
+      const expected = Math.max(1, Math.round((total - (pierce ? 0 : 4)) * (0.9 + roll * 0.2) * (intent === 'guard' ? 0.45 : 1)));
+      assert.equal(132 - next.exploration.battle.enemyHp, expected, `${weapon}/${breakthrough}/${intent}/${roll}/${move.skillId || move.move}`);
+      assert.equal(getView(next).combatStats.baseSpellPower, view.combatStats.baseSpellPower);
+    }
+  }
+});
+
+test('回春术使用基础法力且不吃兵器，治疗封顶；丹药和阵盘保持固定效果', () => {
+  for (const breakthrough of [0, 1]) for (const weapon of ['worn_sword', 'thunder_blade']) {
+    const game = start('mochi');
+    game.flags.playerBreakthrough = breakthrough;
+    game.exploration.weapon = weapon;
+    game.exploration.learned.push('spring_art');
+    game.exploration.battle.agentIntent = 'guard';
+    game.player.hp = 30;
+    const view = getView(game);
+    const skill = view.skills.find(skill => skill.id === 'spring_art');
+    assert.equal(skill.scaling.weaponBonus, 0);
+    assert.equal(skill.scaling.total, breakthrough ? 37 : 32);
+    const healed = turn(game, 'skill', { skillId: 'spring_art' });
+    assert.equal(healed.player.hp, 30 + skill.scaling.total);
+    assert.equal(healed.exploration.battle.mana, 24);
+    assert.equal(turn(game, 'item', { itemId: 'healing_pill' }).player.hp, 65);
+    game.player.hp = 95;
+    assert.equal(turn(game, 'skill', { skillId: 'spring_art' }).player.hp, 100);
+    game.player.hp = 100;
+    assert.throws(() => turn(game, 'skill', { skillId: 'spring_art' }), /气血已满/);
+    game.exploration.inventory.thunder_array = 1;
+    game.exploration.battle.agentIntent = 'attack';
+    assert.equal(turn(game, 'item', { itemId: 'thunder_array' }).exploration.battle.enemyHp, 92);
+  }
+});
+
+test('真气恢复使用统一上限，施法只消耗真气，不扣基础法力', () => {
+  const game = start();
+  game.flags.playerBreakthrough = 1;
+  game.exploration.battle.mana = 38;
+  for (const [move, extra] of [['attack', {}], ['guard', {}], ['item', { itemId: 'spirit_pill' }]]) {
+    const next = turn(game, move, extra);
+    assert.equal(next.exploration.battle.mana, getView(next).combatStats.maxMana);
+    assert.equal(getView(next).combatStats.baseSpellPower, 25);
+  }
+  const full = turn(game, 'guard');
+  assert.throws(() => turn(full, 'item', { itemId: 'spirit_pill' }), /真气已满/);
+  const cast = turn(game, 'skill', { skillId: 'qi_bolt' });
+  assert.equal(cast.exploration.battle.mana, 26);
+  assert.equal(getView(cast).combatStats.baseSpellPower, 25);
 });

@@ -5,6 +5,15 @@ const fact = (label, value) => `<div><dt>${esc(label)}</dt><dd>${esc(value)}</dd
 const categories = { all: '全部', equipment: '装备', pill: '丹药', manual: '玉简', array: '阵盘' };
 const kindNames = { weapon: '兵器', head: '头冠', body: '衣袍', hands: '护腕', feet: '靴履', waist: '腰饰', ring: '戒指', artifact: '法宝', pill: '丹药', manual: '功法玉简', array: '阵盘' };
 
+export function combatScalingText(scaling) {
+  return `${scaling.attribute === 'attack' ? '基础攻击力' : '基础法力'} ${scaling.base}${scaling.skillBonus ? ` + 功法 ${scaling.skillBonus}` : ''}${scaling.weaponBonus ? ` + 兵器 ${scaling.weaponBonus}` : ''} = ${scaling.total}`;
+}
+
+function characterAttributes(view) {
+  const stats = view.combatStats;
+  return `<section class="equipment-attributes" aria-label="人物基础属性"><dl>${fact('基础攻击力', stats.baseAttack)}${fact('基础法力', stats.baseSpellPower)}${fact('普攻威力', stats.basicAttack.total)}</dl><p class="equipment-formula">普攻：${esc(combatScalingText(stats.basicAttack))}</p><p>当前境界基础值${stats.realmBonus ? ` · 已含筑基提升 +${esc(stats.realmBonus)}` : ''}。基础法力决定法术强度，施法消耗真气。</p><small>实际伤害受防御、守势及波动影响。</small></section>`;
+}
+
 // Slot count and grouping are independent of the portrait and inventory capacity.
 // Reserved slots stay empty until the game supplies equipment for those locations.
 export const EQUIPMENT_SLOTS = [
@@ -77,7 +86,7 @@ function itemDetails(item, view, { inBag = false, locked = false, pending = fals
   return html;
 }
 function skillsDetails(view) {
-  return `<div class="equipment-detail-title"><h4>已修功法</h4><span>${view.skills.length} 门</span></div><div class="equipment-skills">${view.skills.map(skill => `<article><h5>${esc(skill.name)}</h5><p>${esc(skill.description)}</p><dl class="equipment-facts">${fact('真气消耗', skill.cost)}${fact('冷却', `${skill.cooldown} 回合`)}${fact(skill.heal ? '恢复气血' : '基础威力', skill.heal || skill.power)}${fact(skill.heal ? '施展效果' : '兵器加成', skill.heal ? '疗愈自身' : `+${view.weapon?.attack || 0}`)}</dl></article>`).join('') || '<p class="equipment-empty">获得玉简后，可在行囊中研习功法。</p>'}</div>`;
+  return `<div class="equipment-detail-title"><h4>已修功法</h4><span>${view.skills.length} 门</span></div><div class="equipment-skills">${view.skills.map(skill => `<article><h5>${esc(skill.name)}</h5><p>${esc(skill.description)}</p><dl class="equipment-facts">${fact('真气消耗', skill.cost)}${fact('冷却', `${skill.cooldown} 回合`)}${fact(skill.heal ? '恢复气血上限' : '当前威力', skill.scaling.total)}${fact(skill.heal ? '施展效果' : '兵器加成', skill.heal ? '疗愈自身' : `+${skill.scaling.weaponBonus}`)}</dl><p class="equipment-formula">${esc(combatScalingText(skill.scaling))}</p><p class="equipment-note">${skill.heal ? '实际恢复不超过缺失气血。' : `实际伤害受${skill.pierce ? '' : '敌方防御、'}守势与伤害波动影响。`}</p></article>`).join('') || '<p class="equipment-empty">获得玉简后，可在行囊中研习功法。</p>'}</div>`;
 }
 
 export function createEquipmentUI({ element, onAction }) {
@@ -104,10 +113,11 @@ export function createEquipmentUI({ element, onAction }) {
     const occupied = EQUIPMENT_SLOTS.filter(entry => equippedAt(current, entry)).length;
     element.innerHTML = `<section class="equipment-sheet" data-screen="${screen}" aria-label="人物装备与行囊"><header class="equipment-heading"><div><small>青衣负剑 · 道途随行</small><h3>人物装备</h3></div><span>${esc(world?.realm || '修行中')}</span></header>
       <nav class="equipment-tabs" aria-label="装备界面切换">${[['overview', '人物装备'], ['inventory', '储物行囊'], ['skills', '已修功法']].map(([id, label]) => `<button type="button" data-equipment-screen="${id}" data-equipment-focus="screen-${id}" aria-pressed="${screen === id}">${label}${id === 'skills' ? ` · ${skills.length}` : ''}</button>`).join('')}</nav>
+      ${characterAttributes(current)}
       <div class="equipment-layout"><div class="equipment-portrait"><div class="equipment-map">${cultivatorArt({ staff: weapon?.id === 'vine_staff', bottle: Boolean(garden?.bottle), armed: Boolean(weapon) })}<div class="equipment-slots" role="group" aria-label="装备部位">${EQUIPMENT_SLOTS.map((entry, index) => {
         const item = equippedAt(current, entry);
         return `<button type="button" class="equipment-slot ${item ? 'occupied' : 'vacant'}" style="--slot-row:${index % 5};--slot-side:${index < 5 ? 0 : 1}" data-equipment-slot="${entry.id}" data-equipment-focus="slot-${entry.id}" aria-pressed="${selectedSlot === entry.id && !selectedItem && screen !== 'skills'}" aria-controls="equipment-detail" aria-label="${esc(entry.name)}：${esc(item?.name || '暂无装备')}"><span>${equipmentIcon(item ? iconFor(item) : entry.type)}</span><div><small>${esc(entry.name)}</small><strong>${esc(item?.name || '空槽')}</strong></div></button>`;
-      }).join('')}</div></div><div class="equipment-vitals"><span>气血 <b>${esc(player.hp)}<small> / 100</small></b></span><span>兵器威力 <b>+${esc(weapon?.attack || 0)}</b></span><span>已占槽位 <b>${occupied}<small> / ${EQUIPMENT_SLOTS.length}</small></b></span></div><p class="equipment-portrait-note">选部位查看装备 · 空槽等待新的机缘</p></div>
+      }).join('')}</div></div><div class="equipment-vitals"><span>气血 <b>${esc(player.hp)}<small> / 100</small></b></span><span>${current.battle ? '当前真气' : '真气上限'} <b>${esc(current.battle?.mana ?? current.combatStats.maxMana)}${current.battle ? `<small> / ${esc(current.combatStats.maxMana)}</small>` : ''}</b></span><span>兵器加成 <b>+${esc(current.combatStats.weaponBonus)}</b></span></div><p class="equipment-portrait-note">已占槽位 ${occupied} / ${EQUIPMENT_SLOTS.length} · 选部位查看装备</p></div>
       <div class="equipment-workbench"><section class="equipment-collection" aria-label="储物行囊"><div class="equipment-collection-heading"><h4>储物行囊</h4><span>${inventory.filter(item => item.quantity > 0).length} 类物品 · 数量叠放</span></div>
       <div class="equipment-filters" role="group" aria-label="物品分类">${Object.entries(categories).map(([id, label]) => `<button type="button" data-equipment-filter="${id}" data-equipment-focus="filter-${id}" aria-pressed="${category === id}">${label}</button>`).join('')}</div>
       <div class="equipment-toolbar"><label><span class="sr-only">搜索行囊物品</span><input type="search" data-equipment-search data-equipment-focus="search" maxlength="80" placeholder="搜索名称或属性…" value="${esc(query)}"></label><label><span class="sr-only">物品排序</span><select data-equipment-sort data-equipment-focus="sort">${Object.entries({ kind: '按类别', power: '威力优先', quantity: '数量优先', name: '按名称' }).map(([id, label]) => `<option value="${id}" ${sort === id ? 'selected' : ''}>${label}</option>`).join('')}</select></label></div>

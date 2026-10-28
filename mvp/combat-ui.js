@@ -1,4 +1,4 @@
-import { createEquipmentUI } from './equipment-ui.js';
+import { createEquipmentUI, combatScalingText } from './equipment-ui.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const $ = selector => document.querySelector(selector);
@@ -41,8 +41,8 @@ export function createCombatUI({ request, navigate, openInventory }) {
     updateRoundLabel();
     $('#battle-player-hp').textContent = `${view.player.hp} / 100`;
     $('#battle-player-bar').style.width = `${view.player.hp}%`;
-    $('#battle-mana').textContent = `${battle.mana} / 40`;
-    $('#battle-mana-bar').style.width = `${battle.mana / 40 * 100}%`;
+    $('#battle-mana').textContent = `${battle.mana} / ${view.combatStats.maxMana}`;
+    $('#battle-mana-bar').style.width = `${battle.mana / view.combatStats.maxMana * 100}%`;
     $('#battle-weapon').textContent = view.weapon.name;
     $('#battle-enemy').textContent = enemy.name;
     $('#battle-enemy-realm').textContent = enemy.realm;
@@ -55,12 +55,12 @@ export function createCombatUI({ request, navigate, openInventory }) {
     const latestRound = battle.log.at(-1)?.round;
     $('#battle-log').innerHTML = battle.log.filter(entry => entry.round === latestRound).map(entry => `<p class="log-${entry.side}">${esc(entry.text)}</p>`).join('');
     $('#battle-history').innerHTML = battle.log.map(entry => `<p><small>${entry.round ? `第 ${entry.round} 回合` : '交锋'}</small> ${esc(entry.text)}</p>`).join('');
-    $('#combat-basics').innerHTML = control('attack', '普通攻击', '回复 5 真气 · 无消耗') + control('guard', '凝气防御', '减伤 65% · 回复 8 真气') + control('escape', '尝试逃跑', `成功率 ${Math.round(battle.escapeChance * 100)}% · 失败会受击`);
+    $('#combat-basics').innerHTML = control('attack', `普通攻击 · 威力 ${view.combatStats.basicAttack.total}`, `${combatScalingText(view.combatStats.basicAttack)}；回复 5 真气`) + control('guard', '凝气防御', '减伤 65% · 回复 8 真气') + control('escape', '尝试逃跑', `成功率 ${Math.round(battle.escapeChance * 100)}% · 失败会受击`);
     $('#combat-tabs').innerHTML = `<button type="button" data-combat-tab="skills" aria-pressed="${tab === 'skills'}">功法 · ${view.skills.length}</button><button type="button" data-combat-tab="items" aria-pressed="${tab === 'items'}">灵丹与阵法</button>`;
     if (tab === 'skills') {
-      $('#combat-options').innerHTML = view.skills.map(skill => control('skill', skill.name, `${skill.cost} 真气 · ${skill.description}`, `data-skill-id="${skill.id}"`, skill.remaining ? `冷却中 · 还需 ${skill.remaining} 回合` : battle.mana < skill.cost ? '真气不足' : skill.heal && view.player.hp >= 100 ? '气血已满' : '')).join('');
+      $('#combat-options').innerHTML = view.skills.map(skill => control('skill', `${skill.name} · ${skill.heal ? '治疗' : '威力'} ${skill.scaling.total}`, `${skill.cost} 真气 · 冷却 ${skill.cooldown} 回合${skill.pierce ? ' · 无视防御' : ''}；${combatScalingText(skill.scaling)}${skill.heal ? '；不超过缺失气血' : '；实际伤害受减伤与波动影响'}`, `data-skill-id="${skill.id}"`, skill.remaining ? `冷却中 · 还需 ${skill.remaining} 回合` : battle.mana < skill.cost ? '真气不足' : skill.heal && view.player.hp >= 100 ? '气血已满' : '')).join('');
     } else {
-      $('#combat-options').innerHTML = view.inventory.filter(item => ['pill', 'array'].includes(item.kind)).map(item => control('item', `${item.name} ×${item.quantity}`, item.description, `data-item-id="${item.id}"`, item.heal && view.player.hp >= 100 ? '气血已满' : item.mana && battle.mana >= 40 ? '真气已满' : '')).join('') || '<p class="panel-tip">没有可用的灵丹或阵盘。击败散修后可从储物袋中获得。</p>';
+      $('#combat-options').innerHTML = view.inventory.filter(item => ['pill', 'array'].includes(item.kind)).map(item => control('item', `${item.name} ×${item.quantity}`, item.description, `data-item-id="${item.id}"`, item.heal && view.player.hp >= 100 ? '气血已满' : item.mana && battle.mana >= view.combatStats.maxMana ? '真气已满' : '')).join('') || '<p class="panel-tip">没有可用的灵丹或阵盘。击败散修后可从储物袋中获得。</p>';
     }
     if (!active) $('#combat-result').innerHTML = battle.status === 'won'
       ? `<h2>${enemy.name}的储物袋</h2><div class="loot-grid">${lootMarkup(battle.loot)}</div><div class="result-actions"><button type="button" class="primary" data-battle-result="claim">收取储物袋 →</button><button type="button" data-battle-result="leave">暂不拾取，回到地图</button></div>`

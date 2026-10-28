@@ -1,9 +1,9 @@
 export const SKILLS = {
-  qi_bolt: { name: '凝气诀', cost: 12, power: 25, cooldown: 1, description: '凝气成刃。造成法术伤害，冷却 1 回合。', color: '#9fcbd3' },
-  wind_blade: { name: '疾风剑诀', cost: 14, power: 34, cooldown: 1, description: '剑气破空。伤害随武器提升，冷却 1 回合。', color: '#b7d9ac' },
-  spring_art: { name: '回春术', cost: 16, heal: 32, cooldown: 2, description: '恢复 32 气血，冷却 2 回合。', color: '#93cba5' },
-  fire_art: { name: '离火诀', cost: 18, power: 44, cooldown: 2, description: '离火焚身。高额伤害，冷却 2 回合。', color: '#eda27b' },
-  thunder_art: { name: '惊雷诀', cost: 22, power: 52, cooldown: 2, description: '雷击穿甲。无视防御，冷却 2 回合。', pierce: true, color: '#b5a8e3' }
+  qi_bolt: { name: '凝气诀', cost: 12, attribute: 'spellPower', effect: 'damage', bonus: 5, cooldown: 1, description: '凝气成刃。以基础法力施展，冷却 1 回合。', color: '#9fcbd3' },
+  wind_blade: { name: '疾风剑诀', cost: 14, attribute: 'attack', effect: 'damage', bonus: 20, cooldown: 1, description: '剑气破空。以基础攻击力施展，冷却 1 回合。', color: '#b7d9ac' },
+  spring_art: { name: '回春术', cost: 16, attribute: 'spellPower', effect: 'heal', bonus: 12, cooldown: 2, description: '以基础法力疗愈自身，不受兵器加成，冷却 2 回合。', color: '#93cba5' },
+  fire_art: { name: '离火诀', cost: 18, attribute: 'spellPower', effect: 'damage', bonus: 24, cooldown: 2, description: '离火焚身。以基础法力施展，冷却 2 回合。', color: '#eda27b' },
+  thunder_art: { name: '惊雷诀', cost: 22, attribute: 'spellPower', effect: 'damage', bonus: 32, cooldown: 2, description: '雷击穿甲。以基础法力施展，无视防御，冷却 2 回合。', pierce: true, color: '#b5a8e3' }
 };
 
 export const ITEMS = {

@@ -1,6 +1,7 @@
 import { npcPublic, npcPosition, npcWallet, ensureNpcState, withdrawNpcOffers } from './npc-state.js';
 import { GameError } from './errors.js';
 import { ITEMS, SKILLS, WANDERERS, lootEntries } from './combat-data.js';
+import { getCombatStats, getSkillScaling } from './combat-stats.js';
 
 export function createExploration() {
   return {
@@ -18,8 +19,6 @@ const intentNames = { attack: '试探进攻', heavy: '蓄力重击', guard: '护
 function writeEvent(game, text) {
   game.events.push({ id: game.nextId++, turn: game.turn, actor: '斗法', text, causes: [], scope: 'player' });
 }
-function weaponPower(state) { return ITEMS[state.weapon]?.attack || 0; }
-function powerBonus(game) { return game.flags.playerBreakthrough ? 5 : 0; }
 function checkItem(state, id, kind) {
   const item = Object.hasOwn(ITEMS, id || '') ? ITEMS[id] : null;
   if (!item || (kind && item.kind !== kind) || !(state.inventory[id] > 0)) throw new GameError('行囊中没有这件可用物品。');
@@ -35,6 +34,7 @@ function finish(game, status, text) {
 export function combatAction(source, input, random = Math.random) {
   const game = ensureExploration(structuredClone(source));
   const state = game.exploration;
+  const stats = getCombatStats(game);
   let battle = state.battle;
   if (input.type === 'start') {
     if (battle) throw new GameError('请先结束当前斗法结算。');
@@ -42,7 +42,7 @@ export function combatAction(source, input, random = Math.random) {
     if (!enemy || game.player.place !== (enemy.place || 'woods')) throw new GameError('请先到这位散修所在的区域。');
     if (state.enemies[enemy.id]?.defeated) throw new GameError('此人已经败退，不可重复挑战。');
     if (game.player.hp < 20) throw new GameError('气血不足 20，请先服用回春丹或前往听雨亭疗伤。');
-    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, mana: 40, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。你先出手，每次行动后敌人会回应。` }] };
+    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, mana: stats.maxMana, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。你先出手，每次行动后敌人会回应。` }] };
     return { game, result: `与${enemy.name}的斗法开始。` };
   }
   if (input.type === 'leave') {
@@ -79,8 +79,8 @@ export function combatAction(source, input, random = Math.random) {
   let usedSkill;
   let hit = 0;
   if (input.move === 'attack') {
-    hit = damage(14 + weaponPower(state) + powerBonus(game));
-    const restored = Math.min(5, 40 - battle.mana);
+    hit = damage(stats.basicAttack.total);
+    const restored = Math.min(5, stats.maxMana - battle.mana);
     battle.mana += restored;
     log('player', `你挥动${ITEMS[state.weapon].name}，造成 ${hit} 点伤害，回复 ${restored} 真气。`);
   } else if (input.move === 'skill') {
@@ -88,30 +88,31 @@ export function combatAction(source, input, random = Math.random) {
     if (!skill || !state.learned.includes(input.skillId)) throw new GameError('你尚未学会这门功法。');
     if (battle.cooldowns[input.skillId] > 0) throw new GameError('这门功法尚在冷却中。');
     if (battle.mana < skill.cost) throw new GameError('真气不足，可普攻、防御回气或服用聚气丹。');
-    if (skill.heal && game.player.hp >= 100) throw new GameError('气血已满，无需施展回春术。');
+    if (skill.effect === 'heal' && game.player.hp >= 100) throw new GameError('气血已满，无需施展回春术。');
     battle.mana -= skill.cost;
     usedSkill = input.skillId;
-    if (skill.heal) {
-      const amount = Math.min(skill.heal, 100 - game.player.hp);
+    const scaling = getSkillScaling(stats, skill);
+    if (skill.effect === 'heal') {
+      const amount = Math.min(scaling.total, 100 - game.player.hp);
       game.player.hp += amount;
       log('player', `你施展${skill.name}，恢复 ${amount} 气血。`);
     } else {
-      hit = damage(skill.power + weaponPower(state) + powerBonus(game), skill.pierce);
+      hit = damage(scaling.total, skill.pierce);
       log('player', `你施展${skill.name}，造成 ${hit} 点伤害。`);
     }
   } else if (input.move === 'guard') {
     guarded = true;
-    const amount = Math.min(8, 40 - battle.mana);
+    const amount = Math.min(8, stats.maxMana - battle.mana);
     battle.mana += amount;
     log('player', `你凝气防御，本回合减伤 65%，回复 ${amount} 真气。`);
   } else if (input.move === 'item') {
     const item = checkItem(state, input.itemId);
     if (!['pill', 'array'].includes(item.kind)) throw new GameError('此物不能在斗法中使用。');
     if (item.heal && game.player.hp >= 100) throw new GameError('气血已满，无需服用回春丹。');
-    if (item.mana && battle.mana >= 40) throw new GameError('真气已满，无需服用聚气丹。');
+    if (item.mana && battle.mana >= stats.maxMana) throw new GameError('真气已满，无需服用聚气丹。');
     state.inventory[input.itemId]--;
     if (item.heal || item.mana) {
-      const amount = item.heal ? Math.min(item.heal, 100 - game.player.hp) : Math.min(item.mana, 40 - battle.mana);
+      const amount = item.heal ? Math.min(item.heal, 100 - game.player.hp) : Math.min(item.mana, stats.maxMana - battle.mana);
       if (item.heal) game.player.hp += amount; else battle.mana += amount;
       log('player', `你服下${item.name}，恢复 ${amount} ${item.heal ? '气血' : '真气'}。`);
     } else {
@@ -187,13 +188,19 @@ export function inventoryAction(source, input) {
 
 export function getCombatView(game) {
   const state = game.exploration || createExploration();
+  const stats = getCombatStats(game);
   const battle = state.battle;
   const enemy = battle && enemyById(battle.enemyId);
   const intent = enemy && intentFor(battle);
   return {
+    combatStats: stats,
     roamers: WANDERERS.map(enemy => ({ ...enemy, place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
     inventory: Object.entries(state.inventory).filter(([,n]) => n > 0).map(([id, quantity]) => ({ id, ...ITEMS[id], quantity, equipped: state.weapon === id, learned: state.learned.includes(ITEMS[id].skill) })),
-    skills: state.learned.map(id => ({ id, ...SKILLS[id], remaining: battle?.cooldowns[id] || 0 })),
+    skills: state.learned.map(id => {
+      const skill = SKILLS[id];
+      const scaling = getSkillScaling(stats, skill);
+      return { id, ...skill, scaling, [skill.effect === 'heal' ? 'heal' : 'power']: scaling.base + scaling.skillBonus, remaining: battle?.cooldowns[id] || 0 };
+    }),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },
     battle: battle ? { ...structuredClone(battle), enemyName: enemy.name, maxEnemyHp: enemy.hp, intent, intentName: intentNames[intent], escapeChance: enemy.escape, loot: lootEntries(enemy.loot) } : null
   };

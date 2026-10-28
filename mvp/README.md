@@ -1,6 +1,6 @@
 # 《逆命录》地图版 MVP
 
-这是 [全员 Agent 修仙沙盒项目分享文档](../docs/全员Agent修仙沙盒-项目分享文档.md) 的独立试玩切片，从地下坊市的筑基丹机缘延伸至“卷一 · 枯潮来信”。3D 地图连接地下坊市、黑风林、云渡河谷、赤砂矿场与归墟遗府，包含 14 名剧情人物和 7 名可斗法的散修。场景及人物由 Three.js 几何体原创搭建，不使用仓库其他页面或 Unity 项目的资产。
+这是 [全员 Agent 修仙沙盒项目分享文档](../docs/全员Agent修仙沙盒-项目分享文档.md) 的独立试玩切片，从地下坊市的筑基丹机缘延伸至“卷一 · 枯潮来信”。3D 地图连接地下坊市、黑风林、云渡河谷、赤砂矿场与归墟遗府，包含 14 名剧情人物和 7 名可斗法的散修。地图场景及人物由 Three.js 几何体原创搭建；装备页使用本仓库已有素材细化的半写实国风立绘，素材说明见 [人物立绘](assets/cultivator/README.md)。
 
 ## 启动
 
@@ -158,7 +158,15 @@ PORT=4178 SAVE_PATH=/tmp/niminglu-playtest.json npm start
 
 - `POST /api/combat`：`{type: "start", enemyId}` 发起斗法；`{type: "turn", move, skillId?, itemId?}` 结算一个回合，`move` 为 `attack` / `skill` / `guard` / `item` / `escape`；`{type: "claim", enemyId}` 拾取已击败者储物袋；`{type: "leave"}` 关闭已结束的战斗。
 - `POST /api/inventory`：`{type: "equip" | "learn" | "use", itemId}`，分别装备武器、研习秘籍、场外服用回春丹。
-- `view` 新增 `roamers`、`inventory`、`skills`、`weapon` 和 `battle`。回合数、真气、冷却、血量和随机结果由服务端管理；客户端仅发出选择。老接口和 v2 存档兼容，新增状态保存在 `exploration` 中。
+- `view` 提供 `roamers`、`inventory`、`skills`、`weapon`、`battle` 和 `combatStats`。回合数、真气、冷却、血量和随机结果由服务端管理；客户端仅发出选择。老接口和 v2 存档兼容，新增状态保存在 `exploration` 中。
+
+人物装备页展示当前基础攻击力、基础法力、真气上限、兵器加成和普攻总威力。基础法力指法术强度，施法消耗的是独立的真气。炼气九层基础攻击力为 14、基础法力为 20；筑基后两者各增加 5，已包含在面板基础值中。真气上限为 40，每次开战补满。
+
+- 普攻 = 基础攻击力 + 兵器加成；疾风剑诀 = 基础攻击力 + 20 + 兵器加成。
+- 凝气诀、离火诀、惊雷诀 = 基础法力 + 各自功法加成（5、24、32）+ 兵器加成。
+- 回春术 = 基础法力 + 12，不受兵器影响，恢复不超过缺失气血。丹药和阵盘维持固定效果。
+
+属性、功法详情与斗法按钮共同使用服务端计算值。`combatStats` 包含 `baseAttack`、`baseSpellPower`、`realmBonus`（已包含在基础值中）、`weaponBonus`、`maxMana` 和 `basicAttack`；`skills[].scaling` 与 `basicAttack` 都提供 `attribute`、`base`、`skillBonus`、`weaponBonus`、`total`。技能视图的 `power` / `heal` 为未计兵器的当前威力 / 治疗量，展示最终威力使用 `scaling.total`。这些派生属性不写入存档；请求不能覆盖基础属性或总威力。初始伤害维持原平衡，突破后回春术会随基础法力成长。实际伤害仍按防御（惊雷诀与阵盘穿防）、±10% 波动、守势减伤结算，不保证等于面板威力。
 
 目前为本机单人玩法：服务端校验所在区域及战斗状态，地图坐标与走近目标由客户端表现层负责，不提供联网游戏的坐标防作弊。普通游玩退出斗法会回到进入前的位置；战斗中刷新页面后，会从对手附近恢复地图位置。
 

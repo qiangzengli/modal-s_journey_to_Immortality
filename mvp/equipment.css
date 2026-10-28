@@ -20,6 +20,11 @@
 .equipment-vitals>span{display:block;text-align:center;font:10px/1.7 sans-serif;color:var(--equipment-muted)}
 .equipment-vitals>span+span{border-left:1px solid #8b9e703d}.equipment-vitals b{display:block;font:20px/1.6 "Songti SC",serif;color:#e0d9af}.equipment-vitals small{font:10px sans-serif;color:#b0ba9b}
 .equipment-portrait-note{font:10px/1.7 sans-serif;color:#93ab93;text-align:center;letter-spacing:.08em}
+.equipment-attributes{margin:14px 0 18px;padding:12px 16px;border:1px solid #8b9e703d;border-radius:8px;background:#0d211970}
+.equipment-attributes dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0}
+.equipment-attributes dt{font:11px/1.8 sans-serif;color:#b6c3a1}.equipment-attributes dd{margin:0;font:28px/1.4 "Songti SC",serif;color:#e0d9af}
+.equipment-attributes p,.equipment-attributes>small{display:block;margin:6px 0 0;font:10px/1.8 sans-serif;color:var(--equipment-muted)}
+.equipment-formula{font:11px/1.8 sans-serif!important;color:#c2d4b3!important;overflow-wrap:anywhere}
 .equipment-workbench{min-width:0}.equipment-collection{border:1px solid #8a9c704d;background:#122a2066;padding:12px}
 .equipment-collection-heading,.equipment-detail-title{display:flex;justify-content:space-between;align-items:center;gap:8px}.equipment-collection-heading h4,.equipment-detail-title h4{font:17px/1.5 "Songti SC",serif;margin:0;color:#dfd7ae}.equipment-collection-heading>span,.equipment-detail-title>span{font:10px sans-serif;color:#9eb297}
 .equipment-filters{display:flex;gap:4px;margin-top:13px}.equipment-filters button{flex:1;border:1px solid #7e966144;background:transparent;color:#b6c4a6;padding:6px 2px;font:11px sans-serif}.equipment-filters button[aria-pressed=true]{background:#53623d77;border-color:#c6b77b99;color:#e8d99e}

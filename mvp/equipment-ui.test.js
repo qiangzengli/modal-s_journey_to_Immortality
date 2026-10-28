@@ -106,3 +106,28 @@ test('中文输入法组合期间保留输入框，刷新不打断；搜索后�
   assert.ok(game.exploration.learned.includes('wind_blade'));
   assert.match(element.innerHTML, /data-screen="skills"/); assert.match(element.innerHTML, /<h5>疾风剑诀<\/h5>/);
 });
+
+test('属性与功法显示服务端的基础值、加成及总威力，换装和筑基后同步刷新', async () => {
+  let game = createGame();
+  game.exploration.inventory.green_sword = 1;
+  game.exploration.learned.push('wind_blade', 'spring_art');
+  const { ui, element, click } = harness();
+  ui.render(getView(game));
+  assert.match(element.innerHTML, /基础攻击力<\/dt><dd>14/);
+  assert.match(element.innerHTML, /基础法力<\/dt><dd>20/);
+  assert.match(element.innerHTML, /基础攻击力 14 \+ 兵器 2 = 16/);
+  assert.match(element.innerHTML, /真气上限 <b>40/);
+  await click('screen', 'skills');
+  assert.match(element.innerHTML, /基础法力 20 \+ 功法 5 \+ 兵器 2 = 27/);
+  assert.match(element.innerHTML, /基础攻击力 14 \+ 功法 20 \+ 兵器 2 = 36/);
+  assert.match(element.innerHTML, /基础法力 20 \+ 功法 12 = 32/);
+  game = inventoryAction(game, { type: 'equip', itemId: 'green_sword' }).game;
+  game.flags.playerBreakthrough = 1;
+  ui.render(getView(game));
+  assert.match(element.innerHTML, /基础攻击力<\/dt><dd>19/);
+  assert.match(element.innerHTML, /基础法力<\/dt><dd>25/);
+  assert.match(element.innerHTML, /已含筑基提升 \+5/);
+  assert.match(element.innerHTML, /基础攻击力 19 \+ 兵器 7 = 26/);
+  assert.match(element.innerHTML, /基础法力 25 \+ 功法 5 \+ 兵器 7 = 37/);
+  assert.match(element.innerHTML, /基础法力 25 \+ 功法 12 = 37/);
+});
