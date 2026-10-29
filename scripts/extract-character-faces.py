@@ -12,7 +12,8 @@ parser=argparse.ArgumentParser();parser.add_argument('--portraits',type=Path,req
 options=vision.FaceLandmarkerOptions(base_options=python.BaseOptions(model_asset_path=str(args.model)),num_faces=1,min_face_detection_confidence=.2,min_face_presence_confidence=.2)
 with vision.FaceLandmarker.create_from_options(options) as detector:
  for name in ['hanli','modafu','mocaihuan','lifeiyu','zhangtie','jinguang','quhun','gangmaster','examiner','nangong','wangchan']:
-  if name=='nangong': image=Image.open(args.references/'nangong-face.jpg').convert('RGB')
+  if name=='nangong': image=Image.open(args.references/'nangong-frame-1.jpg').convert('RGB').crop((600,0,1300,850))
+  elif name=='hanli': image=Image.open(args.references/'hanli-animation.png').convert('RGB').crop((260,0,730,550))
   elif name=='wangchan': image=Image.open(args.references/'yanbao-0.jpg').convert('RGB').crop((400,60,630,320))
   else:
    image=Image.open(args.portraits/(name+'.png')).convert('RGB');image=image.crop((int(image.width*.25),0,int(image.width*.75),int(image.height*.45)))

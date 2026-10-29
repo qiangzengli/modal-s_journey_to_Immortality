@@ -29,7 +29,7 @@ for path in sorted(args.input.glob('*.landmarks.json')):
  mirror=canonical.copy();mirror[:,0]*=-1
  mates=np.argmin(((mirror[:,None,:]-canonical[None,:,:])**2).sum(axis=2),axis=1)
  reflected=points[mates].copy();reflected[:,0]*=-1
- points=points*.4+reflected*.6
+ points=(points+reflected)*.5 if name in ['hanli','nangong'] else points*.4+reflected*.6
  points*= (.39 if name in ['nangong','mocaihuan'] else .405)/(points[10,1]-points[152,1])
  points[:,1]-=(points[10,1]+points[152,1])/2
  points[:,2]-=(points[234,2]+points[454,2])/2-.012
@@ -45,6 +45,13 @@ for path in sorted(args.input.glob('*.landmarks.json')):
  data=np.asarray(crop).astype(float);gain=target/np.maximum(average,1)
  if name=='wangchan': gain=np.clip(gain,.85,1.16)
  data=np.clip(data*gain,0,255).astype('uint8')
+ if name in ['hanli','nangong']:
+  # Remove the large baked-in light gradient from the animation frame. Small
+  # features (lids, lips, brows) remain; live game lights now shape the cheeks.
+  luminance=data.astype(float).mean(axis=2)
+  illumination=cv2.GaussianBlur(luminance,(0,0),crop.width*.11)
+  correction=np.clip(np.median(illumination)/np.maximum(illumination,1),.72,1.42)
+  data=np.clip(data*(.35+.65*correction[...,None]),0,255).astype('uint8')
  mask=Image.new('L',crop.size,0);ImageDraw.Draw(mask).polygon([tuple(pixels[i]-np.array(box[:2])) for i in boundary],fill=255)
  distance=cv2.distanceTransform(np.array(mask),cv2.DIST_L2,5)
  blend=np.clip(distance/(crop.width*.09),0,1)[...,None]

@@ -1,5 +1,5 @@
 // Continuous, UV-mapped surfaces for cloth and anatomy. All coordinates are local to the joint.
-export function loft(THREE, sections, {segments=40, steps=32, start=0, end=Math.PI*2, folds=0, pleats=12, foldRange=null}={}) {
+export function loft(THREE, sections, {segments=40, steps=32, start=0, end=Math.PI*2, folds=0, pleats=12, foldRange=null, drape=0}={}) {
   const rows=[...sections].sort((a,b)=>a[0]-b[0]);
   const positions=[],uvs=[],indices=[];
   const sample=(y,column)=>{
@@ -13,7 +13,10 @@ export function loft(THREE, sections, {segments=40, steps=32, start=0, end=Math.
     for(let i=0;i<=segments;i++){
       const u=i/segments,a=start+(end-start)*u;
       const f=foldRange?(y-foldRange[0])/(foldRange[1]-foldRange[0]):v;
-      const fold=folds*(.35+.65*(1-f))*(Math.cos(a*pleats+f*.55)+.3*Math.cos(a*pleats*2-f));
+      // Irregular folds gather at the waist and relax toward the hem. The second
+      // frequency avoids the perfectly repeated fluting of a rigid cone.
+      const fold=folds*(.35+.65*(1-f))*(Math.cos(a*pleats+f*.55)+.3*Math.cos(a*pleats*2-f))
+        +drape*Math.sin(Math.PI*v)*(.55*Math.sin(a*5+v*9)+.3*Math.sin(a*9-v*13));
       positions.push(sample(y,3)+(sample(y,1)+fold)*Math.sin(a),y,sample(y,4)+(sample(y,2)+fold*.65)*Math.cos(a));uvs.push(u,v);
       if(i<segments&&j<steps){const k=j*(segments+1)+i;indices.push(k,k+1,k+segments+2,k,k+segments+2,k+segments+1);}
     }
