@@ -12,7 +12,7 @@ export function createAutoCombatPlanner(complete) {
     if(session&&session.enemyId===view.battle.enemyId&&session.policy===policy&&(session.pending||view.battle.round-session.round<3))return session.promise;
     clear();
     const active={enemyId:view.battle.enemyId,policy,round:view.battle.round,controller:new AbortController(),pending:true};session=active;
-    const timer=setTimeout(()=>active.controller.abort(),8000);timer.unref?.();
+    const timer=setTimeout(()=>active.controller.abort(),20000);timer.unref?.();
     active.promise=requestAutoCombatPlan(view,policy,complete,{signal:active.controller.signal})
       .catch(()=>({source:'unavailable',plan:structuredClone(DEFAULT_AUTO_PLAN)}))
       .finally(()=>{clearTimeout(timer);active.pending=false;});

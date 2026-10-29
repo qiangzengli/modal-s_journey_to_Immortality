@@ -11,8 +11,10 @@ export function chooseAutoMove(view, policy = 'economy', plan = DEFAULT_AUTO_PLA
   if (!battle || battle.status!=='active') return null;
   const enemy=view.roamers.find(person=>person.id===battle.enemyId);
   if (!enemy || !Object.hasOwn(AUTO_POLICIES,policy)) return null;
-  const options=[], effectiveHp=battle.enemyHp+(battle.ward||0);
-  for (const member of autoTeam(view).filter(member=>member.hp>0&&member.canAct)) {
+  const options=[], effectiveHp=battle.enemyHp+(battle.ward||0),team=autoTeam(view);
+  const available=team.filter(member=>member.hp>0&&member.canAct);
+  const defender=team.find(member=>member.id===(battle.targetId||'player'));
+  for (const member of available) {
     const player=member.id==='player',skills=player?view.skills:member.skills;
     const threatened=!battle.targetId||battle.targetId===member.id;
     const incoming=threatened&&['attack','heavy'].includes(battle.intent)?Math.max(1,Math.round((enemy.attack*(battle.intent==='heavy'?1.8:1)-(member.defense||0))*1.1)):0;
@@ -37,9 +39,15 @@ export function chooseAutoMove(view, policy = 'economy', plan = DEFAULT_AUTO_PLA
     }
     for (const candidate of candidates) {
       const lethal=candidate.damage>=effectiveHp;
-      const hit=lethal||candidate.interrupt?0:Math.ceil(incoming*(candidate.guard?.35:1));
+      const interrupted=candidate.interrupt||battle.roundEffects?.interrupted;
+      const hit=lethal||interrupted?0:Math.ceil(incoming*(candidate.guard?.35:1));
       const remaining=member.hp+(candidate.heal||0)-hit;
       if (remaining<=0) continue;
+      if(available.length===1&&defender&&defender.id!==member.id&&!lethal&&!interrupted&&['attack','heavy'].includes(battle.intent)){
+        const guard=battle.roundEffects?.guardedIds?.includes(defender.id);
+        const counter=Math.max(1,Math.round((enemy.attack*(battle.intent==='heavy'?1.8:1)-(defender.defense||0))*1.1*(guard?.35:1)));
+        if(defender.hp<=counter)continue;
+      }
       const urgent=member.hp<=Math.max(member.maxHp*plan.healBelow,incoming*2);
       let score=lethal?10000:candidate.damage*2;
       score-=candidate.cost*.5+(candidate.item?(policy==='economy'?90:35):0);

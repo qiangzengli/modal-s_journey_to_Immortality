@@ -20,5 +20,8 @@ test('自动战斗不等待模型，单次提交可停止，错误/离场/隐藏
   $('#auto-combat-toggle').click();assert.equal(ui.isRunning(),false);
   resolvePlan();resolveAction();await setImmediate();t.mock.timers.tick(5000);await setImmediate();assert.equal(calls,1);
   $('#auto-combat-toggle').click();Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'));assert.equal(ui.isRunning(),false);
-  Object.defineProperty(document,'hidden',{configurable:true,value:false});$('#auto-combat-toggle').click();view={...view,battle:null};ui.sync();assert.equal(ui.isRunning(),false);
+  Object.defineProperty(document,'hidden',{configurable:true,value:false});$('#auto-combat-toggle').click();
+  $('[aria-label="收起或展开战斗面板"]').click();assert.equal($('.battle-console').classList.contains('is-collapsed'),true);
+  view={...view,battle:{...view.battle,status:'won'}};ui.sync();assert.equal(ui.isRunning(),false);assert.equal($('.battle-console').classList.contains('is-collapsed'),false,'胜利自动展开，战利品确认必须可见');
+  view={...view,battle:null};ui.sync();assert.equal(ui.isRunning(),false);
 });

@@ -420,7 +420,7 @@ async function call(path,payload={}) {
       if(!defs[data.actionType]?.garden)$('#world-person').scrollTop=0;
     }
     // One result, one visible surface. A closed/hidden detail panel falls back to the toast.
-    if(!chapterCompleted&&!breakthrough&&!resultInPanel)notice(data.result);
+    if(!chapterCompleted&&!breakthrough&&!resultInPanel&&!(path==='/api/combat'&&payload.type==='turn'))notice(data.result);
     world.react(data.actionType,before,data.view);
     if(path==='/api/command')$('#command').value='';
     if(path==='/api/advance')showTurnSummary(before,data.view);

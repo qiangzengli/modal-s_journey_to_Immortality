@@ -21,7 +21,7 @@ export function createAutoCombatUI({stage,getState,isPending,perform,requestPlan
     const view=getState();if(controller||!running||view.battle.round-lastRound<3)return;
     const ticket=generation;lastRound=view.battle.round;
     const active=new AbortController();controller=active;
-    const deadline=setTimeout(()=>active.abort(),8500);
+    const deadline=setTimeout(()=>active.abort(),20500);
     source=plan?'model':'preparing';
     requestPlan('/api/combat/auto-plan',{method:'POST',headers:{'content-type':'application/json'},signal:active.signal,body:JSON.stringify({expectedRevision:view.revision,enemyId,policy:select.value})})
       .then(async response=>{const reply=await response.json();if(ticket!==generation||!running)return;if(!response.ok)throw new Error();
@@ -56,6 +56,7 @@ export function createAutoCombatUI({stage,getState,isPending,perform,requestPlan
   function sync() {
     const battle=getState()?.battle;
     bar.hidden=!battle||battle.status!=='active';
+    if(bar.hidden){stage.querySelector('.battle-console').classList.remove('is-collapsed');collapse.textContent='收起战报';collapse.setAttribute('aria-expanded','true');}
     if(running&&(!battle||battle.status!=='active'||battle.enemyId!==enemyId))stop(battle?.status==='won'?'自动战斗已获胜，请亲自确认战利品。':'本场自动战斗已结束。');
     toggle.disabled=isPending()&&!running;
     if(running)stage.querySelector('#combat-inputs').disabled=true;

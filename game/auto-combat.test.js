@@ -41,6 +41,15 @@ test('AI建议只能调整合法策略，不能创造功法、消耗权限或伤
   for(const invalid of [{...DEFAULT_AUTO_PLAN,preferredSkills:['kill_all']},{...DEFAULT_AUTO_PLAN,healBelow:2},{...DEFAULT_AUTO_PLAN,damage:9999}])await assert.rejects(requestAutoCombatPlan(view,'economy',async()=>({content:JSON.stringify(invalid)})));
   assert.equal((await requestAutoCombatPlan(view,'no_items',null)).source,'offline');
 });
+test('最后一名队员行动前保护真实反击目标，已防御或可收尾时仍允许出招',()=>{
+  const game=act(throughCampaign('meet_nangong'),'fight_mojiao');
+  game.player.hp=1;game.exploration.battle.actedIds=['player'];
+  const view=getView(game);assert.equal(view.battle.targetId,'player');
+  assert.equal(chooseAutoMove(view,'no_items'),null,'南宫婉不能触发必定击倒残血韩立的反击');
+  view.battle.enemyHp=1;assert.ok(chooseAutoMove(view,'no_items'),'能够收尾则无反击');
+  view.battle.enemyHp=180;view.battle.team[0].hp=8;view.battle.roundEffects={guardedIds:['player']};
+  assert.ok(chooseAutoMove(view,'no_items'),'已防御队友可承受反击');
+});
 test('同场并发规划合并，迟到的模型只返回建议且不修改战况',async()=>{
   let finish,calls=0;const view=getView(start()),original=structuredClone(view);
   const planner=createAutoCombatPlanner(async()=>{calls++;return new Promise(resolve=>finish=()=>resolve({content:JSON.stringify(DEFAULT_AUTO_PLAN)}));});
