@@ -22,20 +22,29 @@ export const FRONTIER_SITES={
 const action=(type,title,detail,cost,place,site,requires=[],extra={})=>({type,title,detail,cost,place,site,requires,campaign:true,...extra});
 export const FRONTIER_ACTIONS=[
   action('huangfeng_register','入门黄枫谷','凭升仙令登记入门；已有黄枫谷身份也可登记','升仙令或黄枫谷门籍','qinglan','sect_qinglan'),
-  action('garden_duty','领百药园差事','接下马师兄安排的看园差事，领取修炼药材','一次经历','river','ferry',['huangfeng_register']),
-  action('garden_cultivate','百药园潜修','用药草炼制黄龙丹、金髓丸，潜修至炼气十一层','灵草 2','river','spring',['garden_duty']),
+  action('learn_valley_rules','熟悉黄枫谷门规','核对差事与修炼资源的规矩，选择安静的修行去处','一次经历','qinglan','sect_qinglan',['huangfeng_register']),
+  action('garden_duty','领百药园差事','接下马师兄安排的看园差事，领取修炼药材','一次经历','river','ferry',['learn_valley_rules']),
+  action('inspect_garden','核对百药园药畦','分清公私药材与差事份额，整理自己的药畦','一次经历','river','ferry',['garden_duty']),
+  action('prepare_cultivation_medicine','调制修炼用药','按丹方配比自有药材，准备潜修所需的用药','灵草 1 · 备药 1 旬','river','infirmary',['inspect_garden']),
+  action('garden_first_retreat','百药园初次闭关','以准备好的修炼用药辅助长春功，先修至炼气十层','潜修 3～6 旬','river','spring',['prepare_cultivation_medicine']),
+  action('garden_cultivate','百药园潜修','用药草炼制黄龙丹、金髓丸，潜修至炼气十一层','灵草 1 · 潜修 3～6 旬','river','spring',['garden_first_retreat']),
   action('forbidden_enlist','报名血色禁地','随李化元带领的队伍，参加七派采药试炼','炼气修士参加','qinglan','sect_qinglan',['garden_cultivate']),
-  action('enter_forbidden','踏入血色禁地','进入外层，搜寻筑基丹主药','一次经历','quarry','workers',['forbidden_enlist']),
-  action('gather_monkey_flower','采集紫猴花','取得一份筑基丹主药；收入独立的任务药囊','气血 8','quarry','ore',['enter_forbidden']),
-  action('gather_jade_mushroom','采集玉髓芝','在寒潭附近取得另一份筑基丹主药','气血 8','quarry','sluice',['enter_forbidden']),
+  action('trial_briefing','核对禁地行前见闻','认准三味主药与中心区危险，记清进退方向','一次经历','qinglan','sect_qinglan',['forbidden_enlist']),
+  action('enter_forbidden','踏入血色禁地','进入外层，搜寻筑基丹主药','一次经历','quarry','workers',['trial_briefing']),
+  action('survey_forbidden','辨察禁地外层','先看清新旧痕迹与采药方向，再接近主药','一次经历','quarry','workers',['enter_forbidden']),
+  action('gather_monkey_flower','采集紫猴花','取得一份筑基丹主药；收入独立的任务药囊','气血 8','quarry','ore',['survey_forbidden']),
+  action('gather_jade_mushroom','采集玉髓芝','在寒潭附近取得另一份筑基丹主药','气血 8','quarry','sluice',['survey_forbidden']),
   action('aid_hanyunzhi','援手菡云芝','交出一株灵草，留下禁地中的一份交情','灵草 1 · 可选','quarry','workers',['enter_forbidden'],{optional:true}),
-  action('meet_nangong','相遇南宫婉','深入中心区域，与掩月宗修士共同探查石殿','收齐外层两味主药','ruins','archive',['gather_monkey_flower','gather_jade_mushroom']),
+  action('read_stone_gate','勘察中心石门','携外层两味主药抵达石门，察看痕迹与退路','收齐外层两味主药','ruins','archive',['gather_monkey_flower','gather_jade_mushroom']),
+  action('meet_nangong','相遇南宫婉','深入中心区域，与掩月宗修士共同探查石殿','收齐外层两味主药','ruins','archive',['read_stone_gate']),
   action('fight_mojiao','合力应对墨蛟','与南宫婉合力斗法，击败墨蛟后收取天灵果','回合斗法 · 气血至少 20','ruins','core',['meet_nangong'],{encounter:'story_mojiao'}),
   action('leave_forbidden','携药离开禁地','将三味主药活株带出禁地，留待自行培育','一次经历','ruins','memorial',['fight_mojiao']),
-  action('deliver_spirit_herbs','研习筑基丹方','核对采药记录，研习丹方，保留三味活株自行培育','三味任务主药','qinglan','sect_qinglan',['leave_forbidden']),
+  action('sort_trial_gains','整理禁地所得','核对三味活株与可交代的采药记录，留好自己的种苗','一次经历','qinglan','sect_qinglan',['leave_forbidden']),
+  action('deliver_spirit_herbs','研习筑基丹方','核对采药记录，研习丹方，保留三味活株自行培育','三味任务主药','qinglan','sect_qinglan',['sort_trial_gains']),
   action('plant_pill_herbs','留种培育筑基主药','将三味活株栽入自己的药畦，随旬数培养；灵液可催熟','三味活株 · 小绿瓶','river','spring',['deliver_spirit_herbs']),
   action('harvest_pill_herbs','采收成熟筑基主药','亲手采收培育至成熟的紫猴花、玉髓芝、天灵果','主药生长 4/4','river','spring',['plant_pill_herbs']),
-  action('refine_foundation_pill','炼制筑基丹','按丹方消耗三味亲手培育的成熟主药，炼成一枚筑基丹','三味成熟主药','river','infirmary',['harvest_pill_herbs']),
+  action('prepare_alchemy','温炉核验主药','先核对成熟主药与下药次序，主药留到正式开炉才消耗','准备 1 旬','river','infirmary',['harvest_pill_herbs']),
+  action('refine_foundation_pill','炼制筑基丹','按丹方消耗三味亲手培育的成熟主药，炼成一枚筑基丹','三味成熟主药','river','infirmary',['prepare_alchemy']),
   action('take_master','拜师李化元','完成筑基后，拜李化元为师并取得青元剑诀','筑基初期 · 黄枫谷弟子','qinglan','sect_qinglan'),
   action('sword_trace','察看银剑争斗','发现巨剑门赤脚大汉，可先交谈或避开争斗','无资源消耗 · 可选','ruins','sword_trace',['enter_forbidden'],{optional:true,thread:'silver_page'}),
   action('fight_swordsman','迎战赤脚大汉','亲自斗法，胜利后搜取储物袋；可逃跑后再来','实际斗法 · 可选','ruins','sword_trace',['sword_trace'],{optional:true,thread:'silver_page',encounter:'trial_swordsman'}),
@@ -45,3 +54,6 @@ export const FRONTIER_ACTIONS=[
   action('frontier_rest','借静地调息','恢复最多 35 气血','灵石 8','river','infirmary',[],{repeatable:true,utility:true})
 ];
 export const ENDINGS={};
+
+// New chapter experiences share the existing, reachable map locations.
+for(const action of FRONTIER_ACTIONS)if(FRONTIER_SITES[action.site]&&!FRONTIER_SITES[action.site].actions.includes(action.type))FRONTIER_SITES[action.site].actions.push(action.type);

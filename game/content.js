@@ -61,5 +61,6 @@ export const PERSON_DETAILS = {
 for(const [id,p]of Object.entries(CANON_IDENTITIES))Object.assign(PERSON_DETAILS[id],{realm:p.realm,bio:p.bio});
 for(const person of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE]){PERSON_DETAILS[person.id]={color:person.color,realm:person.realm,bio:person.bio};PERSON_ACTIONS[person.id]=['ask'];}
 Object.assign(SITES,FRONTIER_SITES,SECT_SITES,VOLUME_SITES);
+for(const action of [...VOLUME_ACTIONS,...FRONTIER_ACTIONS])if(action.site&&SITES[action.site]&&!SITES[action.site].actions.includes(action.type))SITES[action.site].actions.push(action.type);
 for(const a of VOLUME_ACTIONS)if(a.person)PERSON_ACTIONS[a.person].push(a.type);
 for(const site of Object.values(SITES))site.place ??= 'woods';

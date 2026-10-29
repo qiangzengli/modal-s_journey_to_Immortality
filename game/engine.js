@@ -5,7 +5,8 @@ import { SECT_PEOPLE } from './sect-data.js';
 import { FRONTIER_PEOPLE } from './campaign-data.js';
 import { ensureCampaign, applyCampaignAction, travelRegion, campaignView } from './campaign.js';
 import { REGIONS } from './regions.js';
-import { ensureNpcState, npcPublic, societyView, npcPosition, expireOffers } from './npc-state.js';
+import { ensureNpcState, npcPublic, societyView, npcPosition, expireOffers, remember } from './npc-state.js';
+import {STORY_BEATS} from './story-beats.js';
 import { ACTION_DEFS, RETIRED_PILL_ACTIONS } from './content.js';
 import { GARDEN_ACTIONS, ensureGarden, applyGardenAction, advanceGarden, getGardenView } from './garden.js';
 import { GameError } from './errors.js';
@@ -109,6 +110,8 @@ export function applyAction(source, action) {
   const game = ensureVolume(ensureCampaign(structuredClone(source)));
   game.ap = null;
   const type = action.type;
+  const beat=STORY_BEATS[type];
+  if(action.approach!==undefined&&(!beat||!beat.choices.some(choice=>choice.id===action.approach)))throw new GameError('请选择这段经历中可用的做法。');
   const target = action.target;
   const participant = ACTION_DEFS.find(def => def.type === type)?.person;
   if (participant && type !== 'buy_pill' && game.people[participant]?.place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
@@ -116,10 +119,10 @@ export function applyAction(source, action) {
   if (['travel_region', 'travel_market', 'travel_woods'].includes(type)) return travelRegion(game, type === 'travel_region' ? action.place || action.target : type === 'travel_market' ? 'market' : 'woods');
   const definition=ACTION_DEFS.find(def=>def.type===type),encounter=definition?.encounter;
   if(encounter&&definition.volume&&game.volume&&!game.volume.flags[type]&&!game.volume.legacyCompleted?.includes(type))return combatAction(game,{type:game.exploration?.enemies[encounter]?.defeated?'claim':'start',enemyId:encounter});
-  if (ACTION_DEFS.find(def=>def.type===type)?.volume) return {game,result:applyVolumeAction(game,type)};
+  if (definition?.volume) return settleStoryAction(game,definition,action,applyVolumeAction);
   if (inOpening(game) && type!=='ask' && !(GARDEN_ACTIONS.includes(type)&&type!=='discover_bottle'&&game.garden.bottle)) throw new GameError('请先完成七玄门第一卷，再开启这段游历。');
   if(encounter&&definition.campaign&&!game.campaign.storyFlags[type])return combatAction(game,{type:game.exploration?.enemies[encounter]?.defeated?'claim':'start',enemyId:encounter});
-  if (ACTION_DEFS.find(def=>def.type===type)?.campaign) return {game,result:applyCampaignAction(game,type)};
+  if (definition?.campaign) return settleStoryAction(game,definition,action,applyCampaignAction);
   if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 
   switch (type) {
@@ -295,6 +298,25 @@ export function applyAction(source, action) {
     }
   }
   return { game, result };
+}
+
+function settleStoryAction(game,definition,action,apply) {
+  const result=apply(game,action.type),beat=STORY_BEATS[action.type];
+  if(!beat)return {game,result};
+  const choice=beat.choices.find(choice=>choice.id===action.approach)||beat.choices[0];
+  const scope=definition.volume?'volume':'campaign',startedTurn=game.turn;
+  const flag=game[scope][scope==='volume'?'flags':'storyFlags'][action.type];
+  const event=game.events.find(event=>event.id===flag);
+  if(event)event.text+=` ${choice.detail}${choice.turns?`（此段修行历时 ${choice.turns} 旬。）`:''}`;
+  if(beat.person&&game.people[beat.person]){
+    game.people[beat.person].trust+=choice.trust;
+    remember(game,beat.person,`「${definition.title}」中，韩立选择${choice.title}。${choice.detail}`,'story');
+  }
+  // Settle the existing world rules, without inventing decisions for NPC Agents.
+  for(let elapsed=0;elapsed<choice.turns;elapsed++)game=advanceTurn(game).game;
+  game[scope].decisions??={};
+  game[scope].decisions[action.type]={type:action.type,title:definition.title,approach:choice.id,label:choice.title,detail:choice.detail,startedTurn,completedTurn:game.turn,eventId:flag};
+  return {game,result:`${result} ${choice.detail}${choice.turns?` 已经过 ${choice.turns} 旬，灵圃与原有约定按期结算。`:''}`};
 }
 
 export function advanceTurn(source) {

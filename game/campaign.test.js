@@ -27,7 +27,7 @@ test('剧情锁区、缺少凭据、顺序跳过、低气血失败都不修改�
  for(const place of ['river','quarry','ruins'])assert.throws(()=>travel(g,place),/主线/);
  assert.deepEqual(g,snapshot);g=travel(g,'qinglan');delete g.exploration.inventory.ascension_token;
  assert.throws(()=>act(g,'huangfeng_register'),/升仙令/);
- g=throughCampaign('enter_forbidden');assert.throws(()=>act(travel(g,'ruins'),'fight_mojiao'),/先完成/);
+ g=throughCampaign('survey_forbidden');assert.throws(()=>act(travel(g,'ruins'),'fight_mojiao'),/先完成/);
  g.player.hp=8;snapshot=structuredClone(g);assert.throws(()=>act(g,'gather_monkey_flower'),/气血/);assert.deepEqual(g,snapshot);
  assert.throws(()=>act(travel(g,'woods'),'breakthrough'),/离开血色禁地/);
 });
@@ -37,7 +37,7 @@ test('任务主药独立于普通灵草交易，有限采收、重复主药与�
  g=throughCampaign('gather_monkey_flower');const herbs=[...g.campaign.questHerbs];
  g=act(travel(g,'market'),'sell_herbs');assert.deepEqual(g.campaign.questHerbs,herbs);
  assert.throws(()=>act(travel(g,'quarry'),'gather_monkey_flower'),/已经完成/);
- g=throughCampaign('leave_forbidden');g.campaign.questHerbs.pop();const before=structuredClone(g);
+ g=throughCampaign('sort_trial_gains');g.campaign.questHerbs.pop();const before=structuredClone(g);
  assert.throws(()=>act(travel(g,'qinglan'),'deliver_spirit_herbs'),/主药/);assert.deepEqual(g,before);
 });
 test('坊市丹归他人仍可自行培药炼丹筑基；债务、原丹归属不变',()=>{
@@ -79,7 +79,7 @@ test('原著门派、境界和模型时段一致，主线界面不再显示原�
 test('模型只设计自行培药炼丹路线，且预览不写档、不替NPC决定未来',async()=>{
  const game=openingComplete(),before=structuredClone(game);
  const plan=actions=>({title:'禁地取种培药炼丹',rationale:'凭升仙令入谷，采药留种后自行培育炼丹。',risk:'禁地交锋会损失气血。',actions:actions.map(type=>({type}))});
- const preview=previewPlan(game,plan(CANON_ROUTE));assert.equal(preview.steps.length,9);assert.equal(preview.checkpoint.enemyId,'story_mojiao');assert.equal(preview.forecast.hp,84);assert.deepEqual(game,before);
+ const preview=previewPlan(game,plan(CANON_ROUTE));assert.equal(preview.steps.length,16);assert.equal(preview.checkpoint.enemyId,'story_mojiao');assert.equal(preview.forecast.hp,84);assert.deepEqual(game,before);
  let sent;const planner=createRoutePlanner({generate:async messages=>{sent=JSON.parse(messages[1].content);return {text:'主药须培育成熟后自行炼丹。',followUps:[],plans:[plan(CANON_ROUTE),{title:'卖草议价',rationale:'卖一株灵草后足够报价。',risk:'需要出售药草。',actions:[{type:'sell_herbs'},{type:'negotiate',offer:240,leverage:'none'}]}]};}});
  const reply=await planner.respond(game);assert.equal(reply.source,'model');assert.equal(reply.plans.length,1);assert.equal(sent.canon.source,'凡人修仙传');assert.deepEqual(game,before);
  const lost=structuredClone(game);lost.pill.owner='xu';assert.equal(previewPlan(lost,plan(CANON_ROUTE)).steps.at(-1).action.type,'fight_mojiao');

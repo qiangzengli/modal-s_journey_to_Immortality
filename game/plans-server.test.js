@@ -23,7 +23,7 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
     assert.equal(payload.model, 'gpt-5.6-sol');
     assert.equal(context.objective, '自行培药炼制一枚筑基丹');
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
-    const actions = [...(!context.facts.campaign.alchemy.harvested ? [{ type: 'harvest_pill_herbs' }] : []), { type: 'refine_foundation_pill' }];
+    const actions = [...(!context.facts.campaign.alchemy.harvested ? [{ type: 'harvest_pill_herbs' }] : []), ...(!context.facts.campaign.flags.prepare_alchemy ? [{ type: 'prepare_alchemy' }] : []), { type: 'refine_foundation_pill' }];
     sendModelReply(res, JSON.stringify({ text: '采收后自行炼制筑基丹。', followUps: [], plans: [{ title: '培药炼丹', rationale: '主药已培养成熟，采收后按丹方炼丹。', risk: '还需留意后续修炼的开销。', actions }] }));
   });
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
@@ -56,13 +56,15 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
     slow = false;
     assert.equal((await post('/api/plans', { expectedRevision: 0 })).status, 409);
     const next = await post('/api/plans', { expectedRevision: 1, preferredPlan: '培药炼丹' });
-    assert.equal(next.plans[0].steps.length, 1);
-    const won = await post('/api/action', { ...next.plans[0].steps[0].action, expectedRevision: 1 });
+    assert.equal(next.plans[0].steps.length, 2);
+    const prepared = await post('/api/action', { ...next.plans[0].steps[0].action, expectedRevision: 1 });
+    assert.equal(prepared.view.campaign.alternatePill, false);
+    const won = await post('/api/action', { ...next.plans[0].steps[1].action, expectedRevision: 2 });
     assert.equal(won.view.campaign.alternatePill, true); assert.equal(won.view.campaign.alchemy.crafted, 1);
     const before = calls;
-    const complete = await post('/api/plans', { expectedRevision: 2 });
+    const complete = await post('/api/plans', { expectedRevision: 3 });
     assert.equal(complete.reason, 'complete'); assert.deepEqual(complete.plans, []); assert.equal(calls, before);
-    assert.equal(JSON.parse(await readFile(savePath, 'utf8')).revision, 2);
+    assert.equal(JSON.parse(await readFile(savePath, 'utf8')).revision, 3);
   } finally {
     release?.(); const exited = once(child, 'exit'); child.kill(); await exited;
     model.closeAllConnections(); await new Promise(resolve => model.close(resolve));

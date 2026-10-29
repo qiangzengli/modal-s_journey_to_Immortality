@@ -59,18 +59,18 @@ test('银页支线可绕开；旧档已完成墨蛟不要求重打，未收取�
  assert.ok(getView(g).campaign.objectives.find(o=>o.type==='fight_swordsman').missed);assert.match(campaignMarkup(getView(g)),/本次试炼已错过/);
  assert.throws(()=>act(g,'sword_trace'),/试炼已经结束/);assert.ok(!getView(g).roamers.some(n=>n.id==='trial_swordsman'));
  delete g.exploration.enemies.story_mojiao;const before=structuredClone(g);assert.ok(!getView(g).roamers.some(n=>n.id==='story_mojiao'));assert.deepEqual(g,before);
- g=act(travel(g,'qinglan'),'deliver_spirit_herbs');assert.equal(g.campaign.alternatePill,false);assert.ok(g.campaign.storyFlags.deliver_spirit_herbs);
+ g=act(act(travel(g,'qinglan'),'sort_trial_gains'),'deliver_spirit_herbs');assert.equal(g.campaign.alternatePill,false);assert.ok(g.campaign.storyFlags.deliver_spirit_herbs);
  g=fightToWin(startSword());g=combatAction(g,{type:'leave'}).game;
- for(const [place,type] of [['quarry','gather_monkey_flower'],['quarry','gather_jade_mushroom'],['ruins','meet_nangong'],['ruins','fight_mojiao']]){g=travel(g,place);if(type==='fight_mojiao')while(g.player.hp<90)g=act(g,'frontier_rest');g=act(g,type);if(g.exploration.battle)g=winOpeningFight(g);}
+ for(const [place,type] of [['quarry','survey_forbidden'],['quarry','gather_monkey_flower'],['quarry','gather_jade_mushroom'],['ruins','read_stone_gate'],['ruins','meet_nangong'],['ruins','fight_mojiao']]){g=travel(g,place);if(type==='fight_mojiao')while(g.player.hp<90)g=act(g,'frontier_rest');g=act(g,type);if(g.exploration.battle)g=winOpeningFight(g);}
  g=act(g,'leave_forbidden');assert.throws(()=>combatAction(g,{type:'claim',enemyId:'trial_swordsman'}),/试炼已经结束/);assert.equal(g.exploration.inventory.silver_page,undefined);
 });
 
 test('已拿银页可出禁地后研究、筑基拜师后参悟，不凭空加修为或吞掉书页',()=>{
  let g=winOpeningFight(startSword());
  assert.throws(()=>act(travel(g,'river'),'examine_silver_page'),/先完成/);
- for(const [place,type] of [['quarry','gather_monkey_flower'],['quarry','gather_jade_mushroom'],['ruins','meet_nangong'],['ruins','fight_mojiao']]){g=travel(g,place);if(type==='fight_mojiao')while(g.player.hp<90)g=act(g,'frontier_rest');g=act(g,type);if(g.exploration.battle)g=winOpeningFight(g);}
+ for(const [place,type] of [['quarry','survey_forbidden'],['quarry','gather_monkey_flower'],['quarry','gather_jade_mushroom'],['ruins','read_stone_gate'],['ruins','meet_nangong'],['ruins','fight_mojiao']]){g=travel(g,place);if(type==='fight_mojiao')while(g.player.hp<90)g=act(g,'frontier_rest');g=act(g,type);if(g.exploration.battle)g=winOpeningFight(g);}
  g=act(g,'leave_forbidden');g=act(travel(g,'river'),'examine_silver_page');
- g=act(travel(g,'qinglan'),'deliver_spirit_herbs');g=act(travel(g,'river'),'plant_pill_herbs');g=advanceTurn(advanceTurn(g).game).game;g=act(act(g,'harvest_pill_herbs'),'refine_foundation_pill');g=travel(g,'woods');while(g.player.hp<60)g=act(g,'rest');g=act(g,'breakthrough');g=act(travel(g,'qinglan'),'take_master');
+ g=act(act(travel(g,'qinglan'),'sort_trial_gains'),'deliver_spirit_herbs');g=act(travel(g,'river'),'plant_pill_herbs');g=advanceTurn(advanceTurn(g).game).game;g=act(act(act(g,'harvest_pill_herbs'),'prepare_alchemy'),'refine_foundation_pill');g=travel(g,'woods');while(g.player.hp<60)g=act(g,'rest');g=act(g,'breakthrough');g=act(travel(g,'qinglan'),'take_master');
  assert.throws(()=>act(g,'compare_sword_pages'),/先在行囊/);g=inventoryAction(g,{type:'learn',itemId:'wind_manual'}).game;
  const realm=getView(g).world.realm,missing=structuredClone(g);delete missing.exploration.inventory.silver_page;
  assert.throws(()=>act(missing,'compare_sword_pages'),/行囊/);
@@ -85,6 +85,6 @@ test('取丹规划不能把可选银页斗法冒充必要战斗；墨蛟前暂�
  const g=atTrial(),before=structuredClone(g);
  const plan=actions=>({title:'取丹准备',rationale:'依据现有经历准备。',risk:'实际斗法可能失利。',actions:actions.map(type=>({type}))});
  assert.throws(()=>previewPlan(g,plan(['sword_trace','fight_swordsman'])),/不是取丹前置/);
- const preview=previewPlan(g,plan(['gather_monkey_flower','gather_jade_mushroom','meet_nangong','fight_mojiao','leave_forbidden','deliver_spirit_herbs']));
+ const preview=previewPlan(g,plan(['survey_forbidden','gather_monkey_flower','gather_jade_mushroom','read_stone_gate','meet_nangong','fight_mojiao','leave_forbidden','deliver_spirit_herbs']));
  assert.equal(preview.checkpoint.name,'墨蛟');assert.equal(preview.steps.at(-1).action.type,'fight_mojiao');assert.equal(preview.forecast.hp,g.player.hp-16);assert.deepEqual(g,before);
 });

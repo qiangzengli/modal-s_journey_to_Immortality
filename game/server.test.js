@@ -125,6 +125,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal((await action({type:'travel_region',place:'jinhuo'})).status,400);
     assert.equal((await action({type:'travel_region',place:'qinglan'})).status,200);
     assert.equal((await action({type:'huangfeng_register'})).status,200);
+    assert.equal((await action({type:'learn_valley_rules',approach:'rules'})).status,200);
     assert.equal((await action({type:'travel_region',place:'river'})).status,200);
     const evidence=await action({type:'garden_duty'});assert.ok(evidence.view.campaign.flags.garden_duty);
     const herbs=await action({type:'gather_reeds'});assert.equal(herbs.view.player.herbs,5);

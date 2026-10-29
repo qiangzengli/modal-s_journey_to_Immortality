@@ -7,9 +7,10 @@ export const CULTIVATION_REALMS = [
 export function cultivationRealm(game) {
   if(game.flags?.playerBreakthrough)return '筑基初期';
   if(game.campaign?.storyFlags?.garden_cultivate)return '炼气十一层';
+  if(game.campaign?.storyFlags?.garden_first_retreat)return '炼气十层';
   const f=game.volume?.flags;
   if(!f)return '炼气九层';
-  return f.enter_xianmen?'炼气九层':f.confront_mo?'炼气四层':f.study_changchun?'炼气一层':'凡人';
+  return f.enter_xianmen||f.prepare_departure?'炼气九层':f.confront_mo||f.cultivate_changchun?'炼气四层':f.study_changchun?'炼气一层':'凡人';
 }
 export function canonContext(game) {
   return {source:'凡人修仙传',protagonist:'韩立',realm:cultivationRealm(game),

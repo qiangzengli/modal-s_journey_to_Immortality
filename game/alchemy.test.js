@@ -56,6 +56,7 @@ test('必须用自行成熟采收的主药炼制；一批一丹、突破只消�
   game = act(game, 'harvest_pill_herbs');
   assert.equal(game.campaign.alchemy.harvested, true);
   assert.throws(() => act(game, 'harvest_pill_herbs'), /已经完成/);
+  game = act(game, 'prepare_alchemy');
   game = applyAction(game, { type: 'refine_foundation_pill', quantity: 999 }).game;
   assert.equal(game.campaign.alchemy.crafted, 1);
   assert.equal(game.campaign.alchemy.harvested, false);
@@ -96,7 +97,7 @@ test('自然语言和界面反映真实培药状态，查看不产生生长或�
 test('旧档持丹进入禁地后仍显示未完成试炼，携药离开后可继续筑基', () => {
   const old = openingComplete(); old.pill.owner = 'player';
   const inside = throughCampaign('enter_forbidden', old), view = getView(inside);
-  assert.equal(view.campaign.next.type, 'gather_monkey_flower');
+  assert.equal(view.campaign.next.type, 'survey_forbidden');
   assert.equal(view.campaign.objectives.find(o => o.type === 'leave_forbidden').skipped, false);
   assert.throws(() => act(travel(inside, 'woods'), 'breakthrough'), /离开血色禁地/);
   let returned = travel(throughCampaign('leave_forbidden', old), 'woods');

@@ -64,6 +64,13 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
  $('[data-campaign-action="harvest_pill_herbs"]').click();await setImmediate();
  assert.equal(game.campaign.alchemy.harvested,true);
  $('[data-open-panel="campaign"]').click();await setImmediate();
+ $('[data-campaign-action="prepare_alchemy"]').click();await setImmediate();
+ assert.equal($('#story-scene').open,true);
+ assert.equal(game.campaign.storyFlags.prepare_alchemy,undefined);
+ $('[data-story-choice="furnace"]').click();$('#story-scene-confirm').click();await setImmediate();
+ assert.ok(game.campaign.storyFlags.prepare_alchemy);
+ assert.equal(actions.at(-1).approach,'furnace');
+ $('[data-open-panel="campaign"]').click();await setImmediate();
  $('[data-campaign-action="refine_foundation_pill"]').click();await setImmediate();
  assert.equal(game.campaign.alternatePill,true);assert.equal(game.campaign.alchemy.crafted,1);
 });

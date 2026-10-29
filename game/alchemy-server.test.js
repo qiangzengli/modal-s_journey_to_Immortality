@@ -44,6 +44,8 @@ test('主药培养中途重启保留进度，炼丹原子落盘且拒绝过期�
     assert.equal(view.campaign.alchemy.ready, true);
     response = await post('/api/action', { type: 'harvest_pill_herbs' }); assert.equal(response.status, 200); view = response.view;
     const harvestRevision = view.revision;
+    response = await post('/api/action', { type: 'prepare_alchemy', approach: 'furnace' }); assert.equal(response.status, 200); view = response.view;
+    assert.equal(view.campaign.decisions.at(-1).approach, 'furnace');
     response = await post('/api/action', { type: 'refine_foundation_pill', quantity: 99 }); assert.equal(response.status, 200); view = response.view;
     assert.equal(view.campaign.alternatePill, true); assert.equal(view.campaign.alchemy.crafted, 1);
     assert.equal((await post('/api/action', { type: 'refine_foundation_pill', expectedRevision: harvestRevision })).status, 409);

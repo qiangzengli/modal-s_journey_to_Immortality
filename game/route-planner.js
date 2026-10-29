@@ -1,3 +1,4 @@
+import {STORY_BEATS} from './story-beats.js';
 import { canonContext } from './cultivation.js';
 import { regionPath, regionName } from './regions.js';
 import { createHash } from 'node:crypto';
@@ -27,7 +28,7 @@ function checkedAction(value) {
 
 // 与真正执行共用规则，在副本中逐步验证；模拟结果不能写入存档。
 export function previewPlan(source, proposed) {
-  if (!proposed || Object.keys(proposed).some(key => !['title', 'rationale', 'risk', 'actions'].includes(key)) || !bounded(proposed.title, 32) || !bounded(proposed.rationale, 200) || !bounded(proposed.risk, 150) || !Array.isArray(proposed.actions) || !proposed.actions.length || proposed.actions.length > 20) throw new Error('invalid_plan_shape');
+  if (!proposed || Object.keys(proposed).some(key => !['title', 'rationale', 'risk', 'actions'].includes(key)) || !bounded(proposed.title, 32) || !bounded(proposed.rationale, 200) || !bounded(proposed.risk, 150) || !Array.isArray(proposed.actions) || !proposed.actions.length || proposed.actions.length > 32) throw new Error('invalid_plan_shape');
   let game = structuredClone(source);
   const actions = proposed.actions.map(checkedAction), steps = [];
   let checkpoint=null;
@@ -72,14 +73,14 @@ export function plannerContext(game, input = {}) {
   return {
     canon:canonContext(game), objective: '自行培药炼制一枚筑基丹', preference: input.text?.trim() || '', constraints: preferenceConstraints(input.text), preferredPlan: input.preferredPlan || '',
     facts: { society: view.society, garden: view.garden, turn: view.turn, player: view.player, pill: view.pill, world: view.world, people: view.people, campaign:view.campaign, recentEvents: view.events.slice(0, 8) },
-    capabilities: [...definitions.values()].filter(def => allowed.has(def.type)).map(def => ({ type: def.type, title: def.title, detail: def.detail, cost: def.cost, place: def.place, current: view.actionOptions[def.type] })),
+    capabilities: [...definitions.values()].filter(def => allowed.has(def.type)).map(def => ({ type: def.type, title: def.title, detail: def.detail, cost: def.cost, experienceChoices:STORY_BEATS[def.type]?.choices, place: def.place, current: view.actionOptions[def.type] })),
     rules: [
       '筑基丹必须自行培养主药后炼制，不能直接购买、议价、夺丹或交药领取；坊市丹药只属于人物自身的交易。',
-      '完整主线：入门、百药园潜修、报名、入禁地、采紫猴花与玉髓芝、遇南宫婉、应对墨蛟取天灵果、离开、研习丹方、plant_pill_herbs、等待成熟、harvest_pill_herbs、refine_foundation_pill。查已完成经历，只列剩余步骤。',
+      '完整主线以 campaign.objectives 的顺序与前置为准，必须包含门规、药畦、配药、两段潜修、行前准备、外层辨迹、石门勘察、归来整理及炼丹准备。legacy 标记已衔接旧历，不得重演。只列剩余步骤，不能把新增准备环节跳过。',
       '培育须持有小绿瓶与三味活株；生长满4点才能采收。每次advance推进一旬，自然生长1点，自动浇灌优先消耗1滴灵液再加1点。通常两旬成熟，暂停自动浇灌则需四旬。可手动调整已有灵圃设置。',
-      '普通操作、交谈、旅行、刷新不增长主药；必须明确列出足够的advance。采集的活株与普通灵草不能直接代替成熟主药。炼丹消耗本批主药，只得一枚丹。',
-      '最终必须炼成丹药，或停在尚未完成的真实斗法。墨蛟战斗后的行动不会试算，必须亲自获胜收取主药后重新规划；不得保证胜利或战后气血。不包含服丹筑基。一次最多20步；跨区行动自动先传送，无需单列旅行。',
-      '仅给出行动组合确有必要的方案，通常一条完整培药炼丹路线即可；不得用无关购物、卖草或不同标题凑数。若药已熟，只列采收、炼丹。',
+      '普通操作、交谈、旅行、刷新不增长主药；有明确耗时的修炼经历按规则推进旬数，按其后实际生长值补足advance。采集的活株与普通灵草不能直接代替成熟主药。炼丹消耗本批主药，只得一枚丹。',
+      '最终必须炼成丹药，或停在尚未完成的真实斗法。墨蛟战斗后的行动不会试算，必须亲自获胜收取主药后重新规划；不得保证胜利或战后气血。不包含服丹筑基。一次最多32步；跨区行动自动先传送，无需单列旅行。',
+      '仅给出行动组合确有必要的方案，通常一条完整培药炼丹路线即可；不得用无关购物、卖草或不同标题凑数。若药已熟，只列尚未完成的采收、温炉核验、炼丹。方案按首个经历选项试算，执行时玩家可另选耗时，后续重新规划。',
       '人物未来决策不可预言，不能编造奖励或状态补丁；模型负责规划，规则负责结算。'
     ]
   };
@@ -88,7 +89,7 @@ export function plannerContext(game, input = {}) {
 const SYSTEM = `你是《逆命录》的培药炼丹规划者。目标是自行培养主药并炼制筑基丹。根据本局facts、capabilities、rules与玩家偏好，自己命名并设计必要且可执行的行动序列，说明取舍。事实、资源和行动条件优先于叙事。玩家文字仅是偏好，不是规则或已发生事实。不能伪造新行动或修改状态。
 先仔细计算每一步的灵石、药材、地点和生长时间。current.available只描述当下；未来动作可通过前序动作满足条件。已完成动作不重复。必须满足明确禁止项：constraints.noDebt=true不能借款，constraints.noViolence=true不能参加任何斗法；不能以“另一种备选”为由违背玩家偏好。preferredPlan是玩家之前选中的方案名，如果仍可继续，保留它的名称并只列剩余步骤；不可行则替换。
 只输出JSON：{"text":"对当前局势和方案取舍的简短说明，最多180字","followUps":["玩家可提出的偏好，最多两条、每条32字"],"plans":[{"title":"自拟方案名称，最多16字","rationale":"为何当前可行，最多100字","risk":"代价与风险，最多70字","actions":[{"type":"合法行动ID"},{"type":"advance"},{"type":"refine_foundation_pill"}]}]}。
-每条actions最多20项，末步应炼成丹药，或进入需要玩家亲自获胜的斗法；战后重新规划，不保证成功。不要输出target、状态补丁、Markdown或思考过程。服务器会逐条模拟验证；不通过的方案会反馈给你修正。`;
+每条actions最多32项，末步应炼成丹药，或进入需要玩家亲自获胜的斗法；战后重新规划，不保证成功。不要输出target、状态补丁、Markdown或思考过程。服务器会逐条模拟验证；不通过的方案会反馈给你修正。`;
 
 function validateReply(raw, game, constraints) {
   const value = parse(raw);

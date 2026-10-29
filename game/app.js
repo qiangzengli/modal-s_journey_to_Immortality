@@ -1,4 +1,6 @@
 import { gameRequest } from './api-client.js';
+import {STORY_BEATS} from './story-beats.js';
+import {createStorySceneUI} from './story-scene-ui.js';
 import { createExperienceUI } from './experience-ui.js';
 import { createStateLoader } from './state-loader.js';
 import { createSectUI, affiliationText } from './sect-ui.js';
@@ -42,6 +44,7 @@ let campaignUI;
 let sectUI;
 let experience;
 let loadState;
+let storyScene;
 function actionTarget(action, view=current) {
   if(action.type==='ask')return action.target;
   if(view?.story&&defs[action.type]?.garden)return 'valley_bottle';
@@ -269,6 +272,17 @@ async function executeAction(action) {
   const target=actionTarget(action);
   if(!target){notice('这项行动暂时没有对应的地图目标。',true);return false;}
   if(!await world.goTo(target))return false;
+  if(STORY_BEATS[action.type]){
+    const decision=await storyScene.choose(defs[action.type]);
+    if(!decision)return false;
+    if(decision.talk){
+      if(decision.person&&current.people.some(p=>p.id===decision.person)){
+        if(await navigate(decision.person))agentUI.talk(decision.question);
+      }else await submitCommand(decision.question);
+      return false;
+    }
+    action={...action,approach:decision.approach};
+  }
   if(['restore_flow','lease_core','seal_core'].includes(action.type)&&!await experience.confirm({title:defs[action.type].title,text:`${defs[action.type].detail}。\n代价：${defs[action.type].cost}。\n这项抉择只能作出一次。`,action:'确认抉择'}))return false;
   return call('/api/action',action);
 }
@@ -345,6 +359,7 @@ function render(view, modelName) {
   societyUI?.render();
   $('#command').disabled=Boolean(view.battle);
   experience?.sync();
+  storyScene?.sync();
 }
 function feedback(before,after) {
   const labels={stones:'灵石',hp:'气血',herbs:'灵草',talismans:'天雷符',reputation:'声望',seal:'鉴定印'};
@@ -468,5 +483,6 @@ experience=createExperienceUI({
   cancelNavigation:()=>{cancelPendingCommand();world.cancel();},
   retryLoad:()=>loadState(),stopMovement:()=>world.stopMovement()
 });
+storyScene=createStorySceneUI({getState:()=>current,onSurfaceChange:()=>experience.sync(),stopMovement:()=>world.stopMovement(),notice});
 loadState=createStateLoader({onStatus:(status,message)=>experience.connection(status,message),onLoad:data=>render(data.view,data.modelName)});
 await loadState();
