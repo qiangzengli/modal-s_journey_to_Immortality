@@ -61,7 +61,7 @@ test('成熟后只需采收炼制；已得丹、旧档与离线不虚构方案',
   const planner=createRoutePlanner({generate:async()=>response([proposal('采收炼制',['harvest_pill_herbs','prepare_alchemy','refine_foundation_pill'])])});
   const reply=await planner.respond(game);assert.equal(reply.plans[0].steps.length,3);
   game=applyAction(game,action('harvest_pill_herbs')).game;
-  game=applyAction(game,action('prepare_alchemy')).game;
+  game=applyAction(game,{type:'prepare_alchemy',approach:'sequence'}).game;
   game=applyAction(game,action('refine_foundation_pill')).game;
   assert.equal((await planner.respond(game)).reason,'complete');
   const old=openingComplete();old.pill.owner='player';assert.equal((await planner.respond(old)).reason,'complete');

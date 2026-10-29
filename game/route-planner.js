@@ -40,7 +40,7 @@ export function previewPlan(source, proposed) {
     const place = def?.place;
     const travel = action.type.startsWith('travel_');
     if (place && !travel && game.player.place !== place) for(const next of regionPath(game.player.place,place))game=applyAction(game,{type:'travel_region',place:next}).game;
-    const outcome = action.type === 'advance' ? advanceTurn(game) : applyAction(game, action);
+    const outcome = action.type === 'advance' ? advanceTurn(game) : applyAction(game, {...action,...(STORY_BEATS[action.type]?{approach:STORY_BEATS[action.type].choices[0].id}:{})});
     game = outcome.game;
     steps.push({
       action, target, encounter:game.exploration?.battle?.status==='active' ? def?.encounter||null : null,

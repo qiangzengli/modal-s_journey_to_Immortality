@@ -1,8 +1,9 @@
+import {STORY_BEATS} from './story-beats.js';
 import {VOLUME_ACTIONS} from './volume-data.js';
 import {ACTION_DEFS} from './content.js';
 import {combatAction} from './combat.js';
 import {createOpeningGame,applyAction,getView,advanceTurn} from './engine.js';
-export const act=(g,type)=>applyAction(g,{type}).game;
+export const act=(g,type)=>applyAction(g,{type,...(STORY_BEATS[type]?{approach:STORY_BEATS[type].choices[0].id}:{})}).game;
 export const travel=(g,place)=>g.player.place===place?g:applyAction(g,{type:'travel_region',place}).game;
 export function throughOpening(end='enter_xianmen'){
   let g=createOpeningGame();

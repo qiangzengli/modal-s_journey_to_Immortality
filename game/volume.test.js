@@ -1,4 +1,4 @@
-import {winOpeningFight} from './canon-test-helpers.js';
+import {winOpeningFight,act} from './canon-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame,createOpeningGame,applyAction,getView,advanceTurn,parseLocal } from './engine.js';
@@ -10,7 +10,6 @@ import { inventoryAction } from './combat.js';
 import { createVolumeWorld,volumeWalkable,VOLUME_BLOCKERS } from './volume-world.js';
 import { travelAccess } from './regions.js';
 import * as THREE from 'three';
-const act=(g,type)=>applyAction(g,{type}).game;
 const travel=(g,place)=>g.player.place===place?g:applyAction(g,{type:'travel_region',place}).game;
 function through(end,{side=false}={}){
  let g=createOpeningGame();

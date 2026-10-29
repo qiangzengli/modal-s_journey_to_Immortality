@@ -111,7 +111,7 @@ export function applyAction(source, action) {
   game.ap = null;
   const type = action.type;
   const beat=STORY_BEATS[type];
-  if(action.approach!==undefined&&(!beat||!beat.choices.some(choice=>choice.id===action.approach)))throw new GameError('请选择这段经历中可用的做法。');
+  if((beat&&!beat.choices.some(choice=>choice.id===action.approach))||(!beat&&action.approach!==undefined))throw new GameError('请选择这段经历中可用的做法。');
   const target = action.target;
   const participant = ACTION_DEFS.find(def => def.type === type)?.person;
   if (participant && type !== 'buy_pill' && game.people[participant]?.place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
@@ -303,7 +303,7 @@ export function applyAction(source, action) {
 function settleStoryAction(game,definition,action,apply) {
   const result=apply(game,action.type),beat=STORY_BEATS[action.type];
   if(!beat)return {game,result};
-  const choice=beat.choices.find(choice=>choice.id===action.approach)||beat.choices[0];
+  const choice=beat.choices.find(choice=>choice.id===action.approach);
   const scope=definition.volume?'volume':'campaign',startedTurn=game.turn;
   const flag=game[scope][scope==='volume'?'flags':'storyFlags'][action.type];
   const event=game.events.find(event=>event.id===flag);
@@ -385,7 +385,7 @@ export function getView(game) {
     world: { herbsRemaining: Math.max(0, 2 - game.flags.herbGathered), trapReady: Boolean(game.flags.trap), meetingPlanned: Boolean(game.flags.lured), reportFiled: Boolean(game.flags.report), partnered: Boolean(game.flags.partnerEvent), breakthrough: Boolean(game.flags.playerBreakthrough), realm: cultivationRealm(game) },
     actionOptions: Object.fromEntries(ACTION_DEFS.map(def => {
       try {
-        const after = applyAction(game, { type: def.type }).game;
+        const after = applyAction(game, { type: def.type, ...(STORY_BEATS[def.type]?{approach:STORY_BEATS[def.type].choices[0].id}:{}) }).game;
         const delta = Object.fromEntries(['stones', 'hp', 'herbs', 'talismans', 'reputation', 'seal'].map(key => [key, after.player[key] - game.player[key]]).filter(([,value]) => value));
         return [def.type, { available: true, reason: '', delta }];
       } catch (error) {

@@ -12,6 +12,7 @@ test('经历选择真实结算时间、灵圃和约定，非法/重复选择不�
   source.society.offers.push({id:'pacing',npcId:'modafu',title:'旧约',status:'accepted',expires:source.turn+4,reward:9});
   const before=structuredClone(source);
   assert.throws(()=>applyAction(source,{type:'cultivate_changchun',approach:'grant_reward'}),/可用的做法/);
+  assert.throws(()=>applyAction(source,{type:'cultivate_changchun'}),/请选择/);
   assert.deepEqual(source,before);
   for(const [approach,turns]of [['patient',6],['secluded',3]]){
     const result=applyAction(source,{type:'cultivate_changchun',approach}).game;
@@ -43,6 +44,9 @@ test('取舍进入对应人物记忆，秘密选择不注入其他人物上下�
   assert.ok(!dialogue.facts.pastChoices.some(d=>d.type==='observe_bottle'));
   assert.doesNotMatch(JSON.stringify(dialogue),/保留了一份秘密观察记录/);
   assert.equal(dialogue.facts.currentExperience,null);
+  const garden=throughCampaign('garden_duty'),inspected=act(garden,'inspect_garden');
+  assert.equal(inspected.people.bai.trust,garden.people.bai.trust);
+  assert.deepEqual(inspected.society.minds.bai.memories,garden.society.minds.bai.memories);
   const later=throughOpening();later.player.place='jiayuan';
   const reunion=agentContext(getView(later),{mode:'dialogue',personId:'mocaihuan',text:'还记得我来墨府的时候吗？'});
   assert.ok(reunion.facts.pastChoices.some(d=>d.type==='inquire_mofu'));

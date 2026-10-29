@@ -1,3 +1,4 @@
+import {STORY_BEATS} from './story-beats.js';
 import {openingMove} from './canon-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -26,7 +27,13 @@ test('第一卷 API：新档、全主线落盘、过期请求拒绝、重启恢�
   assert.equal((await post('/api/action',{type:'travel_region',place:'market',expectedRevision:view.revision})).status,400);
   for(const action of VOLUME_ACTIONS.filter(a=>!a.optional&&!a.repeatable)){
    if(view.player.place!==action.place){const r=await post('/api/action',{type:'travel_region',place:action.place,expectedRevision:view.revision});assert.equal(r.status,200,r.error);view=r.view;}
-   const result=await post('/api/action',{type:action.type,expectedRevision:view.revision});assert.equal(result.status,200,result.error);view=result.view;
+   if(STORY_BEATS[action.type]){
+    const original=await readFile(savePath,'utf8');
+    assert.equal((await post('/api/action',{type:action.type,expectedRevision:view.revision})).status,400);
+    assert.equal((await post('/api/command',{text:action.title,expectedRevision:view.revision})).status,400);
+    assert.equal(await readFile(savePath,'utf8'),original);
+   }
+   const result=await post('/api/action',{type:action.type,...(STORY_BEATS[action.type]?{approach:STORY_BEATS[action.type].choices[0].id}:{}),expectedRevision:view.revision});assert.equal(result.status,200,result.error);view=result.view;
    if(view.battle){
     for(let round=0;view.battle.status==='active'&&round<50;round++){
      const turn=await post('/api/combat',{...openingMove(view),expectedRevision:view.revision});assert.equal(turn.status,200,turn.error);view=turn.view;

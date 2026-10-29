@@ -57,7 +57,7 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
     assert.equal((await post('/api/plans', { expectedRevision: 0 })).status, 409);
     const next = await post('/api/plans', { expectedRevision: 1, preferredPlan: '培药炼丹' });
     assert.equal(next.plans[0].steps.length, 2);
-    const prepared = await post('/api/action', { ...next.plans[0].steps[0].action, expectedRevision: 1 });
+    const prepared = await post('/api/action', { ...next.plans[0].steps[0].action, approach:'sequence', expectedRevision: 1 });
     assert.equal(prepared.view.campaign.alternatePill, false);
     const won = await post('/api/action', { ...next.plans[0].steps[1].action, expectedRevision: 2 });
     assert.equal(won.view.campaign.alternatePill, true); assert.equal(won.view.campaign.alchemy.crafted, 1);
