@@ -53,7 +53,7 @@ export function combatAction(source, input, random = Math.random) {
   if (input.type === 'leave') {
     if (!battle || battle.status === 'active') throw new GameError('斗法中只能通过逃跑脱身。');
     state.battle = null;
-    return { game, result: battle.status === 'won' ? (enemyById(battle.enemyId).reward?'天灵果留在石殿，可以回来收取。':'储物袋留在原处，可以随时回来拾取。') : '重新踏上山道。可先服丹或到附近静地调息。' };
+    return { game, result: battle.status === 'won' ? (enemyById(battle.enemyId).reward?'天灵果留在石殿，可以回来收取。':enemyById(battle.enemyId).campaign?'储物袋留在原处，须在携药离开禁地前回来拾取。':'储物袋留在原处，可以随时回来拾取。') : '重新踏上山道。可先服丹或到附近静地调息。' };
   }
   if (input.type === 'claim') {
     assertPeace(game);
