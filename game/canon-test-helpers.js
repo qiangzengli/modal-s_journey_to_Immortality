@@ -12,7 +12,7 @@ export const CANON_ROUTE=['huangfeng_register','garden_duty','garden_cultivate',
 const places=['qinglan','river','river','qinglan','quarry','quarry','quarry','ruins','ruins','ruins','qinglan'];
 export function throughCampaign(end='deliver_spirit_herbs',source=openingComplete()){
   let g=source;
-  for(let i=0;i<CANON_ROUTE.length;i++){g=act(travel(g,places[i]),CANON_ROUTE[i]);if(CANON_ROUTE[i]===end)break;}
+  for(let i=0;i<CANON_ROUTE.length;i++){g=act(travel(g,places[i]),CANON_ROUTE[i]);if(g.exploration.battle)g=winOpeningFight(g);if(CANON_ROUTE[i]===end)break;}
   return g;
 }
 

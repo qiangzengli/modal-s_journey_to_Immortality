@@ -49,7 +49,7 @@ export function createFrontier(scene, targets, helpers) {
     if(id==='spring')for(let i=0;i<5;i++)put(root,new THREE.ConeGeometry(.18,.7,5),material(0xa2bf86),Math.cos(i)*.8,.4,Math.sin(i)*.8);
   }
   return {
-    sync(view){const restored=view.campaign?.flags.garden_cultivate;water.material.color.setHex(restored?0x6bcbbe:0x4f96a3);for(const [id,mesh]of Object.entries(indicators))mesh.material.color.setHex(view.campaign?.objectives.some(o=>o.target===id&&o.done)?0xa8c78c:0x9caa96);},
+    sync(view){fruit.visible=!view.campaign?.flags.fight_mojiao;const restored=view.campaign?.flags.garden_cultivate;water.material.color.setHex(restored?0x6bcbbe:0x4f96a3);for(const [id,mesh]of Object.entries(indicators))mesh.material.color.setHex(view.campaign?.objectives.some(o=>o.target===id&&o.done)?0xa8c78c:0x9caa96);},
     update(time){for(let i=0;i<luminous.length;i++){luminous[i].rotation.y=time*(.15+i*.04);if(!i)luminous[i].position.y=1.6+Math.sin(time)*.16;}}
   };
 }

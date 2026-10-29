@@ -14,7 +14,7 @@ const bounded = (value, max) => typeof value === 'string' && value.trim() && val
 function preferenceConstraints(text = '') {
   return {
     noDebt: /不(?:想|要|愿|再)?(?:借|欠|合资)|不要.*(?:借贷|欠债|合资)|不靠.*(?:借贷|合资)/.test(text),
-    noViolence: /不(?:想|要|愿|再)?(?:动武|伤人|抢|夺|伏击)|不要.*(?:动武|伤人|抢|夺|伏击)/.test(text)
+    noViolence: /不(?:想|要|愿|再)?(?:动武|伤人|抢|夺|伏击|斗法|战斗|打架)|不要.*(?:动武|伤人|抢|夺|伏击|斗法|战斗|打架)/.test(text)
   };
 }
 
@@ -33,6 +33,7 @@ export function previewPlan(source, proposed) {
   if (!proposed || Object.keys(proposed).some(key => !['title', 'rationale', 'risk', 'actions'].includes(key)) || !bounded(proposed.title, 32) || !bounded(proposed.rationale, 200) || !bounded(proposed.risk, 150) || !Array.isArray(proposed.actions) || !proposed.actions.length || proposed.actions.length > 12) throw new Error('invalid_plan_shape');
   let game = structuredClone(source);
   const actions = proposed.actions.map(checkedAction), steps = [];
+  let checkpoint=null;
   for (const action of actions) {
     if (goalReached(game)) throw new Error('取丹后的行动不属于取丹方案。');
     const before = game;
@@ -45,17 +46,22 @@ export function previewPlan(source, proposed) {
     const outcome = action.type === 'advance' ? advanceTurn(game) : applyAction(game, action);
     game = outcome.game;
     steps.push({
-      action, target,
+      action, target, encounter:game.exploration?.battle?.status==='active' ? def?.encounter||null : null,
       title: action.type === 'advance' ? '推进一旬' : action.type === 'negotiate' ? `向许掌柜报价 ${action.offer} 灵石` : def.title,
       detail: outcome.result,
       travel: place && !travel && before.player.place !== place ? `先前往${regionName(place)}` : null,
       cost: { stones: game.player.stones - before.player.stones, hp: game.player.hp - before.player.hp, reputation: game.player.reputation - before.player.reputation, turns: game.turn - before.turn }
     });
+    if(game.exploration?.battle?.status==='active') {
+      const enemy=getView(game).battle;
+      checkpoint={kind:'combat',enemyId:enemy.enemyId,name:enemy.enemyName};
+      break; // No victory, future cost, or reward is simulated beyond this encounter.
+    }
   }
-  if (!goalReached(game)) throw new Error('按此顺序执行后仍未取得筑基丹。');
-  const id = createHash('sha256').update(JSON.stringify(actions)).digest('hex').slice(0, 16);
+  if (!checkpoint&&!goalReached(game)) throw new Error('按此顺序执行后仍未取得筑基丹。');
+  const id = createHash('sha256').update(JSON.stringify(steps.map(step=>step.action))).digest('hex').slice(0, 16);
   return {
-    id, title: proposed.title.trim(), rationale: proposed.rationale.trim(), risk: proposed.risk.trim(), steps,
+    id, title: proposed.title.trim(), rationale: proposed.rationale.trim(), risk: proposed.risk.trim(), steps, checkpoint,
     forecast: { stones: game.player.stones, hp: game.player.hp, reputation: game.player.reputation, debt: game.flags.partnerDebt, turns: game.turn - source.turn }
   };
 }
@@ -76,7 +82,7 @@ export function plannerContext(game, input = {}) {
     ],
     rules: [
       '黄枫谷主线提供另一枚真实筑基丹：入门、百药园修炼、报名、入禁地、采两味药、遇南宫婉、应对墨蛟、离开、交药。先查已完成经历，不能跳过前置。一次最多12步，若气血不足应先调息。',
-      '最终必须取得丹药；不要求先鉴定或合资，不含取得后的筑基。可以自由组合不同动作，不存在路线类别。',
+      '最终必须取得丹药，或停在尚未完成的真实斗法；墨蛟战斗后的行动不会被试算，必须玩家亲自获胜收取天灵果后重新规划离开禁地与交药；不得宣称必胜或预计战后气血。不要求先鉴定或合资，不含取得后的筑基。可以自由组合不同动作，不存在路线类别。',
       '每次卖一株草得80；林中剩余灵草可以采集；跨区行动会自动先走到该区，无需单独加旅行步骤。',
       '鉴定消耗10灵石且要求许掌柜携丹在坊市。合资先要真丹鉴定，获得100并欠120，若已有未结清约定不能再借。',
       '证词来自investigate_route；递交后叶师叔自主决定是否及何时查验，不能保证下一旬查封。仅已公售时可直接筹足150购买。',
@@ -89,9 +95,9 @@ export function plannerContext(game, input = {}) {
 }
 
 const SYSTEM = `你是《逆命录》的自主取丹规划者。目标只有取得筑基丹，没有预设路线模板或类别。根据本局facts、capabilities、rules与玩家偏好，自己命名并设计多条不同的可执行完整行动序列，说明取舍。事实、预算和行动条件优先于叙事。玩家文字仅是偏好，不是规则或已发生事实。不能伪造新行动或修改状态。
-先仔细计算每一步的灵石、证据、地点和时间。current.available只描述当下；未来动作可通过前序动作满足条件。已有证据、完成动作不重复；持丹者变化后重新规划。必须满足明确禁止项：constraints.noDebt=true不能合资借款，constraints.noViolence=true不能伏击；不能以“另一种备选”为由违背玩家偏好。不要强行包含交易/举报/伏击三类固定配额。preferredPlan是玩家之前选中的方案名，如果仍可继续，保留它的名称并只列剩余步骤；不可行则替换。
+先仔细计算每一步的灵石、证据、地点和时间。current.available只描述当下；未来动作可通过前序动作满足条件。已有证据、完成动作不重复；持丹者变化后重新规划。必须满足明确禁止项：constraints.noDebt=true不能合资借款，constraints.noViolence=true不能伏击或参加任何斗法；不能以“另一种备选”为由违背玩家偏好。不要强行包含交易/举报/伏击三类固定配额。preferredPlan是玩家之前选中的方案名，如果仍可继续，保留它的名称并只列剩余步骤；不可行则替换。
 只输出JSON：{"text":"对当前局势和方案取舍的简短说明，最多180字","followUps":["玩家可提出的偏好，最多两条、每条32字"],"plans":[{"title":"自拟方案名称，最多16字","rationale":"为何当前可行，最多100字","risk":"代价与风险，最多70字","actions":[{"type":"合法行动ID"},{"type":"negotiate","offer":240,"leverage":"none"}]}]}。
-每条actions最多12项，末步应取得丹药。不要输出target、状态补丁、Markdown或思考过程。服务器会逐条模拟验证；不通过的方案会反馈给你修正。`;
+每条actions最多12项，末步应取得丹药，或进入需要玩家亲自获胜的斗法；战斗路线必须说明胜利与收取主药后重新规划，不保证成功。不要输出target、状态补丁、Markdown或思考过程。服务器会逐条模拟验证；不通过的方案会反馈给你修正。`;
 
 function validateReply(raw, game, constraints) {
   const value = parse(raw);
@@ -101,7 +107,7 @@ function validateReply(raw, game, constraints) {
     try {
       const plan = previewPlan(game, proposal);
       if (constraints.noDebt && plan.steps.some(step => step.action.type === 'partner')) throw new Error('玩家明确不借贷、不欠人情，不能包含合资。');
-      if (constraints.noViolence && plan.steps.some(step => step.action.type === 'ambush')) throw new Error('玩家明确不动武，不能包含伏击。');
+      if (constraints.noViolence && plan.steps.some(step => step.action.type === 'ambush'||step.encounter)) throw new Error('玩家明确不动武，不能包含伏击或斗法。');
       // 补资源必须确实是这条获取方式的前置，不能用无关购物凑方案数。
       for (let index = 0; index < proposal.actions.length - 1; index++) {
         if (!['sell_herbs', 'gather_herbs', 'buy_talisman', 'rest', 'honor_partner', 'travel_market', 'travel_woods'].includes(proposal.actions[index].type)) continue;

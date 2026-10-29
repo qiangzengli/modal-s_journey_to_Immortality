@@ -113,10 +113,11 @@ export function applyAction(source, action) {
   if (participant && type !== 'buy_pill' && game.people[participant]?.place !== game.player.place) throw new GameError('这位人物不在此区域，请先找到本人。');
   let result = '';
   if (['travel_region', 'travel_market', 'travel_woods'].includes(type)) return travelRegion(game, type === 'travel_region' ? action.place || action.target : type === 'travel_market' ? 'market' : 'woods');
-  const encounter=ACTION_DEFS.find(def=>def.type===type)?.encounter;
-  if(encounter&&game.volume&&!game.volume.flags[type]&&!game.volume.legacyCompleted?.includes(type))return combatAction(game,{type:game.exploration.enemies[encounter]?.defeated?'claim':'start',enemyId:encounter});
+  const definition=ACTION_DEFS.find(def=>def.type===type),encounter=definition?.encounter;
+  if(encounter&&definition.volume&&game.volume&&!game.volume.flags[type]&&!game.volume.legacyCompleted?.includes(type))return combatAction(game,{type:game.exploration?.enemies[encounter]?.defeated?'claim':'start',enemyId:encounter});
   if (ACTION_DEFS.find(def=>def.type===type)?.volume) return {game,result:applyVolumeAction(game,type)};
   if (inOpening(game) && type!=='ask' && !(GARDEN_ACTIONS.includes(type)&&type!=='discover_bottle'&&game.garden.bottle)) throw new GameError('请先完成七玄门第一卷，再开启这段游历。');
+  if(encounter&&definition.campaign&&!game.campaign.storyFlags[type])return combatAction(game,{type:game.exploration?.enemies[encounter]?.defeated?'claim':'start',enemyId:encounter});
   if (ACTION_DEFS.find(def=>def.type===type)?.campaign) return {game,result:applyCampaignAction(game,type)};
   if (GARDEN_ACTIONS.includes(type)) return { game, result: applyGardenAction(game, type) };
 

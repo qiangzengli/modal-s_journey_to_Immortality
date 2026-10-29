@@ -153,6 +153,7 @@ const files = {
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/building-world.js': ['building-world.js', 'text/javascript; charset=utf-8'],
   '/building-layout.js': ['building-layout.js', 'text/javascript; charset=utf-8'],
+  '/mojiao-model.js': ['mojiao-model.js', 'text/javascript; charset=utf-8'],
   '/world.js': ['world.js', 'text/javascript; charset=utf-8'],
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
   '/agent-ui.js': ['agent-ui.js', 'text/javascript; charset=utf-8'],

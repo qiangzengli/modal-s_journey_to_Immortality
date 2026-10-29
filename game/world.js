@@ -1,3 +1,4 @@
+import { createMojiaoActor } from './mojiao-model.js';
 import { createBuildingWorld } from './building-world.js';
 import { buildingWalkable } from './building-layout.js';
 import { VOLUME_PEOPLE, VOLUME_SITES } from './volume-data.js';
@@ -100,6 +101,7 @@ function label(text, { width = 320, font = 34, color = '#f5eacb', backdrop = '#2
 }
 
 function makePerson(id, name) {
+  if(id==='story_mojiao')return createMojiaoActor(THREE,{id,name,label});
   const colors = COLORS[id];
   const root = new THREE.Group();
   const body = new THREE.Group();
@@ -502,7 +504,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     if (actor.userData.identityLabel === key) return;
     actor.userData.identityLabel = key;
     const sprite = actor.userData.nameplate;
-    const replacement = label(name, {width:330,font:34,color:identity?.color,subtitle:identity?.sectId ? `${identity.alignmentName} · ${identity.name}` : '散修 · 无门无派'});
+    const replacement = label(name, {width:330,font:34,color:identity?.color,subtitle:actor.userData.kind==='beast'?'禁地妖兽 · 守护天灵果':identity?.sectId ? `${identity.alignmentName} · ${identity.name}` : '散修 · 无门无派'});
     sprite.material.map.dispose(); sprite.material.map = replacement.material.map;
     sprite.material.needsUpdate = true; sprite.scale.copy(replacement.scale); replacement.material.dispose();
   }

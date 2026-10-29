@@ -23,7 +23,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   }
   function drawChat() {
     const { view, personId } = getState();
-    const person = view && [...view.people,...view.roamers.filter(person=>!person.defeated)].find(person => person.id === personId);
+    const person = view && [...view.people,...view.roamers.filter(person=>!person.defeated&&person.kind!=='beast')].find(person => person.id === personId);
     $('#agent-dialogue').hidden = !person || Boolean(view.battle);
     if (!person) return;
     const thread = getThread(personId);
@@ -57,7 +57,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
   }
   async function talk(text) {
     const { view, personId, plan, busy } = getState();
-    if (chatPending || busy || view?.battle || ![...(view?.people||[]),...(view?.roamers||[]).filter(person=>!person.defeated)].some(person => person.id === personId) || !text.trim()) return;
+    if (chatPending || busy || view?.battle || ![...(view?.people||[]),...(view?.roamers||[]).filter(person=>!person.defeated&&person.kind!=='beast')].some(person => person.id === personId) || !text.trim()) return;
     const submittedVersion=inputVersion;
     const thread = getThread(personId), ticket = ++chatRequest, history = thread.messages.slice(-6);
     chatController?.abort(); chatController = new AbortController(); chatPending = true;

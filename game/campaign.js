@@ -39,7 +39,8 @@ export function applyCampaignAction(game,type) {
   requireValue(!f[type]||def.repeatable,'这段经历已经完成，奖励不会重复领取。');
   const missing=def.requires.find(key=>!f[key]);
   requireValue(!missing,`先完成「${FRONTIER_ACTIONS.find(a=>a.type===missing)?.title}」。`);
-  const hp={gather_monkey_flower:8,gather_jade_mushroom:8,fight_mojiao:20}[type]||0;
+  if(def.encounter)requireValue(game.exploration?.enemies[def.encounter]?.defeated&&game.exploration.enemies[def.encounter].looted,'需亲自赢下墨蛟斗法，并收取天灵果后才能完成这段经历。');
+  const hp={gather_monkey_flower:8,gather_jade_mushroom:8}[type]||0;
   const herbs={garden_cultivate:2,aid_hanyunzhi:1}[type]||0;
   requireValue(game.player.hp>hp,`气血须高于 ${hp}，请先休养。`);
   requireValue(game.player.herbs>=herbs,`需要 ${herbs} 株灵草。`);

@@ -29,7 +29,7 @@ export const FRONTIER_ACTIONS=[
   action('gather_jade_mushroom','采集玉髓芝','在寒潭附近取得另一份筑基丹主药','气血 8','quarry','sluice',['enter_forbidden']),
   action('aid_hanyunzhi','援手菡云芝','交出一株灵草，留下禁地中的一份交情','灵草 1 · 可选','quarry','workers',['enter_forbidden'],{optional:true}),
   action('meet_nangong','相遇南宫婉','深入中心区域，与掩月宗修士共同探查石殿','收齐外层两味主药','ruins','archive',['gather_monkey_flower','gather_jade_mushroom']),
-  action('fight_mojiao','合力应对墨蛟','与南宫婉共渡危局，取得天灵果；剧情交锋','气血 20','ruins','core',['meet_nangong']),
+  action('fight_mojiao','合力应对墨蛟','与南宫婉合力斗法，击败墨蛟后收取天灵果','回合斗法 · 气血至少 20','ruins','core',['meet_nangong'],{encounter:'story_mojiao'}),
   action('leave_forbidden','携药离开禁地','将三味主药带出禁地，准备回宗交付','一次经历','ruins','memorial',['fight_mojiao']),
   action('deliver_spirit_herbs','交药领取筑基丹','向宗门交付紫猴花、玉髓芝、天灵果，领取一枚筑基丹','三味任务主药','qinglan','sect_qinglan',['leave_forbidden']),
   action('take_master','拜师李化元','完成筑基后，拜李化元为师并取得青元剑诀','筑基初期 · 黄枫谷弟子','qinglan','sect_qinglan'),

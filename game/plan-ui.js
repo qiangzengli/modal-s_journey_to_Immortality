@@ -14,12 +14,12 @@ export function createPlanUI({ getState, executeAction, advance, onStale, onChan
     const { view, busy } = getState();
     const plan = fresh() ? selected() : null;
     $('#plan-options').innerHTML = fresh() ? reply.plans.map(item => `<button type="button" data-plan="${esc(item.id)}" aria-pressed="${item.id === selectedId}"><strong>${esc(item.title)}</strong><small>${item.steps.length} 步 · ${item.forecast.turns ? `${item.forecast.turns} 旬` : '无需等待'}</small></button>`).join('') : '';
-    $('#quest-progress').textContent = plan ? `${plan.steps.length} 步可取丹` : view?.pill.ownerId === 'player' || view?.world.breakthrough ? '已达成' : '动态规划';
+    $('#quest-progress').textContent = plan ? (plan.checkpoint?`${plan.steps.length} 步至斗法 · 获胜后继续`:`${plan.steps.length} 步可取丹`) : view?.pill.ownerId === 'player' || view?.world.breakthrough ? '已达成' : '动态规划';
     $('#quest-objective').textContent = '目标 · 取得筑基丹';
     $('#quest-title').textContent = pending ? '正在设计取丹方案' : plan?.title || '取丹方案';
     $('#quest-detail').textContent = pending ? '正在结合人物、资源与局势，比较不同的获取方式……' : plan?.rationale || reply?.text || '可提出你的偏好，让模型规划获取方式。';
     $('#plan-risk').textContent = plan ? `取舍 · ${plan.risk}` : '';
-    $('#plan-forecast').textContent = plan ? `预计取丹后：${plan.forecast.stones} 灵石 · 气血 ${plan.forecast.hp} · 声望 ${plan.forecast.reputation}${plan.forecast.debt ? ` · 欠款 ${plan.forecast.debt}` : ''}` : '';
+    $('#plan-forecast').textContent = plan ? `${plan.checkpoint?'战前预计资源':'预计取丹后'}：${plan.forecast.stones} 灵石 · 气血 ${plan.forecast.hp} · 声望 ${plan.forecast.reputation}${plan.forecast.debt ? ` · 欠款 ${plan.forecast.debt}` : ''}${plan.checkpoint?' · 需赢下斗法并收取主药，战后重新规划':''}` : '';
     $('#quest-track').disabled = !plan || busy || executing || Boolean(view?.battle);
     $('#quest-track').textContent = executing ? '正在执行这一步…' : plan ? `执行：${plan.steps[0].title} →` : '等待可行方案';
     $('#guide-send').disabled = pending || executing;

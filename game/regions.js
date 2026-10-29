@@ -9,7 +9,7 @@ export const REGIONS = {
   woods:{name:'太岳山脉',short:'太岳山',bounds:[1.5,27.3,-11.1,11.1],entry:[5,0],color:'#3b5141',description:'黄枫谷所在山脉，可采药、调息、切磋与闭关筑基。',risk:'炼气修士游历'},
   river:{name:'百药园',short:'百药园',bounds:[32,78,-19,19],entry:[36,0],color:'#42696b',description:'马师兄看管的药园，韩立在此接下差事，以灵药辅助长春功修炼。',risk:'黄枫谷修行'},
   quarry:{name:'血色禁地·外层',short:'禁地外层',bounds:[82,128,-19,19],entry:[86,0],color:'#80644f',description:'七派炼气弟子的采药试炼之地，紫猴花与玉髓芝藏在妖兽出没的密林里。',risk:'采药与争夺'},
-  ruins:{name:'血色禁地·中心区',short:'禁地中心',bounds:[132,178,-19,19],entry:[136,0],color:'#525d75',description:'中心区石殿内藏天灵果，也潜伏着墨蛟。南宫婉在此探查禁地。',risk:'墨蛟 · 剧情交锋'}
+  ruins:{name:'血色禁地·中心区',short:'禁地中心',bounds:[132,178,-19,19],entry:[136,0],color:'#525d75',description:'中心区石殿内藏天灵果，也潜伏着墨蛟。南宫婉在此探查禁地。',risk:'墨蛟 · 回合斗法'}
 };
 const ATLAS = {qinglan:[18,15],lingshu:[51,10],jinhuo:[83,17],market:[19,48],river:[51,45],quarry:[83,47],woods:[19,80],xuanming:[51,82],ruins:[83,80]};
 for (const [id, region] of Object.entries(REGIONS)) { region.mapPosition ??= ATLAS[id]; region.requiredTier ??= 0; }

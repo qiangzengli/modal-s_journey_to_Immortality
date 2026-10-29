@@ -17,7 +17,7 @@ export function agentContext(view, input) {
   if (typeof text !== 'string' || text.length > 280 || (input.mode === 'dialogue' && !text.trim())) throw new GameError('请写下 1～280 字的问话。');
   const history = input.history ?? [];
   if (!Array.isArray(history) || history.length > 6 || history.some(item => !item || !['user', 'assistant'].includes(item.role) || typeof item.text !== 'string' || item.text.length > 400)) throw new GameError('交谈记录格式无效。');
-  const person = input.mode === 'dialogue' && [...view.people, ...view.roamers.filter(person => !person.defeated)].find(person => person.id === input.personId);
+  const person = input.mode === 'dialogue' && [...view.people, ...view.roamers.filter(person => !person.defeated&&person.kind!=='beast')].find(person => person.id === input.personId);
   if (input.mode === 'dialogue' && (!person || person.place !== view.player.place)) throw new GameError('请先走到这位人物所在的区域再交谈。');
   const targetName = target => view.people.find(person => person.id === target)?.name || locations[target];
   let candidates;

@@ -155,18 +155,18 @@ function showRoamer(enemy, focusUI = true) {
   $('#world-person').hidden=false;
   document.body.classList.add('interacting');
   $('#world-person').style.setProperty('--person-color',enemy.color);
-  $('#person-seal').textContent=enemy.defeated?'袋':enemy.name[0];
-  $('#world-role').textContent=enemy.defeated?'林道遗落 · 储物袋':enemy.role;
-  $('#world-name').textContent=enemy.defeated?`${enemy.name}的储物袋`:enemy.name;
-  $('#person-meta').innerHTML=`<span>${enemy.realm}</span><span>${esc(affiliationText(enemy.affiliation))}</span><span>${enemy.defeated?'已败退':`气血 ${enemy.hp} · 攻势 ${enemy.attack}`}</span>`;
-  $('#world-goal').hidden=false;$('#world-goal').textContent=enemy.defeated?'散修已经负伤离去，只剩系着禁制绳结的储物袋。里面的物品尚未取出。':enemy.bio;
-  $('#person-dialogue').hidden=Boolean(enemy.defeated);$('#person-dialogue').textContent=enemy.agent?.speech || '他正在观察来人，可以先交谈再决定是否动手。';
+  $('#person-seal').textContent=enemy.defeated?(enemy.reward?'果':'袋'):enemy.name[0];
+  $('#world-role').textContent=enemy.defeated?(enemy.reward?'石殿主药 · 战后所得':'林道遗落 · 储物袋'):enemy.role;
+  $('#world-name').textContent=enemy.defeated?(enemy.reward?'天灵果':`${enemy.name}的储物袋`):enemy.name;
+  $('#person-meta').innerHTML=`<span>${enemy.realm}</span><span>${enemy.kind==='beast'?'石殿妖兽':esc(affiliationText(enemy.affiliation))}</span><span>${enemy.defeated?'已败退':`气血 ${enemy.hp} · 攻势 ${enemy.attack}`}</span>`;
+  $('#world-goal').hidden=false;$('#world-goal').textContent=enemy.defeated?(enemy.reward?'墨蛟已倒下，天灵果等待收取。主药将进入任务药囊。':'散修已经负伤离去，只剩系着禁制绳结的储物袋。里面的物品尚未取出。'):enemy.bio;
+  $('#person-dialogue').hidden=Boolean(enemy.defeated);$('#person-dialogue').textContent=enemy.agent?.speech || enemy.quote || '他正在观察来人，可以先交谈再决定是否动手。';
   $('#npc-activity').textContent=enemy.agent?.activity ? `此刻 · ${enemy.agent.activity}` : '';
   $('#npc-activity').hidden=Boolean(enemy.defeated);
   $('#person-memory').hidden=true;$('#trade-form').hidden=true;$('#interaction-result').hidden=true;
   $('#world-actions').innerHTML=roamerActions(enemy,current.player.hp);
 
-  $('#world-hint').textContent=enemy.defeated?'储物袋就在脚边。':`已靠近${enemy.name}。可观察后再决定是否斗法。`;
+  $('#world-hint').textContent=enemy.defeated?(enemy.reward?'天灵果就在石殿中。':'储物袋就在脚边。'):`已靠近${enemy.name}。可观察后再决定是否斗法。`;
   updateNearbyPrompt();
   agentUI?.personChanged();
   gardenUI?.render();

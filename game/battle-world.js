@@ -54,6 +54,8 @@ export function createBattleWorld(renderer, makePerson) {
   const enemies=Object.fromEntries(WANDERERS.map(enemy=>{
     const actor=makePerson(enemy.id,null);scene.add(actor);actor.userData.bag.visible=false;actor.visible=false;return [enemy.id,actor];
   }));
+  const ally=makePerson('ji',null);ally.visible=false;scene.add(ally);
+  const allyName=caption('南宫婉 · 协战','#d1c3eb');allyName.visible=false;scene.add(allyName);
   const playerName=caption('你 · 持剑');playerName.position.set(-3,3.6,0);scene.add(playerName);
   let enemyName=null;
   const fx=createBattleEffects(THREE,scene);
@@ -88,6 +90,7 @@ export function createBattleWorld(renderer, makePerson) {
       if(enemyName){scene.remove(enemyName);enemyName.material.map.dispose();enemyName.material.dispose();}
       enemyName=caption(view.battle.enemyName,'#e2b39b');scene.add(enemyName);
     }
+    ally.visible=allyName.visible=Boolean(view.battle.ally);
     for(const [id,actor] of Object.entries(enemies))actor.visible=id===view.battle.enemyId;
     const color=next.weapon.attack>=11?0xe3a075:next.weapon.attack>=5?0xadd7a6:0xd8c38f;
     player.userData.weapon.material.color.setHex(color);
@@ -98,6 +101,8 @@ export function createBattleWorld(renderer, makePerson) {
     if(animation)animation.finish();
     const entries=after.battle?.log.filter(entry=>entry.round===before.battle.round)||[];
     const playerLine=entries.find(entry=>entry.side==='player')?.text||'';
+    const allyLine=entries.find(entry=>entry.side==='ally')?.text||'';
+    const allyMs=allyLine?550:0;
     const enemyLine=entries.find(entry=>entry.side==='enemy')?.text||'';
     const kind=playerEffect(choice);
     const response=enemyEffect(before.battle.enemyId,before.battle.intent);
@@ -106,16 +111,17 @@ export function createBattleWorld(renderer, makePerson) {
     const healing=enemyLine.includes('恢复');
     const playerMs=['slash','shield','escape'].includes(kind)?700:1000;
     const enemyMs=counter?(response==='slash'?650:900):healing?850:0;
-    const enemyStart=playerMs+50;
-    const duration=enemyMs?enemyStart+enemyMs:playerMs+80;
+    const enemyStart=playerMs+allyMs+50;
+    const duration=enemyMs?enemyStart+enemyMs:playerMs+allyMs+80;
     const impactAt=effect=>({slash:.42,heavy_slash:.46,qi_bolt:.55,wind_blade:.55,fire_art:.53,thunder_art:.44,binding_array:.42,thunder_array:.5}[effect]||.47);
     const origin=player.position.clone(),target=enemies[before.battle.enemyId].position.clone();
     return new Promise(resolve=>{
       let timer;
       const finish=()=>{clearTimeout(timer);if(animation?.finish===finish)animation=null;fx.clear();resolve();};
       const start=performance.now();
-      animation={start,duration,playerMs,enemyStart,enemyMs,kind,response,attacking,counter,healing,playerLine,enemyLine,playerImpact:impactAt(kind),enemyImpact:impactAt(response),playerShown:false,enemyShown:false,finish};
+      animation={start,duration,playerMs,enemyStart,enemyMs,kind,response,attacking,counter,healing,playerLine,enemyLine,allyLine,allyMs,allyShown:false,playerImpact:impactAt(kind),enemyImpact:impactAt(response),playerShown:false,enemyShown:false,finish};
       fx.spawn(kind,origin,target,{start,duration:kind==='shield'?duration+200:playerMs,reducedMotion:reducedMotion.matches});
+      if(allyMs)fx.spawn('fire_art',ally.position.clone(),target,{start:start+playerMs,duration:allyMs,reducedMotion:reducedMotion.matches});
       if(before.battle.intent==='guard')fx.spawn('shield',target,origin,{start,duration,reducedMotion:reducedMotion.matches});
       if(counter||healing)fx.spawn(response,target,origin,{start:start+enemyStart,duration:enemyMs,reducedMotion:reducedMotion.matches});
       // 后台页面不依赖动画帧完成，也不会留下锁住的操作按钮。
@@ -128,6 +134,9 @@ export function createBattleWorld(renderer, makePerson) {
     const gap=width<700?1.55:2.8;
     player.position.set(-gap,.055,0);enemy.position.set(gap,.055,0);
     player.rotation.y=Math.PI/2;enemy.rotation.y=-Math.PI/2;
+    enemy.scale.setScalar(width<700 && enemy.userData.kind==='beast' ? .8 : 1);
+    ally.position.set(-gap,.055,-2.4);ally.rotation.y=Math.PI/2;allyName.position.set(-gap,3.1,-2.4);
+    ally.userData.leftArm.rotation.z=-.08+Math.sin(elapsed*2)*.04;
     player.userData.body.rotation.z=0;
     enemy.userData.body.rotation.z=!animation&&view.battle.status==='won'?-.45:0;
     for(const actor of [player,enemy]){
@@ -146,6 +155,7 @@ export function createBattleWorld(renderer, makePerson) {
       const time=performance.now()-animation.start;
       const p=Math.min(1,time/animation.playerMs);
       const e=Math.max(0,Math.min(1,(time-animation.enemyStart)/(animation.enemyMs||1)));
+      if(animation.allyMs)ally.userData.leftArm.rotation.z=Math.sin(Math.max(0,Math.min(1,(time-animation.playerMs)/animation.allyMs))*Math.PI)*.8;
       const motion=reducedMotion.matches ? .25 : 1;
       const swing=Math.sin(p*Math.PI);
       const enemySwing=Math.sin(e*Math.PI);
@@ -174,6 +184,9 @@ export function createBattleWorld(renderer, makePerson) {
         animation.playerShown=true;
         const hit=animation.playerLine.match(/造成 (\d+) 点/);const heal=animation.playerLine.match(/恢复 (\d+) (气血|真气)/);
         if(hit)showNumber(`−${hit[1]}`,'enemy','#efba87');else if(heal)showNumber(`+${heal[1]} ${heal[2]}`,'player','#a8dfb3');else if(animation.kind==='shield')showNumber('凝气防御','player','#a5d6e3');else if(animation.kind==='escape')showNumber(view.battle.status==='escaped'?'脱身成功':'退路被封','player','#e8d2a0');
+      }
+      if(animation.allyMs&&time>=animation.playerMs+animation.allyMs*.53&&!animation.allyShown){
+        animation.allyShown=true;const hit=animation.allyLine.match(/造成 (\d+) 点/);if(hit)showNumber(`协战 −${hit[1]}`,'enemy','#d1c3eb');
       }
       if(e>=animation.enemyImpact&&!animation.enemyShown){
         animation.enemyShown=true;const hurt=animation.enemyLine.match(/损失 (\d+) 气血/);const heal=animation.enemyLine.match(/恢复 (\d+) 气血/);
