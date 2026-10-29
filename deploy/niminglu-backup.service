@@ -1,0 +1,12 @@
+[Unit]
+Description=Back up Niminglu save
+
+[Service]
+Type=oneshot
+UMask=0077
+ExecStart=/bin/sh /opt/niminglu/current/deploy/backup-save.sh
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/backups/niminglu

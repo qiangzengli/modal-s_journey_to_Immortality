@@ -1,0 +1,28 @@
+[Unit]
+Description=Niminglu cultivation game
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=niminglu
+Group=niminglu
+WorkingDirectory=/opt/niminglu/current
+Environment=NODE_ENV=production
+Environment=PORT=4177
+Environment=SAVE_PATH=/var/lib/niminglu/save.json
+EnvironmentFile=/etc/niminglu/game.env
+ExecStart=/usr/bin/node /opt/niminglu/current/server.js
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=30
+StateDirectory=niminglu
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+
+[Install]
+WantedBy=multi-user.target
