@@ -4,6 +4,8 @@
 
 部署环境：Ubuntu 24.04、Node.js 22.22.2、Nginx、systemd。2026-10-29 首次部署的游戏代码为 `150f621`，发布目录为 `20261029T023856Z-150f621`。
 
+子目录和 OpenAI 接入已更新到 `9d0ea24`，发布目录为 `20261029T030041Z-9d0ea24`。实际运行版本以 `/opt/niminglu/current/release.json` 为准。
+
 服务器从新局开始，未上传或覆盖开发机的两份游戏存档。当前游戏是**单实例、共享一份进度**，没有账号和独立玩家存档；访问这个地址的人会操作同一角色，包括「重开此局」。适合单人试玩或轮流演示，多人各自游玩需要后续实现存档隔离。
 
 ## 运行结构
@@ -42,7 +44,7 @@ systemctl start niminglu-backup.service
 
 模型使用 ChatGPT `gpt-5.6-sol`，通过 Responses 接口调用。服务器的 `/etc/niminglu/game.env` 必须同步本机实际生效的 `.env.local` 配置：`OPENAI_BASE_URL` 为服务基址（当前为 `https://codex.icecream.xin/backend-api/codex`，不含末尾 `/responses`），`LLM_API_KEY` 为密钥，`LLM_TIMEOUT_MS` 默认为 `30000`。修改后重启游戏服务。不要把密钥写进文档、发布包或终端日志中。根目录 `.env.local` 优先于旧的 `mvp/.env.local`。
 
-首次部署时旧 DeepSeek 接口曾返回 **HTTP 402 / insufficient_balance_error**，属于旧账户余额不足的历史故障。当前代码使用 ChatGPT 网关；服务器需发布更新后的代码并替换 `/etc/niminglu/game.env` 中的密钥，再重启服务，才能切换接入。
+首次部署时旧 DeepSeek 接口曾返回 **HTTP 402 / insufficient_balance_error**，属于旧账户余额不足的历史故障。子目录迁移时已同步 OpenAI 地址和密钥、发布 Responses 接入代码，并完成服务器直连和公网游戏问答验证，回复来源为 `model`、模型为 `gpt-5.6-sol`。
 
 ## 更新发布
 
@@ -92,16 +94,24 @@ rsync -a "$package_stage/cache/_cacache/" \
 
 ## 回滚和恢复存档
 
-程序回滚不覆盖存档。先备份，再切回先前目录：
+回滚不覆盖存档。涉及模型协议或访问路径变化时，必须一起恢复对应版本的模型环境配置和 Nginx 配置，不能让旧协议使用新服务的密钥。本次迁移前的配置保存在 `/etc/niminglu/before-subpath-20261029T030041Z/`。下面示例会完整回到迁移前的根路径部署；未来发布应选择各自对应的配置备份：
 
 ```sh
 set -eu
 previous_release="$(cat /opt/niminglu/previous-release)"
+rollback_config=/etc/niminglu/before-subpath-20261029T030041Z
 test -f "$previous_release/server.js"
+test -f "$rollback_config/game.env"
+test -f "$rollback_config/nginx.conf"
+systemctl stop niminglu
 systemctl start niminglu-backup.service
+install -m 600 "$rollback_config/game.env" /etc/niminglu/game.env
+install -m 644 "$rollback_config/nginx.conf" /etc/nginx/conf.d/niminglu.conf
+nginx -t
 ln -sfn "$previous_release" /opt/niminglu/current.next
 mv -Tf /opt/niminglu/current.next /opt/niminglu/current
-systemctl restart niminglu
+systemctl start niminglu
+systemctl reload nginx
 ```
 
 若确需恢复历史进度，先选择 `/var/backups/niminglu/` 中的具体文件，然后：
@@ -132,3 +142,5 @@ systemctl start niminglu
 2026-10-29 首次发布检查：本地 163 项测试通过；公网首页、41 个前端模块、两张新版立绘和同源 POST 正常，跨源请求返回 403，过期版本操作返回 409，私有文件返回 404。服务器实测存档写入、重启前后 SHA-256 一致、手动备份成功，游戏服务与每日备份均已开机启用。现有站点配置文件的 SHA-256 保持不变。本机 Chrome 自动化打开公网 IP 时返回 `ERR_BLOCKED_BY_CLIENT`，因此本次未完成浏览器画面验收。
 
 子目录部署使用相对资源地址与 `game/api-client.js`，所有游戏请求留在 `/niminglu/` 下。本机依然从 `http://127.0.0.1:4177/` 启动，无需更改存档或模型配置。Nginx 的 `proxy_redirect` 会把旧入口的跳转保留在游戏子目录内。更新配置时必须保留 `proxy_pass` 末尾的 `/`。
+
+子目录迁移最终验收：166 项测试通过；42 个前端模块与两张立绘均从 `/niminglu/` 加载，根路径原网页内容的 SHA-256 恢复一致，迁移前后存档 SHA-256 一致；`/niminglu` 自动跳转，旧入口跳转仍保留前缀。Chrome 已实际显示三维地图，并在心念传音中收到 `AI · gpt-5.6-sol` 回答，未发现浏览器控制台错误。Nginx reload 为异步切换，部署健康检查需短暂轮询，避免旧 worker 的瞬时 404 被误判为失败。
