@@ -1,4 +1,4 @@
-import { createCultivatorActor } from './character-model.js';
+import { createCultivatorActor, animateCultivator } from './character-model.js';
 import { createMojiaoActor } from './mojiao-model.js';
 import { createBuildingWorld } from './building-world.js';
 import { buildingWalkable } from './building-layout.js';
@@ -831,6 +831,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       }
     }
     updateRoom(dt);
+    animateCultivator(player,elapsed,moving);
     player.userData.body.position.y = moving ? Math.sin(elapsed * 12) * 0.07 : Math.sin(elapsed * 2.4) * 0.025;
     player.userData.leftArm.rotation.z = moving ? Math.sin(elapsed * 10) * 0.25 : -0.08;
     player.userData.rightArm.rotation.z = moving ? -Math.sin(elapsed * 10) * 0.25 : 0.08;
@@ -839,6 +840,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
 
     for (const actor of Object.values(people)) {
       if (actor.userData.destination) actor.position.lerp(actor.userData.destination, Math.min(1, dt * 3.4));
+      animateCultivator(actor,elapsed);
       actor.userData.body.position.y = Math.sin(elapsed * 2.1 + actor.position.x) * 0.025;
       actor.userData.leftArm.rotation.z = -0.08 + Math.sin(elapsed * 1.1 + actor.position.x) * 0.025;
       actor.userData.rightArm.rotation.z = 0.08 - Math.sin(elapsed * 1.1 + actor.position.x) * 0.025;

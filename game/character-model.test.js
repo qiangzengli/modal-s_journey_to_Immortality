@@ -16,3 +16,35 @@ test('主要角色共享地图与斗法动画接口，身形、发型与法器�
     const resources=new Set();actor.traverse(node=>{if(node.geometry)resources.add(node.geometry);if(node.material)resources.add(node.material);});for(const resource of resources)resource.dispose();
   }
 });
+
+test('角色面部有真实纵深、完整头颅；曲面与发束法线朝外，旋转后仍可见',async()=>{
+  const {lockGeometry}=await import('./character-geometry.js');
+  const strand=lockGeometry(THREE,[[0,0,0],[0,-1,0]],.1,.06);
+  let outward=0;
+  for(let i=9;i<18;i++){
+    const radial=new THREE.Vector3().fromBufferAttribute(strand.attributes.position,i).setY(0);
+    outward+=radial.dot(new THREE.Vector3().fromBufferAttribute(strand.attributes.normal,i));
+  }
+  assert.ok(outward>0,'发束反向法线会让旋转后的头发消失');strand.dispose();
+  for(const id of ['player','ji','modafu','wen']){
+    const actor=createCultivatorActor(THREE,{id});const face=actor.getObjectByName('sculpted-face');
+    face.geometry.computeBoundingBox();assert.ok(face.geometry.boundingBox.max.z-face.geometry.boundingBox.min.z>.08,'面部必须有鼻梁和侧脸厚度');
+    assert.ok(actor.getObjectByName('complete-skull'));assert.equal(face.isSprite,undefined);
+    let triangles=0,draws=0;
+    actor.traverse(n=>{if(n.isMesh){triangles+=(n.geometry.index?.count||n.geometry.attributes.position.count)/3;draws++;}});
+    assert.ok(triangles<80000,`${id}: ${triangles} 超出实时角色预算`);assert.ok(draws<=48,`${id}: ${draws} 次绘制`);
+  }
+});
+
+test('背面外袍遮住内衬，衣发摆动不覆盖斗法关节姿态',async()=>{
+  const {animateCultivator}=await import('./character-model.js');
+  const actor=createCultivatorActor(THREE,{id:'player'});actor.updateMatrixWorld(true);
+  const ray=new THREE.Raycaster(new THREE.Vector3(.22,1.61,-1),new THREE.Vector3(0,0,1));
+  const hits=ray.intersectObjects(actor.userData.body.children,true);
+  assert.ok(hits.length);assert.equal(hits[0].object.material.color.getHex(),actor.userData.profile.robe,'背面不应透出浅色内衬');
+  actor.userData.rightArm.rotation.z=-1.2;actor.userData.body.rotation.x=-.18;
+  animateCultivator(actor,.7,true);
+  assert.equal(actor.userData.rightArm.rotation.z,-1.2);assert.equal(actor.userData.body.rotation.x,-.18);
+  const pose=actor.userData.motions.map(m=>m.node.rotation[m.axis]);animateCultivator(actor,1.3,true);
+  assert.notDeepEqual(actor.userData.motions.map(m=>m.node.rotation[m.axis]),pose);
+});

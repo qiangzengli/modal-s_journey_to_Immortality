@@ -165,6 +165,10 @@ const files = {
   '/building-layout.js': ['building-layout.js', 'text/javascript; charset=utf-8'],
   '/mojiao-model.js': ['mojiao-model.js', 'text/javascript; charset=utf-8'],
   '/character-model.js': ['character-model.js', 'text/javascript; charset=utf-8'],
+  '/character-geometry.js': ['character-geometry.js', 'text/javascript; charset=utf-8'],
+  '/character-materials.js': ['character-materials.js', 'text/javascript; charset=utf-8'],
+  '/character-face.js': ['character-face.js', 'text/javascript; charset=utf-8'],
+  '/character-face-data.js': ['character-face-data.js', 'text/javascript; charset=utf-8'],
   '/world.js': ['world.js', 'text/javascript; charset=utf-8'],
   '/content.js': ['content.js', 'text/javascript; charset=utf-8'],
   '/agent-ui.js': ['agent-ui.js', 'text/javascript; charset=utf-8'],
@@ -190,6 +194,8 @@ const files = {
   '/vendor/three.core.js': ['../node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
 };
+
+for (const id of ['hanli','nangong','wangchan','modafu','mocaihuan','lifeiyu','zhangtie','jinguang','quhun','gangmaster','examiner']) files[`/assets/characters/${id}-face.jpg`]=[`assets/characters/${id}-face.jpg`,'image/jpeg'];
 
 // /game contains source modules, not a second edition or a separate save.
 for(const [path,asset]of Object.entries(files)) {

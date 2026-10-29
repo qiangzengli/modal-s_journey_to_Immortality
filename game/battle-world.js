@@ -1,3 +1,4 @@
+import { animateCultivator } from './character-model.js';
 import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { createBattleEffects, playerEffect, enemyEffect } from './battle-fx.js';
 import { createBattleCamera } from './battle-camera.js';
@@ -143,6 +144,7 @@ export function createBattleWorld(renderer, makePerson, THREE) {
     allies.forEach(({actor,name},i)=>{actor.position.set(-gap,.055,-2.1-i*1.9);actor.rotation.y=Math.PI/2;name.position.copy(actor.position).setY(3.1);});
     player.userData.body.rotation.z=0;
     for(const actor of [player,enemy,...allies.map(p=>p.actor)]){
+      animateCultivator(actor,elapsed);
       actor.userData.body.rotation.x=0;actor.userData.body.rotation.z=0;
       actor.userData.body.position.y=Math.sin(elapsed*2.3)*.025;
       actor.userData.rightArm.rotation.z=Math.sin(elapsed*1.8)*.06;
