@@ -12,6 +12,31 @@ const put = (root, geometry, material, x, y, z) => {
 };
 const helpers = { THREE, put, material: color=>new THREE.MeshBasicMaterial({color}), label:()=>new THREE.Sprite(new THREE.SpriteMaterial()), regionAt };
 
+test('房屋底座与墙体的外表面不重叠，旋转视角不会发生深度争抢', () => {
+  for (const [width, depth] of [[5.8, 4], [7, 4.6]]) for (const z of [-14, 15]) {
+    const world = createBuildingWorld(helpers), scene = new THREE.Scene();
+    world.makeBuilding(scene, 89, z, width, depth, 0x77543d, '禁地废墟');
+    const {root} = world.buildings[0], meshes = [];
+    root.updateMatrixWorld(true);
+    root.traverse(object => { if (object.isMesh) meshes.push(object); });
+    for (const y of [.07, .16, .27, .39, 3.2]) {
+      for (const [x, localZ, dx, dz] of [
+        [-width / 2 - 1, .37, 1, 0], [width / 2 + 1, .37, -1, 0],
+        [.37, -depth / 2 - 1, 0, 1], [-width / 2 + .4, depth / 2 + 1, 0, -1]
+      ]) {
+        const origin = root.localToWorld(new THREE.Vector3(x, y, localZ));
+        const direction = new THREE.Vector3(dx, 0, dz).transformDirection(root.matrixWorld);
+        const hits = new THREE.Raycaster(origin, direction).intersectObjects(meshes, false);
+        assert.ok(hits.length, '外墙上下段连续封闭，不能因分段出现空洞');
+        assert.ok(Math.abs(hits[0].distance - .91) < 1e-5, '保持墙体原有外轮廓');
+        const nearest = hits.filter(hit => Math.abs(hit.distance - hits[0].distance) < 1e-5);
+        assert.equal(nearest.length, 1, `高度 ${y} 的外表面只能绘制一次`);
+      }
+    }
+    scene.traverse(o => { o.geometry?.dispose(); o.material?.dispose(); });
+  }
+});
+
 test('两种朝向都有真实门洞，连续步行可进出，墙和家具仍阻挡角色', () => {
   for (const z of [-14, 12]) {
     const room = buildingLayout({x:218,z,width:6,depth:4.4,title:'房屋',place:'qinglan'});

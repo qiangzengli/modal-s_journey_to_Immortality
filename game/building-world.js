@@ -10,9 +10,11 @@ export function createBuildingWorld({ THREE, put, material, label, regionAt }) {
     const floor = put(root, new THREE.BoxGeometry(width + .35, .1, depth + .35), material(0x9b8d70), 0, -.05, 0);
     floor.userData.walkableSurface = true;
     for (let i = 0; i < Math.ceil(width); i++) put(root, new THREE.BoxGeometry(.025, .01, depth - .2), material(0x77674e), -width / 2 + i, .006, 0).userData.walkableSurface = true;
+    const baseHeight = .32, wallTop = 3.4;
     for (const [wx, wz, rx, rz] of room.walls) {
-      put(walls, new THREE.BoxGeometry(rx * 2, 3.4, rz * 2), material(0x595744), wx, 1.7, wz);
-      put(root, new THREE.BoxGeometry(rx * 2, .32, rz * 2), material(0x796b51), wx, .16, wz);
+      // Stack the wall on the base: overlapping side faces cause visible z-fighting.
+      put(walls, new THREE.BoxGeometry(rx * 2, wallTop - baseHeight, rz * 2), material(0x595744), wx, (wallTop + baseHeight) / 2, wz);
+      put(root, new THREE.BoxGeometry(rx * 2, baseHeight, rz * 2), material(0x796b51), wx, baseHeight / 2, wz);
     }
     // Door jambs and lintel surround a real gap. Doors open before the player reaches it.
     for (const side of [-1, 1]) {
