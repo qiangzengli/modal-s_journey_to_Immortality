@@ -306,7 +306,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   scene.add(routeLine);
   const pillAura = new THREE.Mesh(new THREE.TorusGeometry(0.62, 0.025, 6, 32), new THREE.MeshBasicMaterial({ color: 0xf0c46a, transparent: true, opacity: 0.7 }));
   scene.add(pillAura);
-  const battleWorld=createBattleWorld(renderer,makePerson);
+  const battleWorld=createBattleWorld(renderer,makePerson,THREE);
 
   let place = MARKET;
   let initialized = false;

@@ -4,7 +4,7 @@ import * as THREE from 'three';
 import { createBattleEffects } from './battle-fx.js';
 import { ITEMS, SKILLS } from './combat-data.js';
 
-const kinds = ['slash', 'heavy_slash', 'blood_art', 'shield', 'escape', ...Object.keys(SKILLS), ...Object.keys(ITEMS).filter(id => ['pill', 'array'].includes(ITEMS[id].kind))];
+const kinds = ['slash', 'heavy_slash', 'blood_art', 'vermillion_ring', 'shield', 'escape', ...Object.keys(SKILLS), ...Object.keys(ITEMS).filter(id => ['pill', 'array'].includes(ITEMS[id].kind))];
 
 test('every combat effect animates finite geometry and releases its resources', () => {
   for (const reducedMotion of [false, true]) for (const kind of kinds) {

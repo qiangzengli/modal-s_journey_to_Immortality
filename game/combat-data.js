@@ -63,10 +63,15 @@ export function lootEntries(loot) {
 }
 
 // Main-story encounters use the same turn engine; prerequisites and completion remain rule-owned.
+export const NANGONG_ALLY={id:'ji',name:'南宫婉',power:12,maxHp:96,defense:2,maxMana:32,weaponName:'朱雀环',skills:[
+  {id:'vermillion_ring',name:'朱雀环诀',power:22,cost:8,cooldown:1,pierce:true,effect:'vermillion_ring'},
+  {id:'scarlet_flame',name:'离火术',power:28,cost:12,cooldown:2,effect:'fire_art'},
+  {id:'moon_mend',name:'掩月回灵术',heal:24,cost:8,cooldown:2,effect:'spring_art'}
+]};
 export const STORY_ENEMIES=[
   {id:'wen',name:'王蝉',scope:'campaign',boss:true,chapterFinale:true,role:'鬼灵门少主 · 第一章 BOSS',place:'yanbao',spot:[706,-4],color:'#5b2c4d',realm:'筑基期',hp:174,ward:20,wardName:'血灵护罩',attack:12,defense:4,escape:.75,requires:'investigate_yanbao',completion:'fight_wangchan',rewardName:'燕堡战后所得',lootFromWallet:false,bio:'鬼灵门少主现身燕家堡，以血灵护罩封锁庭院。留意血灵重击，使用防御、定神符与疗伤功法寻找破绽；击退他并确认战后结算，即可完成第一章试炼。',quote:'既然看破血灵阵，就凭本事从这里走出去。',loot:{stones:50,herbs:0,items:{yanbao_token:1,healing_pill:2,spirit_pill:1}}},
   {id:'modafu',name:'墨大夫',role:'神手谷师徒暗局',place:'shenshou',spot:[522,-6],color:'#9aa69a',realm:'江湖高手',hp:82,attack:8,defense:2,escape:.85,requires:'investigate_mo',completion:'confront_mo',rewardName:'墨大夫遗书',lootFromWallet:false,bio:'药庐隐情已经揭开，墨大夫不再掩饰对你的图谋。以长春功护住自身，留意他的近身攻势；可退回药庐休养后再战。',quote:'既已看出端倪，就让我看看这些年的长进。',loot:{stones:0,herbs:0,items:{mo_letter:1,healing_pill:1}}},
-  {id:'story_mojiao',name:'墨蛟',kind:'beast',scope:'campaign',role:'石殿守药妖兽',place:'ruins',spot:[165,-1],color:'#577e82',realm:'禁地妖兽',hp:180,attack:16,defense:5,escape:.7,requires:'meet_nangong',completion:'fight_mojiao',bio:'墨鳞蛟身盘踞石殿，守住天灵果。留意扑击与蓄力甩尾，南宫婉会在每回合协力牵制。',quote:'墨蛟昂首嘶鸣，尾尖扫过石面。',ally:{id:'ji',name:'南宫婉',power:8},reward:{name:'天灵果',kind:'任务主药',quantity:1},loot:{stones:0,herbs:0,items:{}}},
+  {id:'story_mojiao',name:'墨蛟',kind:'beast',scope:'campaign',role:'石殿守药妖兽',place:'ruins',spot:[165,-1],color:'#577e82',realm:'禁地妖兽',hp:180,attack:16,defense:5,escape:.7,requires:'meet_nangong',completion:'fight_mojiao',bio:'墨鳞蛟身盘踞石殿，守住天灵果。留意扑击与蓄力甩尾，韩立与南宫婉每回合各自选择普攻或法术，全队行动后墨蛟反击。',quote:'墨蛟昂首嘶鸣，尾尖扫过石面。',ally:NANGONG_ALLY,reward:{name:'天灵果',kind:'任务主药',quantity:1},loot:{stones:0,herbs:0,items:{}}},
   {id:'story_jinguang',name:'金光上人',role:'野狼帮请来的修仙者',place:'qixuan',spot:[467,4],color:'#d6b667',realm:'炼气期',hp:76,ward:18,attack:8,defense:3,escape:.8,requires:'scout_jinguang',completion:'defend_qixuan',bio:'金刚符撑起护罩，他以修仙手段威压七玄门。先观察护罩，再用御物术与进退应对。',quote:'凡人也敢挡在本上人面前？',loot:{stones:0,herbs:0,items:{ascension_token:1,sword_talisman:1}}},
   {id:'story_qingwen',name:'青纹道士',role:'太南散修中的劫修',place:'tainan',spot:[644,5],color:'#8caa83',realm:'炼气期',hp:86,attack:9,defense:2,escape:.8,requires:'probe_tainan',completion:'fight_qingwen',bio:'小会上的热络邀请变成谷外的围堵。青纹先行出手，同伙尚在附近，须保留疗伤与应变的余地。',quote:'道友既已出谷，何必急着走？',loot:{stones:0,herbs:0,items:{spirit_pill:1}}},
   {id:'story_hupinggu',name:'胡萍姑',role:'青纹同行的劫修',place:'tainan',spot:[647,-4],color:'#b59aad',realm:'炼气期',hp:80,attack:10,defense:2,escape:.8,requires:'fight_qingwen',completion:'fight_hupinggu',bio:'青纹败退后，同行的胡萍姑仍封住去路。可先在小会歇脚处疗伤，再完成突围。',quote:'想把东西带走，还得过我这关。',loot:{stones:0,herbs:0,items:{binding_array:1}}}
