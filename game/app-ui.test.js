@@ -3,19 +3,24 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile,unlink} from 'node:fs/promises';
 import {setImmediate} from 'node:timers/promises';
 import {installDOM} from './ui-test-dom.js';
-import {createOpeningGame,getView,applyAction} from './engine.js';
+import {createOpeningGame,getView,applyAction,advanceTurn} from './engine.js';
+import {throughCampaign} from './canon-test-helpers.js';
 import {SITES} from './content.js';
 
 test('应用装配：读档、任务追踪、到点行动、人物页签与状态反馈连接完整',async t=>{
  const {$,window,dialogMethods}=installDOM(t);
  t.mock.timers.enable({apis:['setTimeout','setInterval']});
  let game=createOpeningGame(),view,callbacks;
- const actions=[];
+ const actions=[],waits=[];
  t.mock.method(globalThis,'fetch',async(path,options)=>{
    if(path==='/api/state')return {ok:true,json:async()=>({view:getView(game),modelName:'deepseek-v4-flash'})};
    if(path==='/api/action'){
      const input=JSON.parse(options.body);actions.push(input);game=applyAction(game,input).game;game.revision=(game.revision||0)+1;
      return {ok:true,json:async()=>({view:getView(game),modelName:'deepseek-v4-flash',result:'经历已保存',actionType:input.type})};
+   }
+   if(path==='/api/advance'){
+     waits.push(path);game=advanceTurn(game).game;game.revision=(game.revision||0)+1;
+     return {ok:true,json:async()=>({view:getView(game),modelName:null,result:'静修一旬'})};
    }
    throw new Error('Unexpected request '+path);
  });
@@ -45,4 +50,20 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
  assert.ok(actions.every(a=>Number.isInteger(a.expectedRevision)));
  $('[data-person-pane="actions"]').click();assert.equal($('#world-person').dataset.pane,'actions');
  $('#person-close').click();await setImmediate();assert.equal(document.body.dataset.surface,'none');
+ // A saved herb bed can grow, be harvested and crafted using the actual UI without an NPC/model step.
+ game=throughCampaign('plant_pill_herbs');
+ $('#connection-retry').click();await setImmediate();
+ assert.match($('#quest-facts').textContent,/主药生长 0\/4/);
+ assert.doesNotMatch($('#quest-facts').textContent,/丹价|280/);
+ for(let i=0;i<2;i++){
+   $('[data-open-panel="campaign"]').click();await setImmediate();
+   $('[data-campaign-target="advance"]').click();await setImmediate();
+ }
+ assert.equal(waits.length,2);assert.equal(game.campaign.alchemy.growth,4);
+ $('[data-open-panel="campaign"]').click();await setImmediate();
+ $('[data-campaign-action="harvest_pill_herbs"]').click();await setImmediate();
+ assert.equal(game.campaign.alchemy.harvested,true);
+ $('[data-open-panel="campaign"]').click();await setImmediate();
+ $('[data-campaign-action="refine_foundation_pill"]').click();await setImmediate();
+ assert.equal(game.campaign.alternatePill,true);assert.equal(game.campaign.alchemy.crafted,1);
 });

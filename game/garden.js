@@ -1,4 +1,5 @@
 import { GameError } from './errors.js';
+import { advanceAlchemy } from './alchemy.js';
 
 export const GARDEN_ACTIONS = ['discover_bottle', 'plant_herb', 'water_herb', 'harvest_garden', 'buy_spirit_soil', 'enable_auto_water', 'disable_auto_water', 'enable_auto_plant', 'disable_auto_plant'];
 const GROWTH = 4;
@@ -42,9 +43,10 @@ export function advanceGarden(game) {
   if (!garden.bottle || garden.lastTurn >= game.turn) return;
   garden.lastTurn = game.turn;
   garden.drops = Math.min(CAPACITY, garden.drops + 1);
+  const wateredPill = advanceAlchemy(game);
   for (const plot of garden.plots) if (plot) plot.growth = Math.min(GROWTH, plot.growth + 1);
   const target = growingPlot(garden);
-  if (garden.autoWater && garden.drops && target && target.growth < GROWTH) {
+  if (!wateredPill && garden.autoWater && garden.drops && target && target.growth < GROWTH) {
     garden.drops--;
     target.growth++;
   }

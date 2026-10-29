@@ -2,6 +2,7 @@ import { CANON_IDENTITIES } from './canon.js';
 import { VOLUME_ACTIONS, VOLUME_PEOPLE, VOLUME_SITES } from './volume-data.js';
 import { SECT_PEOPLE, SECT_SITES } from './sect-data.js';
 import { FRONTIER_ACTIONS, FRONTIER_PEOPLE, FRONTIER_SITES } from './campaign-data.js';
+export const RETIRED_PILL_ACTIONS = ['buy_pill', 'negotiate', 'ambush'];
 export const ACTION_DEFS = [
   ...VOLUME_ACTIONS, ...FRONTIER_ACTIONS,
   { type: 'discover_bottle', title: '寻得小绿瓶', detail: '认主古瓶并安置一株幼苗，每旬自动凝液催生', cost: '奇遇 · 每局一次', place: 'woods', site: 'herbs', garden: true },
@@ -34,15 +35,15 @@ export const ACTION_DEFS = [
 ];
 
 export const PERSON_ACTIONS = {
-  shen: ['ask', 'buy_pill', 'lure'], bai: ['ask', 'inspect_pill', 'sell_herbs'],
-  xu: ['ask', 'partner', 'honor_partner'], lu: ['ask', 'report', 'buy_pill'],
-  qing: ['ask', 'buy_seal', 'buy_talisman'], wei: ['ask'], han: ['ask', 'ambush'],
+  shen: ['ask', 'lure'], bai: ['ask', 'inspect_pill', 'sell_herbs'],
+  xu: ['ask', 'honor_partner'], lu: ['ask', 'report'],
+  qing: ['ask', 'buy_seal', 'buy_talisman'], wei: ['ask'], han: ['ask'],
   ning: ['ask', 'investigate_route', 'forge_poison']
 };
 
 export const SITES = {
   herbs: { name: '灵草坡', role: '太岳山脉 · 采集与灵圃', detail: '太岳山间的灵草可以采集；带来的小绿瓶也能继续催生自己栽种的药草。', actions: ['gather_herbs'] },
-  formation: { name: '天雷阵位', role: '太岳山脉 · 设伏', detail: '古阵仍能聚气。护商修士会对贸然进攻作出反击。', actions: ['prepare_trap', 'ambush'] },
+  formation: { name: '天雷阵位', role: '太岳山脉 · 古阵', detail: '古阵仍能聚气，可察看旧日留下的阵位。', actions: ['prepare_trap'] },
   camp: { name: '听雨亭', role: '太岳山脉 · 调息', detail: '山林间的一处静地。调息疗伤，或服下筑基丹冲破瓶颈。', actions: ['rest', 'breakthrough'] }
 };
 

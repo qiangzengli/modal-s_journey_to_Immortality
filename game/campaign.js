@@ -3,11 +3,13 @@ import { GameError } from './errors.js';
 import { FRONTIER_PEOPLE, FRONTIER_ACTIONS } from './campaign-data.js';
 import { REGIONS, regionName, travelAccess } from './regions.js';
 import { cultivationRealm } from './cultivation.js';
+import { ensureAlchemy, applyAlchemyAction, alchemyView } from './alchemy.js';
 
 export function ensureCampaign(game) {
   const defaults={version:2,visited:['market','woods'],flags:{},storyFlags:{},questHerbs:[],ore:0,mined:0,gathered:0,alternatePill:false,vault:180,ending:null,endingEvent:0};
   game.campaign??={};
   for(const [key,value]of Object.entries(defaults))game.campaign[key]??=value;
+  ensureAlchemy(game);
   // Historical campaign fields and reward balances remain untouched and are never replayed.
   for(const actor of [...FRONTIER_PEOPLE,...SECT_PEOPLE]) {
     game.people[actor.id]??={...structuredClone(actor),knowledge:{},trust:0,condition:'正常'};
@@ -61,13 +63,15 @@ export function applyCampaignAction(game,type) {
     case 'gather_jade_mushroom': c.questHerbs.push('玉髓芝');text='你在寒潭边采到玉髓芝，付出少许气血，将主药收入独立药囊。';break;
     case 'aid_hanyunzhi': game.people.tao.trust+=15;text='你将一株灵草交给菡云芝，帮她缓解禁地里的困境。她记住这份援手，双方各自的采药之路仍由自己决定。';break;
     case 'meet_nangong': text='你进入中心区域，与南宫婉相遇。石殿中的危险令你们暂时联手；她的真正来历还不是此时能够轻易问出的事。';break;
-    case 'fight_mojiao': if(!c.questHerbs.includes('天灵果'))c.questHerbs.push('天灵果');game.people.ji.trust+=10;text='你与南宫婉在石殿中击败墨蛟，亲手采下天灵果，收入任务药囊。共斗的经历留在彼此记忆中，眼下先要带药离开禁地。';break;
-    case 'leave_forbidden': text='你带着三味主药离开血色禁地。李化元等候弟子归来，交药后可按门规领取筑基丹。';break;
+    case 'fight_mojiao': if(!c.questHerbs.includes('天灵果'))c.questHerbs.push('天灵果');game.people.ji.trust+=10;text='你与南宫婉合力应对墨蛟，从石殿险局中脱身，取得天灵果。这段共同经历留在彼此记忆中，眼下先要带药离开禁地。';break;
+    case 'leave_forbidden': text='你带着三味主药离开血色禁地。回宗整理丹方，留下活株自行培育，再亲手炼制筑基丹。';break;
     case 'deliver_spirit_herbs':
       requireValue(game.sects.membership?.sectId==='qinglan','需以黄枫谷弟子身份向宗门交药。');
       requireValue(['紫猴花','玉髓芝','天灵果'].every(h=>c.questHerbs.includes(h)),'三味任务主药尚未收齐。');
-      c.questHerbs=c.questHerbs.filter(h=>!['紫猴花','玉髓芝','天灵果'].includes(h));c.alternatePill=true;
-      text='你向黄枫谷交付三味主药，领取一枚筑基丹。此丹独立于坊市那枚机缘，先前的债务与交易仍然有效。可前往太岳山静处服丹筑基。';break;
+      text='你向宗门核对采药记录，研习筑基丹方，将三味活株留作自己的种苗。筑基丹须自行培育主药、成熟采收后亲手炼制，不能直接购买或交药领取。';break;
+    case 'plant_pill_herbs':
+    case 'harvest_pill_herbs':
+    case 'refine_foundation_pill': text=applyAlchemyAction(game,type);break;
     case 'sword_trace': text='你循着断裂法器与银剑划痕，发现一名赤足持剑的巨剑门修士。尚不知道他携有什么宝物，可先交谈试探，再决定迎战还是绕开。';break;
     case 'fight_swordsman': text='巨剑门赤脚大汉已在斗法中落败。你取出储物袋，发现一张布满奇异花纹的银色书页，暂时看不懂用途，决定先收好再离开禁地。';break;
     case 'examine_silver_page':
@@ -105,10 +109,11 @@ export function applyCampaignNpc(game,id,action) {
 }
 export function campaignView(game) {
   const c=game.campaign,f=c.storyFlags||{};
-  const objectives=FRONTIER_ACTIONS.filter(a=>!a.utility).map(a=>({ ...a,target:a.site,done:Boolean(f[a.type]),missed:Boolean(a.thread==='silver_page'&&!f.fight_swordsman&&(f.leave_forbidden||game.flags.playerBreakthrough)),skipped:Boolean(game.flags.playerBreakthrough&&['garden_duty','garden_cultivate','forbidden_enlist','enter_forbidden','gather_monkey_flower','gather_jade_mushroom','meet_nangong','fight_mojiao','leave_forbidden','deliver_spirit_herbs'].includes(a.type)&&!f[a.type]),unlocked:a.requires.every(key=>f[key])}));
+  const canSkipTrial=Boolean(game.flags.playerBreakthrough||((c.alternatePill||game.pill.owner==='player')&&(!f.enter_forbidden||f.leave_forbidden)));
+  const objectives=FRONTIER_ACTIONS.filter(a=>!a.utility).map(a=>({ ...a,target:a.site,done:Boolean(f[a.type]),missed:Boolean(a.thread==='silver_page'&&!f.fight_swordsman&&(f.leave_forbidden||game.flags.playerBreakthrough)),skipped:Boolean(canSkipTrial&&a.thread!=='silver_page'&&a.type!=='huangfeng_register'&&a.type!=='take_master'&&!f[a.type]),unlocked:a.requires.every(key=>f[key])}));
   const next=objectives.find(a=>!a.done&&!a.optional&&!a.skipped);
   return {title:'卷二 · 黄枫仙途',summary:next?.detail||'筑基拜师已成，青元剑诀的修行由此开始。',next,complete:Boolean(f.take_master),objectives,
-    chapters:[{id:'qinglan',title:'一 · 升仙入谷',summary:'凭升仙令入黄枫谷。',done:Boolean(f.huangfeng_register),target:'sect_qinglan'}, {id:'river',title:'二 · 百药潜修',summary:'接管百药园，潜修长春功。',done:Boolean(f.garden_cultivate),target:'ferry'}, {id:'quarry',title:'三 · 血色试炼',summary:'七派禁地采药，与南宫婉相遇。',done:Boolean(f.deliver_spirit_herbs),skipped:Boolean(game.flags.playerBreakthrough&&!f.deliver_spirit_herbs),target:'workers'}, {id:'qinglan',title:'四 · 筑基拜师',summary:'服丹筑基，拜师李化元，研习青元剑诀。',done:Boolean(f.take_master),target:'sect_qinglan'}],
-    aftermath:[],ending:null,flags:{...f},ore:c.ore,minesRemaining:0,reedsRemaining:Math.max(0,3-c.gathered),questHerbs:[...c.questHerbs],alternatePill:Boolean(c.alternatePill),visited:[...c.visited],realm:cultivationRealm(game),
+    chapters:[{id:'qinglan',title:'一 · 升仙入谷',summary:'凭升仙令入黄枫谷。',done:Boolean(f.huangfeng_register),target:'sect_qinglan'}, {id:'river',title:'二 · 百药潜修',summary:'接管百药园，潜修长春功。',done:Boolean(f.garden_cultivate),target:'ferry'}, {id:'quarry',title:'三 · 血色试炼',summary:'七派禁地采药，与南宫婉相遇。',done:Boolean(f.leave_forbidden),skipped:Boolean(game.flags.playerBreakthrough&&!f.leave_forbidden),target:'workers'}, {id:'river',title:'四 · 培药炼丹',summary:'留种培育三味主药，成熟采收，亲手炼制筑基丹。',done:Boolean(f.refine_foundation_pill),skipped:Boolean(game.flags.playerBreakthrough&&!f.refine_foundation_pill),target:'spring'}, {id:'qinglan',title:'五 · 筑基拜师',summary:'服丹筑基，拜师李化元，研习青元剑诀。',done:Boolean(f.take_master),target:'sect_qinglan'}],
+    aftermath:[],ending:null,flags:{...f},ore:c.ore,minesRemaining:0,reedsRemaining:Math.max(0,3-c.gathered),questHerbs:[...c.questHerbs],alternatePill:Boolean(c.alternatePill),alchemy:alchemyView(game),visited:[...c.visited],realm:cultivationRealm(game),
     regions:Object.entries(REGIONS).map(([id,r])=>({id,...r,...travelAccess(game,id),visited:c.visited.includes(id),current:game.player.place===id}))};
 }

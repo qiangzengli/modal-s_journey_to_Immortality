@@ -6,7 +6,7 @@ import { FRONTIER_PEOPLE } from './campaign-data.js';
 import { ensureCampaign, applyCampaignAction, travelRegion, campaignView } from './campaign.js';
 import { REGIONS } from './regions.js';
 import { ensureNpcState, npcPublic, societyView, npcPosition, expireOffers } from './npc-state.js';
-import { ACTION_DEFS } from './content.js';
+import { ACTION_DEFS, RETIRED_PILL_ACTIONS } from './content.js';
 import { GARDEN_ACTIONS, ensureGarden, applyGardenAction, advanceGarden, getGardenView } from './garden.js';
 import { GameError } from './errors.js';
 import { assertPeace, ensureExploration, getCombatView, combatAction } from './combat.js';
@@ -105,6 +105,7 @@ export function dialogueFor(game, target) {
 export function applyAction(source, action) {
   assertPeace(source);
   if (!action || !ACTIONS.includes(action.type)) throw new GameError('未识别的行动。可以试试「验丹」「调查货道」「找吴风合资」。');
+  if (RETIRED_PILL_ACTIONS.includes(action.type)) throw new GameError('筑基丹须自行培育三味主药后炼制，不能直接购买、议价或夺丹。请推进黄枫谷主线。');
   const game = ensureVolume(ensureCampaign(structuredClone(source)));
   game.ap = null;
   const type = action.type;
@@ -173,47 +174,6 @@ export function applyAction(source, action) {
       result = '合资成功：获得 100 灵石。取得丹药后，你仍欠吴风 120 灵石。';
       break;
     }
-    case 'buy_pill': {
-      at(game, MARKET);
-      const owner = game.pill.owner;
-      if (!['shen', 'lu'].includes(owner)) throw new GameError('眼下没有人愿意向你出售这枚筑基丹。');
-      if (owner === 'shen' && game.people.shen.place !== MARKET) throw new GameError('许掌柜不在坊市，无法在此向他买丹。');
-      const price = owner === 'lu' ? 150 : game.pill.price;
-      requireStones(game, price);
-      game.player.stones -= price;
-      game.pill.owner = 'player';
-      if (owner === 'shen') game.people.shen.stones += price;
-      else game.flags.auction = false;
-      game.flags.pillSale = note(game, '你', `以 ${price} 灵石从${owner === 'shen' ? '许掌柜' : '执事公售'}处取得筑基丹。`, owner === 'lu' ? [game.flags.report] : game.flags.partnerEvent ? [game.flags.partnerEvent] : [game.flags.pillRumorEvent || 1]);
-      result = `筑基丹入手，花费 ${price} 灵石。${game.flags.partnerDebt ? '别忘了与吴风的合资承诺。' : ''}`;
-      break;
-    }
-    case 'negotiate': {
-      at(game, MARKET);
-      hasPill(game, 'shen');
-      if (game.people.shen.place !== MARKET) throw new GameError('许掌柜已离开坊市，无法当面议价。');
-      const offer = action.offer;
-      const leverage = action.leverage || 'none';
-      if (!Number.isInteger(offer) || offer < 1 || offer > 9999) throw new GameError('请给出 1～9999 灵石之间的整数报价。');
-      if (!['none', 'smuggling', 'authentic'].includes(leverage)) throw new GameError('这项筹码无法核对。');
-      if (leverage !== 'none' && !game.player.clues.includes(leverage)) throw new GameError('你尚未掌握所声称的证据，无法据此议价。');
-      requireStones(game, offer);
-      const minimum = leverage === 'smuggling' ? 200 : game.flags.disputed ? 190 : 240;
-      const causes = leverage === 'none' ? [game.flags.pillRumorEvent || 1] : [game.player.clueEvents[leverage]];
-      if (offer < minimum) {
-        game.people.shen.trust -= 5;
-        note(game, '许掌柜', `你出价 ${offer} 灵石${leverage === 'smuggling' ? '并亮出货道证词' : ''}。许掌柜认为低于底线，拒绝交易。`, causes);
-        result = `许掌柜拒绝 ${offer} 灵石的报价。依据当前局势，他至少要 ${minimum} 灵石。`;
-      } else {
-        game.player.stones -= offer;
-        game.people.shen.stones += offer;
-        game.pill.owner = 'player';
-        if (leverage === 'smuggling') game.people.shen.trust -= 20;
-        game.flags.pillSale = note(game, '许掌柜', `你${leverage === 'smuggling' ? '以货道证词压价，' : ''}出价 ${offer} 灵石，许掌柜权衡后同意交易。筑基丹归你。`, causes);
-        result = `议价成功：以 ${offer} 灵石取得筑基丹。${leverage === 'smuggling' ? '许掌柜记下了你的施压。' : ''}`;
-      }
-      break;
-    }
     case 'sell_herbs': {
       at(game, MARKET);
       if (!game.player.herbs) throw new GameError('你的药草已经卖出。');
@@ -261,26 +221,6 @@ export function applyAction(source, action) {
       game.player.talismans -= 1;
       game.flags.trap = note(game, '你', '你在林道布下天雷符，准备截住携丹者。', [], 'player');
       result = '天雷符已布好，消耗 1 张。斗法仍会消耗气血并招来追查。';
-      break;
-    }
-    case 'ambush': {
-      at(game, WOODS);
-      hasPill(game, 'shen');
-      if (game.people.shen.place !== WOODS) throw new GameError('许掌柜不在太岳山脉。可以先邀请他出城，但是否赴约由他自己决定。');
-      if (!game.flags.trap) {
-        game.player.hp = Math.max(1, game.player.hp - 35);
-        game.people.shen.trust -= 30;
-        game.flags.attacked = note(game, '宋蒙', '你贸然拦截许掌柜，宋蒙挡下攻势。你失去 35 气血，丹药仍在许掌柜手里。');
-        result = '伏击失败：护商修士早有防备。先布阵或另寻办法。';
-      } else {
-        game.player.hp = Math.max(1, game.player.hp - 20);
-        game.player.reputation = Math.max(0, game.player.reputation - 15);
-        game.pill.owner = 'player';
-        game.people.shen.trust -= 50;
-        game.people.shen.condition = '负伤';
-        game.flags.attacked = note(game, '你', '天雷符迫退宋蒙，你付出 20 气血夺得筑基丹。许掌柜负伤逃走，目击者记下了你的身形。', [game.flags.trap, game.flags.lured]);
-        result = '夺宝成功，但你受伤、名声受损；许掌柜和宋蒙不会忘记此事。';
-      }
       break;
     }
     case 'buy_seal': {
@@ -349,7 +289,7 @@ export function applyAction(source, action) {
       const pillName='筑基丹';
       if(game.campaign.alternatePill)game.campaign.alternatePill=false;else game.pill.owner = 'consumed';
       game.player.hp = Math.min(100, game.player.hp + 20);
-      game.flags.playerBreakthrough = note(game, '你', `在听雨亭服下${pillName}，灵气贯通经脉。你踏入筑基初期，旧日的承诺与仇怨仍留在身后。`, [game.flags.pillSale || game.flags.attacked].filter(Boolean));
+      game.flags.playerBreakthrough = note(game, '你', `在听雨亭服下${pillName}，灵气贯通经脉。你踏入筑基初期，旧日的承诺与仇怨仍留在身后。`, [game.campaign.storyFlags.refine_foundation_pill || game.flags.pillSale || game.flags.attacked].filter(Boolean));
       result = `筑基已成。${game.flags.partnerDebt ? `与吴风的 ${game.flags.partnerDebt} 灵石欠款仍未结清。` : '你可以继续观察这场机缘留下的因果。'}`;
       break;
     }
@@ -432,9 +372,9 @@ export function getView(game) {
       }
     })),
     events: visible.map(e => ({ ...e, causes: e.causes.filter(id => visibleIds.has(id)) })).reverse(),
-    outcome: inOpening(game) ? story.summary : game.flags.playerBreakthrough ? `筑基已成。${game.flags.partnerDebt ? '与吴风的欠款仍待偿还。' : '这场机缘的因果仍将继续。'}` : pillOwner === 'player'
+    outcome: inOpening(game) ? story.summary : game.flags.playerBreakthrough ? `筑基已成。${game.flags.partnerDebt ? '与吴风的欠款仍待偿还。' : '这场机缘的因果仍将继续。'}` : game.campaign.alternatePill ? '筑基丹已入手。可前往听雨亭服丹筑基。' : pillOwner === 'player'
       ? game.flags.partnerDebt ? '筑基丹已入手；吴风的合资承诺仍待履行。' : '筑基丹已入手。可以继续推进时间，观察人物的后续反应。'
-      : pillOwner === 'xu' ? '吴风已取得坊市筑基丹，机缘失手。道途未断：可推进黄枫谷主线，在血色禁地采药换取筑基丹。' : ''
+      : '筑基丹须自行培育主药后炼制。推进黄枫谷主线，采得三味活株、研习丹方，再留种培育、成熟采收。'
   };
 }
 
@@ -445,6 +385,9 @@ export function parseLocal(text) {
   if(destination && /传送|前往|返回|去|到/.test(input))return {type:'travel_region',place:destination[0]};
   const frontier = ACTION_DEFS.find(def=>(def.campaign||def.volume) && input.includes(def.title));
   if(frontier)return {type:frontier.type};
+  if (/炼制.*筑基丹|炼.*筑基丹/.test(input) && !/炼化/.test(input)) return { type: 'refine_foundation_pill' };
+  if (/栽种.*主药|种植.*主药|培育.*筑基.*药|培养.*筑基.*药/.test(input)) return { type: 'plant_pill_herbs' };
+  if (/采收.*主药|收取.*筑基.*药/.test(input)) return { type: 'harvest_pill_herbs' };
   if (/认主.*小绿瓶|寻.*小绿瓶/.test(input)) return { type: 'discover_bottle' };
   if (/炼.*息壤|扩建.*灵圃/.test(input)) return { type: 'buy_spirit_soil' };
   if (/收取.*灵草|收取.*灵圃|收获.*灵草/.test(input)) return { type: 'harvest_garden' };

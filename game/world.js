@@ -799,7 +799,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     ctx.fillStyle='#263a35';
     for(const [x,z,rx,rz] of (place===MARKET?MARKET_BLOCKERS:FRONTIER_BLOCKERS[place]||SECT_BLOCKERS[place]||VOLUME_BLOCKERS[place]||[]))ctx.fillRect(px(x-rx),py(z-rz),rx*2/(max-min)*width,rz*2/(maxZ-minZ)*height);
     for(const [id,[x,z]]of Object.entries(SITE_SPOTS)){if(SITES[id].place!==place)continue;ctx.fillStyle='#f5d594';ctx.fillRect(px(x)-3,py(z)-3,6,6);}
-    for(const person of [...view.people,...view.roamers]){if(person.looted||person.place!==place)continue;const actor=people[person.id];ctx.fillStyle=person.defeated?'#e5bf71':person.id===view.pill.ownerId?'#f6ce65':person.affiliation?.color || '#d1e6d4';ctx.beginPath();ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill();}
+    for(const person of [...view.people,...view.roamers]){if(person.looted||person.place!==place)continue;const actor=people[person.id];ctx.fillStyle=person.defeated?'#e5bf71':person.affiliation?.color || '#d1e6d4';ctx.beginPath();ctx.arc(px(actor.position.x),py(actor.position.z),2.7,0,Math.PI*2);ctx.fill();}
     ctx.save();ctx.translate(px(player.position.x),py(player.position.z));ctx.rotate(-player.rotation.y);
     ctx.fillStyle='#fff9e2';ctx.beginPath();ctx.moveTo(0,5);ctx.lineTo(-4,-4);ctx.lineTo(0,-2);ctx.lineTo(4,-4);ctx.closePath();ctx.fill();ctx.restore();
     ctx.fillStyle='#fff3d6';ctx.font='12px sans-serif';ctx.fillText(regionName(place),9,17);
@@ -948,7 +948,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     camera.lookAt(cameraFocus.x,0,cameraFocus.z);
     sun.position.set(cameraFocus.x - 7, 23, cameraFocus.z + 15);
     sun.target.position.set(cameraFocus.x, 0, cameraFocus.z);
-    const bearer = view?.pill.ownerId === 'player' ? player : people[view?.pill.ownerId];
+    const bearer = view?.campaign.alternatePill || view?.pill.ownerId === 'player' ? player : null;
     pillAura.visible = Boolean(bearer);
     if (bearer) { pillAura.position.set(bearer.position.x, 2.65 + Math.sin(elapsed * 2) * 0.1, bearer.position.z); pillAura.rotation.set(Math.PI / 2, 0, elapsed * 0.5); }
     if (view?.world.trapReady) { terrain.arrayRing.rotation.z = elapsed * 0.3; terrain.arrayRing.material.opacity = 0.65 + Math.sin(elapsed * 3) * 0.3; }

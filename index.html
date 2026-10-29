@@ -31,7 +31,7 @@
     <details class="guide-inquiry"><summary>提出偏好 · 重新设计</summary><div id="guide-followups" class="agent-followups"></div><form id="guide-form"><label class="sr-only" for="guide-question">取丹方案偏好</label><input id="guide-question" maxlength="280" placeholder="例如：不欠人情，尽量不动武"><button id="guide-send" type="submit">重想</button></form></details>
   </section>
 
-  <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>机缘 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small id="opportunity-hint">金色光环标记持丹者 ↗</small></button>
+  <button class="opportunity-chip" type="button" data-open-panel="opportunity" aria-controls="map-panel"><span>培药 · 筑基丹</span><strong><span id="owner">—</span> · <span id="price">—</span></strong><small id="opportunity-hint">留种培育 → 成熟采收 → 炼制 ↗</small></button>
 
   <section id="world-person" class="world-person" aria-label="地图交互" hidden>
     <button id="person-close" class="icon-close" type="button" aria-label="关闭交互">×</button>
@@ -57,7 +57,7 @@
     <div class="panel-heading"><div><span class="eyebrow">逆命录 / JOURNAL</span><h2 id="panel-title">机缘</h2></div><button id="panel-close" class="icon-close" type="button" aria-label="关闭信息面板">×</button></div>
     <div class="panel-scroll">
       <section data-panel-content="campaign" hidden><div id="campaign-content"></div></section>
-      <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>当前持有人</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>当前售价</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>传闻状态</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome"></p><div id="quest-steps" class="quest-steps"></div></section>
+      <section data-panel-content="opportunity" hidden><div class="pill-icon">丹</div><div class="detail-row"><span>炼丹进展</span><strong id="owner-detail">—</strong></div><div class="detail-row"><span>获取方式</span><strong id="price-detail">—</strong></div><div class="detail-row"><span>三味主药</span><strong id="dispute">—</strong></div><p id="outcome" class="outcome"></p><div id="quest-steps" class="quest-steps"></div></section>
       <section data-panel-content="self" hidden><div id="equipment"></div><details class="equipment-resources"><summary>修行资源与灵圃</summary><div id="stats" class="stats"></div><div id="garden-summary" class="garden-summary"></div><div id="clues" class="clues"></div><p id="mode" class="panel-tip">离线规则模式</p></details><button id="restart" class="text-button" type="button">重开此局</button></section>
       <section data-panel-content="sects" hidden><div id="sect-content"></div></section>
       <section data-panel-content="people" hidden><h3>众生委托</h3><div id="society-offers"></div><h3>各地 · 游历修士</h3><p class="panel-tip">点击可一路传送至所在区域，再走到修士身边。主动发起斗法，胜者取得储物袋。</p><div id="roamers"></div><h3>修真界众生</h3><p class="panel-tip">人物会记得你的承诺与手段。</p><div id="people" class="people"></div></section>
@@ -81,7 +81,7 @@
   </section>
 
   <section class="mini-map-panel" aria-label="区域导航"><div><span>区域舆图</span><small>点击定位</small></div><canvas id="mini-map" width="240" height="130" aria-label="当前区域导航图"></canvas><div class="camera-controls"><button id="camera-left" type="button" aria-label="向左旋转视角">↶</button><button id="camera-out" type="button" aria-label="缩小地图">−</button><button id="camera-home" type="button" aria-label="重置视角">◎</button><button id="camera-in" type="button" aria-label="放大地图">＋</button><button id="camera-right" type="button" aria-label="向右旋转视角">↷</button></div></section>
-  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>跨地图直接传送，按修为开放；点击人物后传送到所在区域，再自动走近。靠近时按 F 交互，按方向键或 Esc 可取消追踪。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；前台探索约每 90 秒触发一次众生决策，也可点击「听候风声」。交谈、斗法或隐藏页面时暂停，可随时暂停演化。</p><p>金色光环标记持丹者。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
+  <button id="help-toggle" class="help-toggle" type="button" aria-label="查看操作说明">?</button><div id="help-card" class="help-card" hidden><strong>游历须知</strong><p>跨地图直接传送，按修为开放；点击人物后传送到所在区域，再自动走近。靠近时按 F 交互，按方向键或 Esc 可取消追踪。</p><p>沿地图斜轴移动：默认视角下，W / ↑ 左上，S / ↓ 右下，A / ← 左下，D / → 右上。</p><p>Q / E 旋转视角（地图方向不变） · 滚轮缩放 · Esc 收起浮层</p><p>行动次数不限，可自由交谈、交易和往返地图。灵石与物品按实际操作消耗；前台探索约每 90 秒触发一次众生决策，也可点击「听候风声」。交谈、斗法或隐藏页面时暂停，可随时暂停演化。</p><p>亲手炼成筑基丹后，金色光环标记自身。灵草采集、布阵、受伤和突破都会改变场景状态。</p></div>
   <div id="feedback-stack" class="feedback-stack" aria-live="polite"></div>
   <section id="combat-stage" class="combat-stage" aria-label="回合制斗法" hidden>
     <header class="battle-heading"><span class="eyebrow">天南 / 独立斗法境</span><strong id="battle-round"></strong><small>双方依次行动 · 时间不会自动推进</small></header>

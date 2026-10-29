@@ -74,7 +74,7 @@ export function applyVolumeAction(game,type) {
   const id=record(game,'第一卷',text,[...def.requires.map(key=>f[key]),...(def.encounter?[game.exploration.enemies[def.encounter]?.victoryEventId]:[])]);
   if(!def.repeatable)f[type]=id;
   if(type==='enter_xianmen'){
-    const rumor=record(game,'邸报','游历消息：黄枫谷坊市的许掌柜持有一枚筑基丹，开价 280 灵石。你可继续问计，自行筹划取丹路径。',[id]);
+    const rumor=record(game,'邸报','游历消息：黄枫谷坊市的许掌柜持有一枚筑基丹，开价 280 灵石。坊市交易由人物自行决定；你须采集主药、留种培育，再按丹方亲手炼制筑基丹。',[id]);
     game.events.at(-1).scope='public';game.flags.pillRumorEvent=rumor;
     for(const person of ['shen','bai','xu','qing','wei'])game.people[person].knowledge.pill=rumor;
   }

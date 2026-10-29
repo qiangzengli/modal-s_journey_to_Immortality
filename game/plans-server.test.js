@@ -6,11 +6,13 @@ import { once } from 'node:events';
 import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createGame } from './engine.js';
+import { advanceTurn } from './engine.js';
+import { throughCampaign } from './canon-test-helpers.js';
 
 test('规划接口只读且不锁行动；动态方案可执行、过期规划拒绝，已得丹不再生成', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'niminglu-plans-'));
-  const savePath = join(directory, 'save.json'), original = JSON.stringify(createGame());
+  const ready = advanceTurn(advanceTurn(throughCampaign('plant_pill_herbs')).game).game;
+  const savePath = join(directory, 'save.json'), original = JSON.stringify(ready);
   await writeFile(savePath, original);
   let slow = false, release, received, calls = 0;
   const model = createServer(async (req, res) => {
@@ -18,11 +20,11 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
     let body = ''; for await (const chunk of req) body += chunk;
     const payload = JSON.parse(body), context = JSON.parse(payload.messages[1].content);
     assert.equal(payload.model, 'deepseek-v4-flash');
-    assert.equal(context.objective, '取得一枚筑基丹');
+    assert.equal(context.objective, '自行培药炼制一枚筑基丹');
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
-    const actions = [...(context.facts.player.stones < 240 ? [{ type: 'sell_herbs' }] : []), { type: 'negotiate', offer: 240, leverage: 'none' }];
+    const actions = [...(!context.facts.campaign.alchemy.harvested ? [{ type: 'harvest_pill_herbs' }] : []), { type: 'refine_foundation_pill' }];
     res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: '卖草后当面议价。', followUps: [], plans: [{ title: '草资换丹', rationale: '不必验丹借钱，按目前预算直接报价。', risk: '还需留意后续修炼的开销。', actions }] }) } }] }));
+    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: '采收后自行炼制筑基丹。', followUps: [], plans: [{ title: '培药炼丹', rationale: '主药已培养成熟，采收后按丹方炼丹。', risk: '还需留意后续修炼的开销。', actions }] }) } }] }));
   });
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
@@ -41,22 +43,22 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
     for (const input of [{}, { expectedRevision: 0, text: 1 }, { expectedRevision: 0, preferredPlan: [] }]) assert.equal((await post('/api/plans', input)).status, 400);
     const planned = await post('/api/plans', { expectedRevision: 0, text: '不要借贷' });
     assert.equal(planned.status, 200); assert.equal(planned.source, 'model'); assert.equal(planned.revision, 0);
-    assert.deepEqual(planned.plans[0].steps[0].action, { type: 'sell_herbs' });
+    assert.deepEqual(planned.plans[0].steps[0].action, { type: 'harvest_pill_herbs' });
     assert.equal(await readFile(savePath, 'utf8'), original);
     slow = true;
     const waiting = new Promise(resolve => { received = resolve; });
     const pending = post('/api/plans', { expectedRevision: 0, refresh: true });
     await waiting;
     const sold = await post('/api/action', { ...planned.plans[0].steps[0].action, expectedRevision: 0 });
-    assert.equal(sold.status, 200); assert.equal(sold.view.player.stones, 260);
+    assert.equal(sold.status, 200); assert.equal(sold.view.campaign.alchemy.harvested, true);
     release();
     const stale = await pending; assert.equal(stale.status, 409); assert.equal(stale.view.revision, 1);
     slow = false;
     assert.equal((await post('/api/plans', { expectedRevision: 0 })).status, 409);
-    const next = await post('/api/plans', { expectedRevision: 1, preferredPlan: '草资换丹' });
+    const next = await post('/api/plans', { expectedRevision: 1, preferredPlan: '培药炼丹' });
     assert.equal(next.plans[0].steps.length, 1);
     const won = await post('/api/action', { ...next.plans[0].steps[0].action, expectedRevision: 1 });
-    assert.equal(won.view.pill.ownerId, 'player'); assert.equal(won.view.player.stones, 20);
+    assert.equal(won.view.campaign.alternatePill, true); assert.equal(won.view.campaign.alchemy.crafted, 1);
     const before = calls;
     const complete = await post('/api/plans', { expectedRevision: 2 });
     assert.equal(complete.reason, 'complete'); assert.deepEqual(complete.plans, []); assert.equal(calls, before);

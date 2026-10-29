@@ -23,7 +23,7 @@ test('AI 只解读公开事实，不能写入证词、资源、好感或任务�
   assert.equal(inspected.player.stones, 170);
   assert.deepEqual(inspected.player.clues, ['authentic']);
   const after = agentContext(getView(inspected), { mode: 'dialogue', personId: 'bai', text: '卖草够不够买丹？' });
-  assert.equal(after.candidates.find(item => item.id === 'sell_herbs').budgetNote, '执行后 250 灵石，距丹价仍差 30');
+  assert.equal(after.candidates.find(item => item.id === 'sell_herbs').budgetNote, '执行后 250 灵石');
 });
 
 test('伪造行动、越权字段和已不可执行的建议均回退到真实线索', async () => {
@@ -40,7 +40,7 @@ test('伪造行动、越权字段和已不可执行的建议均回退到真实�
 test('线索上下文随任务变化，合资履约与筑基后的结果保持原规则', async () => {
   let game = createGame();
   const before = agentContext(getView(game), { mode: 'guide', route: 'trade' });
-  assert.equal(before.facts.objective.title, '取得筑基丹');
+  assert.equal(before.facts.objective.title, '自行培药炼制筑基丹');
   assert.ok(before.candidates.some(candidate => candidate.target === 'bai'));
   game = applyAction(game, { type: 'inspect_pill' }).game;
   const inspected = agentContext(getView(game), { mode: 'guide', route: 'trade' });
