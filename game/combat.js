@@ -17,6 +17,13 @@ export function assertPeace(game) {
   if (game.exploration?.battle?.status === 'active') throw new GameError('斗法尚未结束，请先决出胜负或尝试逃跑。');
 }
 const enemyById = id => WANDERERS.find(enemy => enemy.id === id);
+const alliesFor=enemy=>enemy.allies||(enemy.ally?[enemy.ally]:[]);
+const teamIds=enemy=>['player',...alliesFor(enemy).map(ally=>ally.id)];
+const allyState=(battle,ally)=>({hp:ally.maxHp,mana:ally.maxMana,cooldowns:{},...battle.allyStates?.[ally.id]});
+const actorHp=(game,battle,enemy,id)=>id==='player'?game.player.hp:allyState(battle,alliesFor(enemy).find(p=>p.id===id)).hp;
+const livingIds=(game,battle,enemy)=>teamIds(enemy).filter(id=>actorHp(game,battle,enemy,id)>0);
+const nextActor=(game,battle,enemy)=>livingIds(game,battle,enemy).find(id=>!battle.actedIds?.includes(id))||'player';
+const targetFor=(game,battle,enemy)=>{const ids=livingIds(game,battle,enemy);return ids[(battle.round-1)%ids.length]||'player';};
 const intentFor = battle => battle.agentIntent || 'attack';
 const intentNames = { attack: '试探进攻', heavy: '蓄力重击', guard: '护体守势', heal: '运功疗伤' };
 function writeEvent(game, text) {
@@ -34,7 +41,7 @@ function finish(game, status, text) {
   return writeEvent(game, text);
 }
 
-// 每次请求只结算玩家的一次选择和随后的敌方行动；随机结果只由服务端生成。
+// 每次请求只结算队内一人的选择；全队行动完才结算一次反击。
 export function combatAction(source, input, random = Math.random) {
   const game = ensureExploration(structuredClone(source));
   const state = game.exploration;
@@ -47,7 +54,7 @@ export function combatAction(source, input, random = Math.random) {
     if(!enemyAvailable(game,enemy))throw new GameError('这场交锋尚未开放，请先完成战前调查，已完成的经历不能重演。');
     if (state.enemies[enemy.id]?.defeated) throw new GameError('对手已经败退，不可重复挑战。');
     if (game.player.hp < 20) throw new GameError('气血不足 20，请先服用回春丹或到附近静地疗伤。');
-    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, ward:enemy.ward||0, mana: stats.maxMana, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。你先出手，每次行动后敌人会回应。` }] };
+    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, ward:enemy.ward||0, mana: stats.maxMana, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。${alliesFor(enemy).length?'队内每人各行动一次，再由对手反击。':'你先出手，每次行动后敌人会回应。'}` }] };
     return { game, result: `与${enemy.name}的斗法开始。` };
   }
   if (input.type === 'leave') {
@@ -78,15 +85,42 @@ export function combatAction(source, input, random = Math.random) {
   }
   if (input.type !== 'turn' || !battle || battle.status !== 'active') throw new GameError('当前没有可继续的斗法。');
   const enemy = enemyById(battle.enemyId);
+  const actorId=input.actorId??nextActor(game,battle,enemy);
+  if(!teamIds(enemy).includes(actorId))throw new GameError('这名角色不在本场斗法队伍中。');
+  if(actorHp(game,battle,enemy,actorId)<=0)throw new GameError('这名角色已经倒下，不能继续出招。');
+  if(battle.actedIds?.includes(actorId))throw new GameError('这名角色本回合已行动，请选择尚未行动的队友。');
+  const ally=alliesFor(enemy).find(p=>p.id===actorId);
+  for(const member of alliesFor(enemy)){battle.allyStates??={};battle.allyStates[member.id]=allyState(battle,member);}
+  const actorState=ally?battle.allyStates[actorId]:battle;
+  battle.actionNumber=(battle.actionNumber||0)+1;
   const intent = intentFor(battle);
   const lines = [];
-  const log = (side, text) => { lines.push(text); battle.log.push({ round: battle.round, side, text }); };
+  let effect=({attack:'slash',guard:'shield',escape:'escape'})[input.move]||input.skillId||input.itemId;
+  const log = (side, text,meta={}) => { lines.push(text); battle.log.push({ round: battle.round,actionNumber:battle.actionNumber, side, text,...(['player','ally'].includes(side)?{actorId,move:input.move,effect}: {}),...meta }); };
   const damage = (power, pierce = false) => Math.max(1, Math.round((power - (pierce ? 0 : enemy.defense)) * (0.9 + random() * 0.2) * (intent === 'guard' ? 0.45 : 1)));
-  let guarded = false;
-  let interrupted = false;
+  const guardedIds=[...(battle.roundEffects?.guardedIds||[])];
+  let interrupted = battle.roundEffects?.interrupted||false;
   let usedSkill;
+  let cooldown;
   let hit = 0;
-  if (input.move === 'attack') {
+  if(ally){
+    if(input.move==='attack'){
+      hit=damage(ally.power);const restored=Math.min(5,ally.maxMana-actorState.mana);actorState.mana+=restored;
+      log('ally',`${ally.name}挥动${ally.weaponName}，造成 ${hit} 点伤害，回复 ${restored} 真气。`);
+    }else if(input.move==='skill'){
+      const skill=ally.skills.find(s=>s.id===input.skillId);
+      if(!skill)throw new GameError('这名同伴尚未学会这门法术。');
+      if(actorState.cooldowns[skill.id]>0)throw new GameError('这门法术尚在冷却中。');
+      if(actorState.mana<skill.cost)throw new GameError('同伴真气不足，可普攻或凝气防御回气。');
+      if(skill.heal&&actorState.hp>=ally.maxHp)throw new GameError('同伴气血已满，无需施展疗伤法术。');
+      actorState.mana-=skill.cost;usedSkill=skill.id;cooldown=skill.cooldown;effect=skill.effect;
+      if(skill.heal){const healed=Math.min(skill.heal,ally.maxHp-actorState.hp);actorState.hp+=healed;log('ally',`${ally.name}施展${skill.name}，恢复 ${healed} 气血。`);}
+      else {hit=damage(skill.power,skill.pierce);log('ally',`${ally.name}施展${skill.name}，造成 ${hit} 点伤害。`);}
+    }else if(input.move==='guard'){
+      guardedIds.push(actorId);const restored=Math.min(8,ally.maxMana-actorState.mana);actorState.mana+=restored;
+      log('ally',`${ally.name}以朱雀环护身，本回合自身减伤 65%，回复 ${restored} 真气。`);
+    }else throw new GameError('同伴可选择普攻、法术或凝气防御；物品和撤退由韩立操作。');
+  }else if (input.move === 'attack') {
     hit = damage(stats.basicAttack.total);
     const restored = Math.min(5, stats.maxMana - battle.mana);
     battle.mana += restored;
@@ -99,6 +133,7 @@ export function combatAction(source, input, random = Math.random) {
     if (skill.effect === 'heal' && game.player.hp >= 100) throw new GameError('气血已满，无需施展回春功。');
     battle.mana -= skill.cost;
     usedSkill = input.skillId;
+    cooldown=skill.cooldown;
     const scaling = getSkillScaling(stats, skill);
     if (skill.effect === 'heal') {
       const amount = Math.min(scaling.total, 100 - game.player.hp);
@@ -109,7 +144,7 @@ export function combatAction(source, input, random = Math.random) {
       log('player', `你施展${skill.name}，造成 ${hit} 点伤害。`);
     }
   } else if (input.move === 'guard') {
-    guarded = true;
+    guardedIds.push(actorId);
     const amount = Math.min(8, stats.maxMana - battle.mana);
     battle.mana += amount;
     log('player', `你凝气防御，本回合减伤 65%，回复 ${amount} 真气。`);
@@ -142,14 +177,13 @@ export function combatAction(source, input, random = Math.random) {
     log('enemy',`${enemy.wardName||'金刚护罩'}抵消 ${absorbed} 点伤害，护罩余力 ${battle.ward}。${battle.ward?'继续寻找破绽。':'护罩已破！'}`);
   }
   battle.enemyHp = Math.max(0, battle.enemyHp - hit);
-  if(enemy.ally&&battle.enemyHp>0){
-    const support=Math.min(battle.enemyHp,damage(enemy.ally.power,true));
-    battle.enemyHp-=support;
-    log('ally',`${enemy.ally.name}催动朱雀环牵制墨蛟，造成 ${support} 点伤害。`);
-  }
-  for (const id of Object.keys(battle.cooldowns)) battle.cooldowns[id] = Math.max(0, battle.cooldowns[id] - 1);
-  if (usedSkill) battle.cooldowns[usedSkill] = SKILLS[usedSkill].cooldown;
+  for (const id of Object.keys(actorState.cooldowns)) actorState.cooldowns[id] = Math.max(0, actorState.cooldowns[id] - 1);
+  if (usedSkill) actorState.cooldowns[usedSkill] = cooldown;
+  battle.actedIds=[...(battle.actedIds||[]),actorId];
+  battle.roundEffects={guardedIds,interrupted};
+  if(battle.enemyHp>0&&livingIds(game,battle,enemy).some(id=>!battle.actedIds.includes(id)))return {game,result:lines.join(' ')};
   if (battle.enemyHp === 0) {
+    if(game.player.hp===0){game.player.hp=25;log('world','同伴赢下斗法，掩护你调息至 25 气血。');}
     state.enemies[enemy.id] = { defeated: true, looted: false };
     withdrawNpcOffers(game, enemy.id);
     log('world', enemy.reward?'墨蛟倒下，守护天灵果的威胁已除。收取主药后才能继续离开禁地。':`${enemy.name}败退，储物袋掉落在林道上。`);
@@ -162,17 +196,19 @@ export function combatAction(source, input, random = Math.random) {
       battle.enemyHp += amount;
       log('enemy', `${enemy.name}${enemy.kind==='beast'?'盘身回气':'运功疗伤'}，恢复 ${amount} 气血。`);
     } else {
-      const hurt = Math.max(1, Math.round(enemy.attack * (intent === 'heavy' ? 1.8 : 1) * (0.9 + random() * 0.2) * (guarded ? 0.35 : 1)));
-      game.player.hp = Math.max(0, game.player.hp - hurt);
-      log('enemy', `${enemy.name}${enemy.kind==='beast'?(intent==='heavy'?'蓄力甩尾':'探爪扑击'):(intent === 'heavy' ? '蓄力重击' : '出手反击')}，你损失 ${hurt} 气血。`);
+      const targetId=targetFor(game,battle,enemy),targetAlly=alliesFor(enemy).find(p=>p.id===targetId),target=targetAlly?battle.allyStates[targetId]:game.player;
+      const hurt = Math.max(1, Math.round((enemy.attack * (intent === 'heavy' ? 1.8 : 1)-(targetAlly?.defense||0)) * (0.9 + random() * 0.2) * (guardedIds.includes(targetId) ? 0.35 : 1)));
+      target.hp = Math.max(0, target.hp - hurt);
+      log('enemy', `${enemy.name}${enemy.kind==='beast'?(intent==='heavy'?'蓄力甩尾':'探爪扑击'):(intent === 'heavy' ? '蓄力重击' : '出手反击')}，${targetAlly?.name||'你'}损失 ${hurt} 气血。`,{targetId});
+      if(target.hp===0)log('world',`${targetAlly?.name||'韩立'}倒下，暂时无法继续出招。`);
     }
-    if (game.player.hp === 0) {
+    if (!livingIds(game,battle,enemy).length) {
       const lost = Math.ceil(game.player.stones * 0.1);
       game.player.stones -= lost;
       game.player.hp = 25;
       log('world', `你负伤败退，散落 ${lost} 灵石，气血恢复至 25。功法与物品保留。`);
       finish(game, 'lost', `你败于${enemy.name}，损失 ${lost} 灵石后负伤脱身。`);
-    } else battle.round++;
+    } else {battle.round++;battle.actedIds=[];battle.roundEffects={};}
   }
   battle.log = battle.log.slice(-60);
   return { game, result: lines.join(' ') };
@@ -219,6 +255,9 @@ export function getCombatView(game) {
       return { id, ...skill, scaling, [skill.effect === 'heal' ? 'heal' : 'power']: scaling.base + scaling.skillBonus, remaining: battle?.cooldowns[id] || 0 };
     }),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },
-    battle: battle ? { ...structuredClone(battle), enemyName: enemy.name, maxEnemyHp: enemy.hp, boss:Boolean(enemy.boss), chapterFinale:Boolean(enemy.chapterFinale), wardName:enemy.wardName||'金刚护罩', intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, rewardName:enemy.rewardName, loot: encounterLoot(enemy) } : null
+    battle: battle ? { ...structuredClone(battle),actingId:nextActor(game,battle,enemy),targetId:targetFor(game,battle,enemy),actedIds:[...(battle.actedIds||[])],team:[
+      {id:'player',name:'韩立',hp:game.player.hp,maxHp:100,defense:0,mana:battle.mana,maxMana:stats.maxMana,weaponName:ITEMS[state.weapon].name,power:stats.basicAttack.total,skills:state.learned.map(id=>({id,...SKILLS[id],power:getSkillScaling(stats,SKILLS[id]).total,remaining:battle.cooldowns[id]||0}))},
+      ...alliesFor(enemy).map(ally=>({...ally,hp:allyState(battle,ally).hp,mana:allyState(battle,ally).mana,skills:ally.skills.map(skill=>({...skill,remaining:allyState(battle,ally).cooldowns[skill.id]||0}))}))
+    ].map(actor=>({...actor,canAct:battle.status==='active'&&actor.hp>0&&!battle.actedIds?.includes(actor.id)})),enemyName: enemy.name, maxEnemyHp: enemy.hp, boss:Boolean(enemy.boss), chapterFinale:Boolean(enemy.chapterFinale), wardName:enemy.wardName||'金刚护罩', intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, rewardName:enemy.rewardName, loot: encounterLoot(enemy) } : null
   };
 }

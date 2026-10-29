@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {setImmediate} from 'node:timers/promises';
+import {installDOM} from './ui-test-dom.js';
+import {throughCampaign,act} from './canon-test-helpers.js';
+import {getView} from './engine.js';
+import {combatAction} from './combat.js';
+import {createCombatUI} from './combat-ui.js';
+
+test('斗法界面切换韩立与南宫婉，发送角色专属普攻和法术并显示真气、冷却与行动状态',async t=>{
+ const {$}=installDOM(t);let game=act(throughCampaign('meet_nangong'),'fight_mojiao'),calls=[];
+ const ui=createCombatUI({navigate:()=>{},openInventory:()=>{},request:async(path,input)=>{calls.push(input);game=combatAction(game,input,()=>.5).game;ui.render(getView(game));return {view:getView(game)};}});
+ ui.render(getView(game));
+ assert.match($('[data-combat-actor="ji"]').textContent,/气血 96 \/ 96/);
+ assert.equal($('[data-team-hp="ji"]').style.width,'100%');
+ const hp=game.player.hp;
+ $('[data-combat-actor="ji"]').click();
+ assert.match($('#combat-actor-status').textContent,/南宫婉.*32 \/ 32/);
+ $('[data-combat-move="attack"]').click();await setImmediate();
+ assert.equal(calls.at(-1).actorId,'ji');assert.equal(game.player.hp,hp);
+ assert.equal($('[data-combat-actor="ji"]').disabled,true);assert.match($('#battle-round').textContent,/韩立/);
+ $('[data-combat-move="attack"]').click();await setImmediate();
+ assert.equal(calls.at(-1).actorId,'player');assert.equal(game.exploration.battle.round,2);assert.equal(game.player.hp,hp-16);
+ $('[data-combat-actor="ji"]').click();$('[data-skill-id="vermillion_ring"]').click();await setImmediate();
+ assert.deepEqual(calls.at(-1),{type:'turn',actorId:'ji',move:'skill',skillId:'vermillion_ring',itemId:undefined});
+ $('[data-combat-move="guard"]').click();await setImmediate();
+ $('[data-combat-actor="ji"]').click();
+ assert.match($('#combat-actor-status').textContent,/24 \/ 32/);
+ assert.equal($('[data-skill-id="vermillion_ring"]').disabled,true);
+ assert.equal($('[data-combat-tab="items"]'),null);
+ assert.equal($('[data-team-hp="ji"]').style.width,`${82/96*100}%`);
+ assert.equal($('[data-team-mana="ji"]').style.width,'75%');
+});

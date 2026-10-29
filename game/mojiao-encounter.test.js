@@ -27,7 +27,9 @@ test('墨蛟须完成相遇后在石殿开战；点击不扣固定气血、不�
  assert.deepEqual(g.campaign.questHerbs,['紫猴花','玉髓芝']);assert.ok(!g.campaign.storyFlags.fight_mojiao);
  for(const type of ['fight_mojiao','leave_forbidden','frontier_rest'])assert.throws(()=>act(g,type),/斗法/);
  const beforeTurn=structuredClone(g);g=combatAction(g,{type:'turn',move:'skill',skillId:'object_control'},()=>.5).game;
- assert.equal(g.exploration.battle.round,2);assert.ok(g.exploration.battle.enemyHp<beforeTurn.exploration.battle.enemyHp);assert.ok(g.player.hp<beforeTurn.player.hp);
+ assert.equal(g.exploration.battle.round,1);assert.ok(g.exploration.battle.enemyHp<beforeTurn.exploration.battle.enemyHp);assert.equal(g.player.hp,beforeTurn.player.hp);
+ g=combatAction(g,{type:'turn',actorId:'ji',move:'attack'},()=>.5).game;
+ assert.equal(g.exploration.battle.round,2);assert.ok(g.player.hp<beforeTurn.player.hp);
  assert.equal(g.exploration.battle.mana,30);assert.equal(g.exploration.battle.cooldowns.object_control,1);assert.ok(g.exploration.battle.log.some(e=>e.side==='ally'&&e.text.includes('南宫婉')));
  assert.deepEqual(getCombatView(JSON.parse(JSON.stringify(g))).battle,getCombatView(g).battle);
 });
@@ -46,10 +48,10 @@ test('获胜后可暂离、重访收果；药囊和信任只结算一次，不�
 test('撤退和战败不发天灵果；可疗伤重试，定神符、防御和协战按回合生效',()=>{
  let g=fight();g=combatAction(g,{type:'turn',move:'escape'},()=>0).game;assert.equal(g.exploration.battle.status,'escaped');assert.ok(!g.exploration.battle.log.some(e=>e.side==='ally'));
  assert.ok(!g.campaign.storyFlags.fight_mojiao);assert.ok(!g.campaign.questHerbs.includes('天灵果'));
- g=combatAction(g,{type:'leave'}).game;g=fight(g);g.player.hp=1;g=combatAction(g,{type:'turn',move:'attack'},()=>.5).game;assert.equal(g.exploration.battle.status,'lost');assert.ok(!g.exploration.enemies.story_mojiao);assert.equal(g.player.hp,25);
+ g=combatAction(g,{type:'leave'}).game;g=fight(g);g.player.hp=1;g=combatAction(g,{type:'turn',move:'attack'},()=>.5).game;g=combatAction(g,{type:'turn',actorId:'ji',move:'attack'},()=>.5).game;assert.equal(g.player.hp,0);assert.equal(g.exploration.battle.status,'active');g.exploration.battle.allyStates.ji.hp=1;g=combatAction(g,{type:'turn',actorId:'ji',move:'attack'},()=>.5).game;assert.equal(g.exploration.battle.status,'lost');assert.ok(!g.exploration.enemies.story_mojiao);assert.equal(g.player.hp,25);
  g=combatAction(g,{type:'leave'}).game;g=act(g,'frontier_rest');g=fight(g);assert.equal(g.exploration.battle.enemyHp,180);
- const hp=g.player.hp;g=combatAction(g,{type:'turn',move:'item',itemId:'binding_array'},()=>.5).game;assert.equal(g.player.hp,hp);assert.ok(g.exploration.battle.enemyHp<180);
- g.exploration.battle.agentIntent='heavy';g=combatAction(g,{type:'turn',move:'guard'},()=>.5).game;assert.equal(g.player.hp,hp-10);
+ const hp=g.player.hp;g=combatAction(g,{type:'turn',move:'item',itemId:'binding_array'},()=>.5).game;g=combatAction(g,{type:'turn',actorId:'ji',move:'attack'},()=>.5).game;assert.equal(g.player.hp,hp);assert.ok(g.exploration.battle.enemyHp<180);
+ g.exploration.battle.agentIntent='heavy';g=combatAction(g,{type:'turn',move:'attack'},()=>.5).game;g=combatAction(g,{type:'turn',actorId:'ji',move:'guard'},()=>.5).game;assert.equal(g.player.hp,hp);assert.equal(g.exploration.battle.allyStates.ji.hp,87);
  g=combatAction(g,{type:'turn',move:'item',itemId:'healing_pill'},()=>.5).game;assert.ok(g.exploration.battle.round>2);
 });
 

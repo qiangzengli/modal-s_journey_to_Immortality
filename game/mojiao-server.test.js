@@ -32,9 +32,11 @@ test('墨蛟 API 使用 ChatGPT 战术；回合落盘、并发版本校验、重
   for(let round=0;view.battle.status==='active'&&round<50;round++){
    const revision=view.revision,r=await post('/api/combat',{...openingMove(view),expectedRevision:revision});assert.equal(r.status,200,r.error);view=r.view;usedModel ||= view.battle.intentSource==='model';
    const saved=JSON.parse(await readFile(savePath,'utf8'));assert.equal(saved.exploration.battle.enemyHp,view.battle.enemyHp);assert.equal(saved.revision,view.revision);
-   if(round===1){
+   if(round===0){
+    assert.equal(view.battle.round,1);assert.equal(view.battle.actingId,'ji');assert.equal(view.battle.team[1].hp,96);
     const bytes=await readFile(savePath,'utf8'),count=requests.length;
     assert.equal((await post('/api/combat',{type:'turn',move:'attack',expectedRevision:revision})).status,409);assert.equal(requests.length,count);assert.equal(await readFile(savePath,'utf8'),bytes);
+    assert.equal((await post('/api/combat',{type:'turn',actorId:'player',move:'attack',expectedRevision:view.revision})).status,400);assert.equal(await readFile(savePath,'utf8'),bytes);
     await stop();await start();assert.deepEqual((await(await fetch(origin+'/api/state')).json()).view,view);
    }
   }

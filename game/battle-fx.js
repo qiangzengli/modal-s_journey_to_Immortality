@@ -136,6 +136,13 @@ export function createBattleEffects(THREE, scene) {
         animate(crescent, .16 + i * .11, .75 + i * .1, p => { crescent.rotation.set(.2, .3 * direction, direction * (p * 2.5 - 1.6) + i * 1.8); crescent.scale.setScalar((heavy ? 1.35 : 1) * (.6 + p * .6)); });
       }
       cloud(target, 0xffdc9c, 24, 'burst', .4, .98, 1.3);
+    } else if (kind === 'vermillion_ring') {
+      glyph(source,0xffcb78,.95,0);
+      for(let i=0;i<3;i++){
+        const ring=mesh(new THREE.TorusGeometry(.35+i*.09,.045,8,40),0xffbd58,.9);
+        animate(ring,.08+i*.06,.84+i*.05,p=>{ring.position.lerpVectors(source,target,p);ring.position.y+=Math.sin(p*Math.PI)*.8;ring.rotation.set(p*3+i,p*5,p*8);});
+      }
+      pulse(target,0xffb85b,1.6,.52);cloud(target,0xffdc87,28,'burst',.52,1,1.2);
     } else if (kind === 'blood_art') {
       glyph(source,0xd64a77,1.1,0);halo(source,0x9d214d,.8,0,.35);
       for(let i=0;i<3;i++){

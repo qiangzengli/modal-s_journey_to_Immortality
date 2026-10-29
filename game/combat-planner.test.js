@@ -3,12 +3,24 @@ import assert from 'node:assert/strict';
 import {setImmediate} from 'node:timers/promises';
 import {createGame} from './engine.js';
 import {combatAction} from './combat.js';
+import {throughCampaign,act} from './canon-test-helpers.js';
 import {createCombatPlanner} from './combat-planner.js';
 import {requestCombatPlan,selectCombatTactic} from './npc-combat-agent.js';
 const tactic=(intent,speech='对方凝气变招。')=>({intent,speech});
 const plan=()=>({normal:tactic('guard'),wounded:tactic('heal'),opportunity:tactic('heavy'),exhausted:tactic('attack')});
 const start=()=>{const game=createGame();game.player.place='woods';return combatAction(game,{type:'start',enemyId:'luohu'}).game;};
 const next=(g,planner)=>{const result=combatAction(g,{type:'turn',move:'guard'},()=>.5).game;planner.prepare(result,g);planner.sync(result);return result;};
+
+test('同一队伍回合中切换出招者不改变已展示的敌方预告',async()=>{
+ const planner=createCombatPlanner({complete:async()=>({content:JSON.stringify(plan())})});
+ let game=act(throughCampaign('meet_nangong'),'fight_mojiao');planner.prepare(game,null);planner.sync(game);await setImmediate();
+ const original=structuredClone(game.exploration.battle);
+ const afterPlayer=combatAction(game,{type:'turn',actorId:'player',move:'attack'},()=>.5).game;
+ planner.prepare(afterPlayer,game);assert.equal(afterPlayer.exploration.battle.agentIntent,original.agentIntent);assert.equal(afterPlayer.exploration.battle.intentSource,original.intentSource);
+ const hp=afterPlayer.player.hp;
+ const afterAlly=combatAction(afterPlayer,{type:'turn',actorId:'ji',move:'attack'},()=>.5).game;
+ assert.equal(afterAlly.player.hp,hp-16);planner.prepare(afterAlly,afterPlayer);assert.equal(afterAlly.exploration.battle.agentIntent,'guard');planner.stop();
+});
 
 test('模型悬挂时连续回合不等待、不加请求；已展示预告固定，后台结果只用于后续',async()=>{
  let release,calls=0;

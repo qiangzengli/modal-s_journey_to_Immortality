@@ -25,6 +25,11 @@ export function throughCampaign(end='refine_foundation_pill',source=openingCompl
 }
 
 export function openingMove(view) {
+  const member=view.battle.team?.find(p=>p.id===view.battle.actingId);
+  if(member&&member.id!=='player'){
+    const skill=member.skills.find(s=>!s.remaining&&s.cost<=member.mana);
+    return {type:'turn',actorId:member.id,move:skill?'skill':'attack',...(skill?{skillId:skill.id}:{})};
+  }
   const ready=id=>view.skills.some(s=>s.id===id&&!s.remaining&&view.battle.mana>=s.cost);
   if(view.player.hp<40){
     if(view.inventory.some(i=>i.id==='healing_pill'&&i.quantity>0))return {type:'turn',move:'item',itemId:'healing_pill'};

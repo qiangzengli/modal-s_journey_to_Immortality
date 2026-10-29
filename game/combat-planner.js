@@ -8,6 +8,7 @@ export function createCombatPlanner({complete,now=Date.now,timeoutMs=8000,retryM
     const battle=next.exploration?.battle;
     if(battle?.status!=='active')return;
     const sameBattle=previous?.exploration?.battle?.status==='active'&&previous.exploration.battle.enemyId===battle.enemyId;
+    if(sameBattle&&previous.exploration.battle.round===battle.round)return;
     const ready=sameBattle&&session?.enemyId===battle.enemyId&&session.ready;
     const fresh=ready&&battle.round-ready.receivedRound<=6;
     const tactic=fresh?selectCombatTactic(next,ready.plan):null;
