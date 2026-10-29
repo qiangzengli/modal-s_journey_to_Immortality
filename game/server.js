@@ -168,6 +168,8 @@ const files = {
   '/combat-ui.js': ['combat-ui.js', 'text/javascript; charset=utf-8'],
   '/equipment-ui.js': ['equipment-ui.js', 'text/javascript; charset=utf-8'],
   '/equipment-art.js': ['equipment-art.js', 'text/javascript; charset=utf-8'],
+  '/assets/cultivator/portrait.png': ['assets/cultivator/portrait.png', 'image/png'],
+  '/assets/cultivator/spirit-bottle.png': ['assets/cultivator/spirit-bottle.png', 'image/png'],
   '/equipment.css': ['equipment.css', 'text/css; charset=utf-8'],
   '/battle-world.js': ['battle-world.js', 'text/javascript; charset=utf-8'],
   '/battle-fx.js': ['battle-fx.js', 'text/javascript; charset=utf-8'],

@@ -18,6 +18,9 @@ test('部位与功法分离，读图不改存档；法宝认主后更新同一�
   let calls = 0;
   const { ui, element, click } = harness(() => calls++);
   ui.render(getView(game));
+  assert.match(element.innerHTML, /data-portrait-layer="character"/);
+  assert.match(element.innerHTML, /data-portrait-equipment="sword"/);
+  assert.doesNotMatch(element.innerHTML, /data-portrait-layer="bottle"/);
   assert.equal(EQUIPMENT_SLOTS.length, 10);
   await click('slot', 'head');
   assert.match(element.innerHTML, /头冠 · 空槽/);
@@ -27,10 +30,18 @@ test('部位与功法分离，读图不改存档；法宝认主后更新同一�
   assert.deepEqual(game, snapshot);
   game.garden.bottle = true; game.garden.drops = 2; game.garden.stored = 7;
   ui.render(getView(game));
+  assert.match(element.innerHTML, /data-portrait-layer="bottle"/);
   assert.match(element.innerHTML, /<h4>小绿瓶<\/h4>/);
   assert.match(element.innerHTML, /2 \/ 3 滴/); assert.match(element.innerHTML, /7 株/);
   await click('screen', 'skills'); assert.match(element.innerHTML, /<h5>冰锥术<\/h5>/);
   assert.equal(calls, 0);
+  game.exploration.inventory.vine_staff = 1;
+  const equipped = inventoryAction(game, { type: 'equip', itemId: 'vine_staff' }).game;
+  ui.render(getView(equipped));
+  assert.match(element.innerHTML, /data-portrait-equipment="staff"/);
+  assert.doesNotMatch(element.innerHTML, /data-portrait-equipment="sword"/);
+  ui.render({ ...getView(equipped), weapon: null });
+  assert.doesNotMatch(element.innerHTML, /data-portrait-equipment=/);
 });
 
 test('选择与对比不换装；确认后等待真实结算，拦截重复请求并保留物品数量', async () => {

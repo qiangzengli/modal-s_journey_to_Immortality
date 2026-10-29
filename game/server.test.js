@@ -60,6 +60,13 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
   };
   try {
     await start();
+    for (const asset of ['portrait.png', 'spirit-bottle.png']) {
+      const response = await fetch(`${origin}/assets/cultivator/${asset}`);
+      assert.equal(response.status, 200);
+      assert.equal(response.headers.get('content-type'), 'image/png');
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      assert.deepEqual([...bytes.slice(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    }
     const initial = (await (await fetch(origin + '/api/state')).json()).view;
     assert.equal(initial.turn, 2);
     assert.equal(initial.ap, null);
