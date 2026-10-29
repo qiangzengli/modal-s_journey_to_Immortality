@@ -59,7 +59,7 @@ export function agentContext(view, input) {
   const journey=view.story&&!view.story.complete?view.story:view.campaign;
   const experience=STORY_BEATS[journey?.next?.type];
   facts.currentExperience=experience&&(!person||experience.person===person.id)?experience:null;
-  facts.pastChoices=(journey?.decisions||[]).filter(d=>!person||STORY_BEATS[d.type]?.person===person.id).slice(-6);
+  facts.pastChoices=[...(view.story?.decisions||[]),...(view.campaign?.decisions||[])].filter(d=>!person||STORY_BEATS[d.type]?.person===person.id).sort((a,b)=>a.completedTurn-b.completedTurn).slice(-6);
   if(person){
     facts.campaign={...facts.campaign,decisions:(view.campaign?.decisions||[]).filter(d=>STORY_BEATS[d.type]?.person===person.id)};
     if(facts.firstVolume)facts.firstVolume={...facts.firstVolume,decisions:facts.pastChoices};

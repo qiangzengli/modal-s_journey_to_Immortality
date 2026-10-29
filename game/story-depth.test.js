@@ -43,6 +43,10 @@ test('取舍进入对应人物记忆，秘密选择不注入其他人物上下�
   assert.ok(!dialogue.facts.pastChoices.some(d=>d.type==='observe_bottle'));
   assert.doesNotMatch(JSON.stringify(dialogue),/保留了一份秘密观察记录/);
   assert.equal(dialogue.facts.currentExperience,null);
+  const later=throughOpening();later.player.place='jiayuan';
+  const reunion=agentContext(getView(later),{mode:'dialogue',personId:'mocaihuan',text:'还记得我来墨府的时候吗？'});
+  assert.ok(reunion.facts.pastChoices.some(d=>d.type==='inquire_mofu'));
+  assert.ok(!reunion.facts.pastChoices.some(d=>d.type==='observe_bottle'));
 });
 
 function oldSave(source) {
