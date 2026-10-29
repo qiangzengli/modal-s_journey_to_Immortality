@@ -28,6 +28,8 @@ test('鼠标、触摸与按钮独立控制镜头，取消手势和离场释放�
   const camera = new THREE.OrthographicCamera(-12,12,6,-6,.1,100);
   const orbit=createBattleCamera(camera,{stage,getFocusPoint:side=>({x:side==='player'?-3:3,z:0})});t.after(()=>orbit.dispose());
   orbit.sync({enemyId:'luohu'});
+  const panel=$('.battle-camera-panel'),toggle=$('.battle-camera-toggle');
+  assert.equal(panel.hidden,true);assert.equal(toggle.getAttribute('aria-expanded'),'false');
   const surface=$('.battle-orbit-surface');
   const send=(target,type,props)=>{const e=new window.Event(type,{bubbles:true,cancelable:true});for(const [key,value]of Object.entries(props))Object.defineProperty(e,key,{value});target.dispatchEvent(e);return e;};
   send(surface,'pointerdown',{pointerId:1,button:0,clientX:10,clientY:20});
@@ -39,10 +41,12 @@ test('鼠标、触摸与按钮独立控制镜头，取消手势和离场释放�
   send(surface,'pointerdown',{pointerId:3,button:0,clientX:110,clientY:20});
   const lens=camera.top;send(surface,'pointermove',{pointerId:3,clientX:210,clientY:20});assert.ok(camera.top<lens);
   window.dispatchEvent(new window.Event('blur'));assert.equal(surface.classList.contains('dragging'),false);
+  toggle.click();assert.equal(panel.hidden,false);assert.equal(toggle.getAttribute('aria-expanded'),'true');
   $('[data-battle-focus="enemy"]').click();assert.equal($('[data-battle-focus="enemy"]').getAttribute('aria-pressed'),'true');
   $('[data-battle-camera="reset"]').click();assert.ok(Math.abs(camera.position.x)<1e-9);
+  send(toggle,'keydown',{key:'Escape'});assert.equal(panel.hidden,true);assert.equal(document.activeElement,toggle);
   let attacks=0;const attack=document.createElement('button');attack.textContent='攻击';$('#combat-inputs').append(attack);attack.addEventListener('click',()=>attacks++);attack.click();assert.equal(attacks,1);
   const before=camera.position.clone();send($('#command'),'keydown',{key:'q'});assert.ok(camera.position.distanceTo(before)<1e-9);
   send(surface,'keydown',{key:'q'});assert.notEqual(camera.position.x,before.x);
-  orbit.sync(null);const left=camera.position.clone();send(surface,'keydown',{key:'q'});assert.ok(camera.position.distanceTo(left)<1e-9);
+  toggle.click();orbit.sync(null);assert.equal(panel.hidden,true);const left=camera.position.clone();send(surface,'keydown',{key:'q'});assert.ok(camera.position.distanceTo(left)<1e-9);
 });
