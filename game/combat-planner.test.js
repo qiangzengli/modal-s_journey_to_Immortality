@@ -68,3 +68,14 @@ test('策略协议拒绝越权字段和不合条件的治疗，模型不接触�
  }
  const result=await requestCombatPlan(game,async()=>({content:JSON.stringify(plan())}));assert.deepEqual(result,plan());assert.deepEqual(game,before);
 });
+
+
+test('模型生成期间快速推进多轮，返回的条件策略按当前局势使用，不按请求年龄丢弃',async()=>{
+ let release;const planner=createCombatPlanner({complete:()=>new Promise(resolve=>{release=()=>resolve({content:JSON.stringify(plan())});})});
+ let game=start();game.player.hp=100;planner.prepare(game,null);planner.sync(game);
+ for(let i=0;i<9;i++)game=next(game,planner);
+ assert.equal(game.exploration.battle.round,10);assert.equal(game.exploration.battle.intentSource,'preparing');
+ const before=structuredClone(game);release();await setImmediate();assert.deepEqual(game,before);
+ game=next(game,planner);assert.equal(game.exploration.battle.intentSource,'model');assert.equal(game.exploration.battle.tacticPlanRound,1);
+ assert.equal(game.exploration.battle.agentIntent,selectCombatTactic(game,plan()).intent);planner.stop();
+});
