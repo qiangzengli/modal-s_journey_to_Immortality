@@ -331,10 +331,6 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   let lastFrameTime = performance.now();
   let elapsed = 0;
   let view;
-  const bubble = document.createElement('div');
-  bubble.className = 'world-bubble'; bubble.hidden = true;
-  container.appendChild(bubble);
-  let speech = null;
   let currentRoom = null;
   const roomHud = document.createElement('aside');
   roomHud.className = 'room-hud'; roomHud.hidden = true;
@@ -404,7 +400,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   });
   function goTo(target) {
     if (busy || !view || view.battle) return Promise.resolve(false);
-    keys.clear(); select(null); bubble.hidden = true; speech = null;
+    keys.clear(); select(null);
     return navigation.go(target);
   }
 
@@ -512,7 +508,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     }
     updateIdentityLabel(player, '你', nextView.sects.player);
     if(nextView.battle&&!previousBattle){
-      navigation.cancel();keys.clear();select(null);speech=null;bubble.hidden=true;
+      navigation.cancel();keys.clear();select(null);
       if(firstLoad){
         const goal=locate(nextView.battle.enemyId);
         const approach=Array.from({length:16},(_,i)=>({x:goal.x+Math.cos(i*Math.PI/8)*2.7,z:goal.z+Math.sin(i*Math.PI/8)*2.7})).find(p=>walkable(p.x,p.z));
@@ -686,7 +682,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     if (busy) return;
     if (event.key.toLowerCase() === 'f' && nearby) { event.preventDefault(); goTo(nearby.id); return; }
     if (['w', 'a', 's', 'd', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) {
-      if (!keys.size) { navigation.cancel(); select(null); bubble.hidden=true; speech=null; }
+      if (!keys.size) { navigation.cancel(); select(null); }
       keys.add(event.key);
       event.preventDefault();
     }
@@ -866,15 +862,6 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     scenery.update(elapsed, dt);
     mapTimer += dt;
     if (mapTimer > 0.12) { drawMiniMap(); updateNearby(); updateOcclusion(); mapTimer = 0; }
-    if (speech) {
-      if (elapsed > speech.until) { speech=null; bubble.hidden=true; }
-      else {
-        const actor=people[speech.id] || player;
-        const screen=actor.position.clone().add(new THREE.Vector3(0,3.2,0)).project(camera);
-        bubble.style.left=`${THREE.MathUtils.clamp((screen.x+1)/2*container.clientWidth,150,container.clientWidth-150)}px`;
-        bubble.style.top=`${THREE.MathUtils.clamp((1-screen.y)/2*container.clientHeight,200,container.clientHeight-210)}px`;
-      }
-    }
     updateNameplates();
     if(view?.battle)battleWorld.render(elapsed);
     else renderer.render(scene, camera);
@@ -888,7 +875,6 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     cancel() { navigation.cancel(); keys.clear(); },
     reset() { navigation.cancel(); initialized=false; select(null); },
     interact() { if (nearby) return goTo(nearby.id); },
-    speak(id, text) { bubble.textContent=text; bubble.hidden=false; speech={id,until:elapsed+7}; },
     setBusy(value) { busy=value; if(value) { keys.clear(); stopWalking(); } },
     clearSelection() { navigation.cancel(); select(null); },
     rotate(amount) { azimuth += amount; },

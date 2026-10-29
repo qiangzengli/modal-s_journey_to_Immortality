@@ -11,13 +11,19 @@ import {SITES} from './content.js';
 test('应用装配：读档、任务追踪、到点行动、人物页签与状态反馈连接完整',async t=>{
  const {$,window,dialogMethods}=installDOM(t);
  t.mock.timers.enable({apis:['setTimeout','setInterval']});
- let game=createOpeningGame(),view,callbacks,finishAnimation,combatCalls=0;
+ let game=createOpeningGame(),view,callbacks,finishAnimation,combatCalls=0,speechCalls=0,pendingAction=null,lastActionResult;
  const actions=[],waits=[];
  t.mock.method(globalThis,'fetch',async(path,options)=>{
    if(path==='./api/state')return {ok:true,json:async()=>({view:getView(game),modelName:'gpt-5.6-sol'})};
    if(path==='./api/action'){
-     const input=JSON.parse(options.body);actions.push(input);game=applyAction(game,input).game;game.revision=(game.revision||0)+1;
-     return {ok:true,json:async()=>({view:getView(game),modelName:'gpt-5.6-sol',result:'经历已保存',actionType:input.type})};
+     const input=JSON.parse(options.body);actions.push(input);
+     if(input.type==='read_stone_gate'&&pendingAction){
+       await new Promise(resolve=>pendingAction.release=resolve);
+       if(pendingAction.fail){lastActionResult='行动未能保存，请稍后重试。';return {ok:false,json:async()=>({error:lastActionResult})};}
+     }
+     const outcome=applyAction(game,input);game=outcome.game;game.revision=(game.revision||0)+1;
+     lastActionResult=input.type==='read_stone_gate'?outcome.result:'经历已保存';
+     return {ok:true,json:async()=>({view:getView(game),modelName:'gpt-5.6-sol',result:lastActionResult,actionType:input.type})};
    }
    if(path==='./api/combat'){
      combatCalls++;game=combatAction(game,JSON.parse(options.body),()=>.5).game;game.revision++;
@@ -29,7 +35,7 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
    }
    throw new Error('Unexpected request '+path);
  });
- const fakeWorld={combatReact:()=>new Promise(resolve=>{finishAnimation=resolve;}),sync:v=>view=v,clearSelection:()=>callbacks.onClearPerson(),cancel:()=>{},setBusy:()=>{},stopMovement:()=>{},react:()=>{},speak:()=>{},reset:()=>{},rotate:()=>{},zoomBy:()=>{},recenter:()=>{},
+ const fakeWorld={combatReact:()=>new Promise(resolve=>{finishAnimation=resolve;}),sync:v=>view=v,clearSelection:()=>callbacks.onClearPerson(),cancel:()=>{},setBusy:()=>{},stopMovement:()=>{},react:()=>{},speak:()=>speechCalls++,reset:()=>{},rotate:()=>{},zoomBy:()=>{},recenter:()=>{},
    async goTo(target){
      if(typeof target==='object'){return callbacks.onTravel(target.place);}
      const person=view.people.find(p=>p.id===target),site=SITES[target],place=person?.place||site?.place;
@@ -55,6 +61,27 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
  assert.ok(actions.every(a=>Number.isInteger(a.expectedRevision)));
  $('[data-person-pane="actions"]').click();assert.equal($('#world-person').dataset.pane,'actions');
  $('#person-close').click();await setImmediate();assert.equal(document.body.dataset.surface,'none');
+ // The same result belongs to one visible surface, including closing/changing tabs while awaiting it.
+ for(const surface of ['panel','map','about','error']){
+   game=throughCampaign('gather_jade_mushroom');pendingAction={fail:surface==='error'};
+   $('#connection-retry').click();await setImmediate();
+   $('[data-open-panel="campaign"]').click();await setImmediate();
+   $('[data-campaign-action="read_stone_gate"]').click();await setImmediate();
+   $('[data-story-choice="marks"]').click();$('#story-scene-confirm').click();await setImmediate();
+   assert.equal(typeof pendingAction.release,'function');
+   $('[data-person-pane="actions"]').click();
+   if(surface==='map')$('#person-close').click();
+   if(surface==='about')$('[data-person-pane="about"]').click();
+   pendingAction.release();await setImmediate();
+   const copies=[...document.querySelectorAll('#notice-stack p')].filter(p=>p.textContent===lastActionResult);
+   const inPanel=surface==='panel'||surface==='error';
+   assert.equal(copies.length,inPanel?0:1,`${surface}: 结果只能在面板或顶部显示一次`);
+   if(inPanel){assert.equal($('#interaction-result').hidden,false);assert.equal($('#interaction-result-copy').textContent,lastActionResult);}
+   assert.equal(speechCalls,0,'行动结果不能再生成头顶气泡');
+   if(surface==='error')assert.equal(game.campaign.storyFlags.read_stone_gate,undefined);
+   for(const close of document.querySelectorAll('#notice-stack button'))close.click();
+   $('#person-close').click();await setImmediate();pendingAction=null;
+ }
  // A saved herb bed can grow, be harvested and crafted using the actual UI without an NPC/model step.
  game=throughCampaign('plant_pill_herbs');
  $('#connection-retry').click();await setImmediate();

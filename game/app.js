@@ -67,6 +67,7 @@ function updateInteractionResult() {
   const next=current?.story&&!current.story.complete?current.story.next:planUI?.next();
   $('#interaction-next').hidden=!next||!lastInteraction||lastInteraction.target!==id;
   $('#interaction-next').textContent=next?.target==='advance'?'等候下一旬 →':`接下来 · ${next?.title || ''} →`;
+  return !$('#world-person').hidden&&!$('#interaction-result').hidden&&$('#world-person').dataset.pane!=='about'&&!current?.battle;
 }
 
 
@@ -409,14 +410,17 @@ async function call(path,payload={}) {
     }else render(data.view,data.modelName);
     if(path==='/api/intent')return data;
     const chapterCompleted=!before.campaign.complete&&data.view.campaign.complete;
-    if(!chapterCompleted)notice(data.result);
+    const breakthrough=!before.world.breakthrough&&data.view.world.breakthrough;
+    let resultInPanel=false;
     feedback(before,data.view);
     if(path==='/api/combat'&&payload.type==='claim')$('#world-hint').textContent=chapterCompleted?'第一章试炼完成。可继续游历，或回百药园培药炼丹。':'战利品已收入行囊。可以研习功法、装备武器，再继续游历。';
     if(path==='/api/action'&&!data.actionType.startsWith('travel_')) {
       const target=actionTarget({...payload,type:data.actionType},before);
-      lastInteraction={target,text:data.result}; updateInteractionResult();
+      lastInteraction={target,text:data.result}; resultInPanel=updateInteractionResult();
       if(!defs[data.actionType]?.garden)$('#world-person').scrollTop=0;
     }
+    // One result, one visible surface. A closed/hidden detail panel falls back to the toast.
+    if(!chapterCompleted&&!breakthrough&&!resultInPanel)notice(data.result);
     world.react(data.actionType,before,data.view);
     if(path==='/api/command')$('#command').value='';
     if(path==='/api/advance')showTurnSummary(before,data.view);
@@ -425,7 +429,7 @@ async function call(path,payload={}) {
       $('#ending-copy').textContent=data.result;
       $('#ending-stats').innerHTML=`<span>终战 <b>鬼灵门 · 王蝉</b></span><span>历时 <b>${data.view.turn} 旬</b></span><span>凭证 <b>燕堡历练凭证</b></span>`;
       $('#ending').showModal();
-    }else if(!before.world.breakthrough&&data.view.world.breakthrough){
+    }else if(breakthrough){
       $('#ending .ending-seal').textContent='筑';$('#ending .eyebrow').textContent='道途初开';$('#ending h2').textContent='一念破境，因果未了。';
       $('#ending-copy').textContent=data.result;
       $('#ending-stats').innerHTML=`<span>历时 <b>${data.view.turn} 旬</b></span><span>声望 <b>${data.view.player.reputation}</b></span><span>未偿承诺 <b>${data.view.pill.partnerDebt} 灵石</b></span>`;
@@ -433,9 +437,11 @@ async function call(path,payload={}) {
     }
     return data;
   }catch(error){
-    notice(error.message,true);$('#world-hint').textContent=error.message;
+    let resultInPanel=false;
+    if(path==='/api/action'&&(selectedPerson||selectedSite)){lastInteraction={target:selectedPerson||selectedSite,text:error.message};resultInPanel=updateInteractionResult();}
+    if(!resultInPanel)notice(error.message,true);
+    $('#world-hint').textContent=error.message;
     if(path==='/api/combat')combatUI.showError(error.message);
-    if(path==='/api/action'&&(selectedPerson||selectedSite)){lastInteraction={target:selectedPerson||selectedSite,text:error.message};updateInteractionResult();}
     return false;
   }
   finally{
