@@ -7,7 +7,7 @@ import { applyAction, advanceTurn, getView, GameError } from './engine.js';
 
 const definitions = new Map(ACTION_DEFS.map(action => [action.type, action]));
 definitions.set('advance', { type: 'advance', title: '推进一旬', detail: '推进主药生长并结算灵圃与旧约', cost: '时间 1 旬' });
-const allowed = new Set([...definitions.keys()].filter(type => !RETIRED_PILL_ACTIONS.includes(type) && !['partner','lure','prepare_trap'].includes(type) && type !== 'breakthrough' && (!definitions.get(type).campaign || !['frontier_rest','take_master'].includes(type))));
+const allowed = new Set([...definitions.keys()].filter(type => !RETIRED_PILL_ACTIONS.includes(type) && !['partner','lure','prepare_trap'].includes(type)&&definitions.get(type).thread!=='yanbao' && type !== 'breakthrough' && (!definitions.get(type).campaign || !['frontier_rest','take_master'].includes(type))));
 allowed.add('advance');
 const goalReached = game => game.pill.owner === 'player' || Boolean(game.flags.playerBreakthrough) || Boolean(game.campaign?.alternatePill);
 const parse = raw => typeof raw === 'string' ? JSON.parse(raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')) : raw;

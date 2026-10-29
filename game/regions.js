@@ -1,6 +1,7 @@
 import { VOLUME_REGIONS } from './volume-data.js';
 export const REGIONS = {
   ...VOLUME_REGIONS,
+  yanbao:{name:'燕家堡',short:'燕家堡',bounds:[672,718,-19,19],entry:[678,0],color:'#65535e',description:'燕氏古堡张灯设宴，鬼灵门少主王蝉却已布下血灵阵。辨明退路，迎战王蝉，完成第一章试炼。',risk:'第一章终战 · 王蝉 BOSS'},
   qinglan:{name:'黄枫谷山门',short:'黄枫谷',bounds:[192,238,-19,19],entry:[204,0],color:'#567b70',description:'太岳山脉中的越国七派之一，钟灵道处理门务，叶师叔办理门籍，李化元接见弟子。',risk:'越国七派'},
   lingshu:{name:'掩月宗山门',short:'掩月宗',bounds:[252,298,-19,19],entry:[264,0],color:'#5e8662',description:'越国七派中的强宗，宣乐在此接洽来客。',risk:'越国七派',requiredTier:1},
   jinhuo:{name:'魔焰门山门',short:'魔焰门',bounds:[312,358,-19,19],entry:[324,0],color:'#815746',description:'天罗国魔道六宗之一，地火映照山门。',risk:'魔道六宗',requiredTier:1},
@@ -11,10 +12,11 @@ export const REGIONS = {
   quarry:{name:'血色禁地·外层',short:'禁地外层',bounds:[82,128,-19,19],entry:[86,0],color:'#80644f',description:'七派炼气弟子的采药试炼之地，紫猴花与玉髓芝藏在妖兽出没的密林里。',risk:'采药与争夺'},
   ruins:{name:'血色禁地·中心区',short:'禁地中心',bounds:[132,178,-19,19],entry:[136,0],color:'#525d75',description:'中心区石殿内藏天灵果，也潜伏着墨蛟。南宫婉在此探查禁地。',risk:'墨蛟 · 回合斗法'}
 };
-const ATLAS = {qinglan:[18,15],lingshu:[51,10],jinhuo:[83,17],market:[19,48],river:[51,45],quarry:[83,47],woods:[19,80],xuanming:[51,82],ruins:[83,80]};
+const ATLAS = {qinglan:[18,12],lingshu:[51,12],jinhuo:[83,12],market:[19,37],river:[51,37],quarry:[83,37],woods:[19,62],xuanming:[51,62],ruins:[83,62],yanbao:[51,87]};
 for (const [id, region] of Object.entries(REGIONS)) { region.mapPosition ??= ATLAS[id]; region.requiredTier ??= 0; }
 export const REGION_IDS = Object.keys(REGIONS);
 export const regionName = id => REGIONS[id]?.name || id;
+export const canVisitYanbao = game => Boolean(game.campaign?.storyFlags?.leave_forbidden || game.campaign?.storyFlags?.take_master || game.flags?.playerBreakthrough);
 export function regionAt(x) { return REGION_IDS.find(id => x >= REGIONS[id].bounds[0] && x <= REGIONS[id].bounds[1]) || REGION_IDS.reduce((best,id)=>Math.abs(REGIONS[id].entry[0]-x)<Math.abs(REGIONS[best].entry[0]-x)?id:best,'market'); }
 // Regions are separate destinations; transport never visits intermediate regions.
 export function regionPath(from, to) {
@@ -28,6 +30,7 @@ export function travelAccess(game, to) {
     const available = Object.hasOwn(required,to) && (!required[to] || Boolean(game.volume.flags[required[to]]));
     return {available, requiredRealm:'剧情开放', reason:available?'':'请先推进第一卷主线，完成对应经历后开放此地。'};
   }
+  if(to==='yanbao')return {available:canVisitYanbao(game),requiredRealm:'禁地归来',reason:canVisitYanbao(game)?'':'请先携药离开血色禁地，再前往燕家堡。'};
   const storyGate={river:'huangfeng_register',quarry:'forbidden_enlist',ruins:'enter_forbidden'}[to];
   if(storyGate&&!game.campaign?.storyFlags?.[storyGate])return {available:false,requiredRealm:'主线开放',reason:'请先推进黄枫谷主线，完成入门或禁地报名。'};
   const requiredRealm = REGIONS[to].requiredTier ? '筑基初期' : '炼气九层';

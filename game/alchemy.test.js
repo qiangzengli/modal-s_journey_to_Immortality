@@ -104,5 +104,5 @@ test('旧档持丹进入禁地后仍显示未完成试炼，携药离开后可�
   if (returned.player.hp < 60) returned = act(returned, 'rest');
   while (returned.player.hp < 60) returned = act(returned, 'rest');
   returned = act(returned, 'breakthrough');
-  assert.equal(getView(returned).campaign.next.type, 'take_master');
+  assert.equal(getView(returned).campaign.next.type, 'enter_yanbao');
 });

@@ -139,7 +139,7 @@ export function combatAction(source, input, random = Math.random) {
 
   if(hit>0&&battle.ward>0){
     const absorbed=Math.min(battle.ward,hit);battle.ward-=absorbed;hit-=absorbed;
-    log('enemy',`金刚护罩抵消 ${absorbed} 点伤害，护罩余力 ${battle.ward}。${battle.ward?'继续寻找破绽。':'护罩已破！'}`);
+    log('enemy',`${enemy.wardName||'金刚护罩'}抵消 ${absorbed} 点伤害，护罩余力 ${battle.ward}。${battle.ward?'继续寻找破绽。':'护罩已破！'}`);
   }
   battle.enemyHp = Math.max(0, battle.enemyHp - hit);
   if(enemy.ally&&battle.enemyHp>0){
@@ -219,6 +219,6 @@ export function getCombatView(game) {
       return { id, ...skill, scaling, [skill.effect === 'heal' ? 'heal' : 'power']: scaling.base + scaling.skillBonus, remaining: battle?.cooldowns[id] || 0 };
     }),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },
-    battle: battle ? { ...structuredClone(battle), enemyName: enemy.name, maxEnemyHp: enemy.hp, intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, rewardName:enemy.rewardName, loot: encounterLoot(enemy) } : null
+    battle: battle ? { ...structuredClone(battle), enemyName: enemy.name, maxEnemyHp: enemy.hp, boss:Boolean(enemy.boss), chapterFinale:Boolean(enemy.chapterFinale), wardName:enemy.wardName||'金刚护罩', intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, rewardName:enemy.rewardName, loot: encounterLoot(enemy) } : null
   };
 }

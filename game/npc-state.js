@@ -43,7 +43,8 @@ export function ensureNpcState(game) {
 }
 export function npcActors(game) {
   if(inOpening(game))return Object.values(game.people).filter(p=>!game.exploration?.enemies[p.id]?.defeated&&VOLUME_PEOPLE.some(a=>a.id===p.id)&&!['已故','炼尸之祸'].includes(p.condition)&&(!['jiayuan','tainan'].includes(p.place)||Boolean(game.volume.flags[p.place==='jiayuan'?'defend_qixuan':'cure_cold_poison'])));
-  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)), ...[...WANDERERS,...TRIAL_ENEMIES].filter(npc => !npc.creature&&enemyAvailable(game,npc)&&!game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
+  const bosses=STORY_ENEMIES.filter(npc=>npc.boss&&enemyAvailable(game,npc));
+  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)&&!bosses.some(boss=>boss.id===p.id)), ...[...WANDERERS,...TRIAL_ENEMIES,...bosses].filter(npc => !npc.creature&&enemyAvailable(game,npc)&&!game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
 }
 export function npcPosition(game, id, place) {
   const trial = TRIAL_ENEMIES.find(npc => npc.id === id);

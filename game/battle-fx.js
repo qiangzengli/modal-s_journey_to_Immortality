@@ -11,6 +11,7 @@ export function playerEffect(choice) {
 export function enemyEffect(id, intent) {
   if (intent === 'heal') return 'spring_art';
   if (intent === 'guard') return 'shield';
+  if (id === 'wen') return 'blood_art';
   if (id === 'trial_swordsman') return intent === 'heavy' ? 'wind_blade' : 'slash';
   if (id === 'peijin') return 'fire_art';
   if (id === 'mochi') return intent === 'heavy' ? 'thunder_art' : 'qi_bolt';
@@ -135,6 +136,13 @@ export function createBattleEffects(THREE, scene) {
         animate(crescent, .16 + i * .11, .75 + i * .1, p => { crescent.rotation.set(.2, .3 * direction, direction * (p * 2.5 - 1.6) + i * 1.8); crescent.scale.setScalar((heavy ? 1.35 : 1) * (.6 + p * .6)); });
       }
       cloud(target, 0xffdc9c, 24, 'burst', .4, .98, 1.3);
+    } else if (kind === 'blood_art') {
+      glyph(source,0xd64a77,1.1,0);halo(source,0x9d214d,.8,0,.35);
+      for(let i=0;i<3;i++){
+        const blade=mesh(new THREE.TorusGeometry(.38,.065,7,32),0xe65c86,.85);
+        animate(blade,.12+i*.07,.65+i*.07,p=>{blade.position.lerpVectors(source,target,p);blade.position.y+=Math.sin(p*Math.PI)*(i-1)*.7;blade.rotation.set(p*4,p*6,i);});
+      }
+      pulse(target,0xbd285b,1.6,.5);cloud(target,0xe6729d,32,'burst',.5,1,1.4);
     } else if (kind === 'qi_bolt') {
       cloud(source, 0x90e2f7, 28, 'gather', 0, .3, .9);
       const orb = mesh(new THREE.IcosahedronGeometry(.25, 2), 0xb6f3ff);

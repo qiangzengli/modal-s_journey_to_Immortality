@@ -79,7 +79,7 @@ test('旧存档迁移保留进度，过期页面不能重复扣费，成功行�
     assert.equal(initial.combatStats.baseAttack, 14);
     assert.equal(initial.combatStats.baseSpellPower, 20);
     assert.equal(initial.skills[0].scaling.total, 27);
-    assert.equal(initial.people.length,PEOPLE.length);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,13);
+    assert.equal(initial.people.length,PEOPLE.length);assert.equal(initial.campaign.ore,0);assert.equal(initial.campaign.regions.length,14);
     for (const input of [null, [], 'invalid']) {
       assert.equal((await post('/api/combat',input)).status,400);
     }

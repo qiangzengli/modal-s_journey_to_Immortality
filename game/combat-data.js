@@ -10,6 +10,7 @@ export const SKILLS = {
 };
 
 export const ITEMS = {
+  yanbao_token:{name:'燕堡历练凭证',kind:'story',description:'在燕家堡击退鬼灵门少主王蝉、完成第一章试炼的凭证。仅记录经历，不会直接提升修为。'},
   silver_page:{name:'银色书页',kind:'story',description:'巨剑门赤脚大汉储物袋中的奇异书页。先保管，出禁地后再研究；不能直接使用或兑换修为。'},
   sword_page_notes:{name:'书页参悟手记',kind:'story',description:'结合李化元所藏金页和青元剑诀研究所得。记下书页间的关联，后续功法修行仍需亲自研习。'},
   changchun_manual:{name:'长春功',kind:'manual',skill:'changchun',description:'墨大夫传下的基础修炼功法。'},
@@ -63,6 +64,7 @@ export function lootEntries(loot) {
 
 // Main-story encounters use the same turn engine; prerequisites and completion remain rule-owned.
 export const STORY_ENEMIES=[
+  {id:'wen',name:'王蝉',scope:'campaign',boss:true,chapterFinale:true,role:'鬼灵门少主 · 第一章 BOSS',place:'yanbao',spot:[706,-4],color:'#5b2c4d',realm:'筑基期',hp:174,ward:20,wardName:'血灵护罩',attack:12,defense:4,escape:.75,requires:'investigate_yanbao',completion:'fight_wangchan',rewardName:'燕堡战后所得',lootFromWallet:false,bio:'鬼灵门少主现身燕家堡，以血灵护罩封锁庭院。留意血灵重击，使用防御、定神符与疗伤功法寻找破绽；击退他并确认战后结算，即可完成第一章试炼。',quote:'既然看破血灵阵，就凭本事从这里走出去。',loot:{stones:50,herbs:0,items:{yanbao_token:1,healing_pill:2,spirit_pill:1}}},
   {id:'modafu',name:'墨大夫',role:'神手谷师徒暗局',place:'shenshou',spot:[522,-6],color:'#9aa69a',realm:'江湖高手',hp:82,attack:8,defense:2,escape:.85,requires:'investigate_mo',completion:'confront_mo',rewardName:'墨大夫遗书',lootFromWallet:false,bio:'药庐隐情已经揭开，墨大夫不再掩饰对你的图谋。以长春功护住自身，留意他的近身攻势；可退回药庐休养后再战。',quote:'既已看出端倪，就让我看看这些年的长进。',loot:{stones:0,herbs:0,items:{mo_letter:1,healing_pill:1}}},
   {id:'story_mojiao',name:'墨蛟',kind:'beast',scope:'campaign',role:'石殿守药妖兽',place:'ruins',spot:[165,-1],color:'#577e82',realm:'禁地妖兽',hp:180,attack:16,defense:5,escape:.7,requires:'meet_nangong',completion:'fight_mojiao',bio:'墨鳞蛟身盘踞石殿，守住天灵果。留意扑击与蓄力甩尾，南宫婉会在每回合协力牵制。',quote:'墨蛟昂首嘶鸣，尾尖扫过石面。',ally:{id:'ji',name:'南宫婉',power:8},reward:{name:'天灵果',kind:'任务主药',quantity:1},loot:{stones:0,herbs:0,items:{}}},
   {id:'story_jinguang',name:'金光上人',role:'野狼帮请来的修仙者',place:'qixuan',spot:[467,4],color:'#d6b667',realm:'炼气期',hp:76,ward:18,attack:8,defense:3,escape:.8,requires:'scout_jinguang',completion:'defend_qixuan',bio:'金刚符撑起护罩，他以修仙手段威压七玄门。先观察护罩，再用御物术与进退应对。',quote:'凡人也敢挡在本上人面前？',loot:{stones:0,herbs:0,items:{ascension_token:1,sword_talisman:1}}},

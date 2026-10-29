@@ -8,7 +8,8 @@ export function campaignMarkup(view,busy=false) {
   const task=o=>`<article class="volume-task ${o.done?'done':''}"><span>${o.done?'✓':o.skipped||o.missed?'—':'◇'}</span><div><strong>${esc(o.title)}</strong><p>${esc(o.detail)}</p><small>${esc(regionName(o.place))} · ${o.done?(o.legacy?'旧历衔接':'已完成'):o.missed?'本次试炼已错过':o.skipped?'已有筑基机缘，可直接拜师':esc(o.cost)}</small></div><button type="button" data-campaign-${o.done?'target':'action'}="${o.done?o.target:o.type}" ${busy||o.skipped||o.missed||(!o.done&&!o.unlocked)?'disabled':''}>${o.done?'重访':o.missed?'已错过':'前往并行动 →'}</button></article>`;
   return `<section class="volume-journal" aria-label="黄枫谷主线"><div class="volume-heading"><small>韩立 · 越国修仙界</small><h2>${esc(c.title)}</h2><p>${esc(c.summary)}</p></div>
     <div class="volume-chapters">${c.chapters.map(ch=>`<div class="${ch.done?'done':''}"><span>${ch.done?'✓':ch.skipped?'—':'○'}</span><strong>${esc(ch.title)}</strong><p>${esc(ch.summary)}${ch.skipped?' 已从其他途径筑基。':''}</p></div>`).join('')}</div>
-    <h3>当前主线</h3>${c.complete?'<article class="campaign-ending"><h3>筑基拜师，道途初成</h3><p>你已拜入李化元门下，青元剑诀收入行囊。可继续研习功法、处理旧约与游历。</p></article>':c.next?task(c.next):''}
+    ${c.complete?'<article class="campaign-ending"><h3>第一章试炼完成 · 燕堡脱身</h3><p>你已在燕家堡击退鬼灵门少主王蝉。之后仍可自由游历、培药炼丹与筑基拜师。</p></article>':''}
+    <h3>${c.complete?'后续修行':'当前主线'}</h3>${c.next?task(c.next):'<p class="panel-tip">此段经历已经完成，可继续自由游历。</p>'}
     ${!view.world.breakthrough&&(c.alternatePill||view.pill.ownerId==='player')?'<article class="campaign-aside"><strong>筑基丹已入手</strong><p>气血至少 60 时可闭关筑基，完成后回黄枫谷拜师李化元。</p><button data-campaign-target="camp" type="button" '+(busy?'disabled':'')+'>前往闭关处 ↗</button></article>':''}
     ${alchemyMarkup(view)}${c.alchemy.planted&&!c.alchemy.ready&&!c.alchemy.harvested&&!c.alchemy.crafted?`<button type="button" data-campaign-target="advance" ${busy?'disabled':''}>推进一旬 · 培养主药</button>`:''}
     <div class="campaign-resources"><span>种苗药囊 <b>${esc(c.questHerbs.join('、')||'暂无活株')}</b></span>${c.alternatePill?`<span>筑基丹 <b>${c.alchemy.crafted?'亲手炼制':'已存丹药'} · 1 枚</b></span>`:''}</div>
@@ -24,7 +25,7 @@ export function createCampaignUI({getState,navigate,executeAction}) {
     const {view,busy}=getState();if(!view?.campaign)return;
     const opening=Boolean(view.story&&!view.story.complete),c=opening?view.story:view.campaign;
     document.body.classList.toggle('story-opening',opening);document.body.classList.toggle('exploring-frontier',!opening);banner.hidden=false;
-    banner.querySelector('.eyebrow').textContent=c.title;banner.querySelector('strong').textContent=c.next?.title||(c.complete?'筑基拜师已成':c.title);banner.querySelector('small').textContent=c.summary;
+    banner.querySelector('.eyebrow').textContent=c.title;banner.querySelector('strong').textContent=c.complete?'第一章试炼完成 · 可继续修行':c.next?.title||c.title;banner.querySelector('small').textContent=c.summary;
     root.innerHTML=opening?volumeMarkup(view,busy):campaignMarkup(view,busy)+(view.story?`<details class="volume-history"><summary>七玄问道 · 已完成经历</summary>${volumeMarkup(view,busy)}</details>`:'');
   }
   root.addEventListener('click',event=>{

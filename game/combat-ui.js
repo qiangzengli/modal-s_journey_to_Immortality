@@ -20,7 +20,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
   function updateRoundLabel() {
     const battle = current?.battle;
     if (!battle) return;
-    $('#battle-round').textContent = pending ? (slow?'战报同步中，请勿重复出招':'招式交锋中…') : battle.status === 'active' ? `第 ${battle.round} 回合 · 轮到你` : { won: battle.reward?'胜负已分 · 天灵果待收取':'胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
+    $('#battle-round').textContent = pending ? (slow?'战报同步中，请勿重复出招':'招式交锋中…') : battle.status === 'active' ? `第 ${battle.round} 回合 · 轮到你` : { won: battle.chapterFinale?'王蝉败退 · 确认后完成第一章':battle.reward?'胜负已分 · 天灵果待收取':'胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
   }
   function control(move, title, detail, extra = '', reason = '') {
     return `<button type="button" data-combat-move="${move}" ${extra} ${reason ? 'disabled' : ''}><strong>${esc(title)}</strong><small>${esc(reason || detail)}</small></button>`;
@@ -47,10 +47,10 @@ export function createCombatUI({ request, navigate, openInventory }) {
     $('#battle-mana-bar').style.width = `${battle.mana / view.combatStats.maxMana * 100}%`;
     $('#battle-weapon').textContent = view.weapon.name;
     $('#battle-enemy').textContent = enemy.name;
-    $('#battle-enemy-realm').textContent = `${enemy.realm} · ${enemy.kind==='beast'?'石殿妖兽':affiliationText(enemy.affiliation)}`;
+    $('#battle-enemy-realm').textContent = `${battle.boss?'BOSS · ':''}${enemy.realm} · ${enemy.kind==='beast'?'石殿妖兽':affiliationText(enemy.affiliation)}`;
     $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
     $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
-    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 每回合牵制攻敌 · `:''}${battle.ward?`金刚护罩 ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 战术':'基础应对'} · ${battle.intentSpeech || battle.intentName} · 下次应对：${intentCopy[battle.intent]}${battle.intentSource==='offline'?' · AI 离线':battle.intentSource==='unavailable'?' · AI 暂未回应，仍可出招':' · AI 后台推演 · 无需等待'}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
+    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 每回合牵制攻敌 · `:''}${battle.ward?`${battle.wardName} ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 战术':'基础应对'} · ${battle.intentSpeech || battle.intentName} · 下次应对：${intentCopy[battle.intent]}${battle.intentSource==='offline'?' · AI 离线':battle.intentSource==='unavailable'?' · AI 暂未回应，仍可出招':' · AI 后台推演 · 无需等待'}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
     $('#combat-controls').hidden = !active;
     $('#combat-result').hidden = active;
     $('#combat-error').textContent = '';
@@ -65,7 +65,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
       $('#combat-options').innerHTML = view.inventory.filter(item => ['pill', 'array'].includes(item.kind)).map(item => control('item', `${item.name} ×${item.quantity}`, item.description, `data-item-id="${item.id}"`, item.heal && view.player.hp >= 100 ? '气血已满' : item.mana && battle.mana >= view.combatStats.maxMana ? '真气已满' : '')).join('') || '<p class="panel-tip">没有可用的灵丹或阵盘。击败散修后可从储物袋中获得。</p>';
     }
     if (!active) $('#combat-result').innerHTML = battle.status === 'won'
-      ? `<h2>${enemy.reward?'石殿主药 · 天灵果':(enemy.rewardName||`${enemy.name}的储物袋`)}</h2><div class="loot-grid">${lootMarkup(battle.loot)}</div><div class="result-actions"><button type="button" class="primary" data-battle-result="claim">${enemy.reward?'收取天灵果':`收取${enemy.rewardName||'储物袋'}`} →</button><button type="button" data-battle-result="leave">暂不拾取，回到地图</button></div>`
+      ? `<h2>${battle.chapterFinale?'王蝉败退 · 第一章终战获胜':enemy.reward?'石殿主药 · 天灵果':(enemy.rewardName||`${enemy.name}的储物袋`)}</h2><div class="loot-grid">${lootMarkup(battle.loot)}</div><div class="result-actions"><button type="button" class="primary" data-battle-result="claim">${battle.chapterFinale?'完成第一章试炼':enemy.reward?'收取天灵果':`收取${enemy.rewardName||'储物袋'}`} →</button><button type="button" data-battle-result="leave">暂不拾取，回到地图</button></div>`
       : `<h2>${battle.status === 'escaped' ? '留得青山在' : '败退，也是一场历练'}</h2><p>${esc(battle.log.at(-1)?.text)}</p><p>敌人未被击败，没有战利品。再次挑战时对方气血恢复。</p><div class="result-actions"><button type="button" class="primary" data-battle-result="leave">回到地图 →</button></div>`;
     $('#combat-inputs').disabled = pending;
     const turnKey=`${battle.enemyId}:${battle.round}:${battle.status}`;
@@ -90,7 +90,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     const result = event.target.closest('[data-battle-result]');
     if (result) {
       const type = result.dataset.battleResult;
-      const questReward=Boolean(current.battle.reward);
+      const questReward=Boolean(current.battle.reward||current.battle.chapterFinale);
       const data = await submit('/api/combat', { type, enemyId: current.battle.enemyId });
       if (data && type === 'claim'&&!questReward) openInventory();
     }

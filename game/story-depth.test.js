@@ -71,8 +71,8 @@ test('旧章节中途迁移只衔接已过去的经历，保留资产/债务/时
     [throughCampaign('garden_duty'),'inspect_garden'],
     [throughCampaign('garden_cultivate'),'forbidden_enlist'],
     [throughCampaign('meet_nangong'),'fight_mojiao'],
-    [throughCampaign('harvest_pill_herbs'),'prepare_alchemy'],
-    [throughCampaign('refine_foundation_pill'),'take_master']
+    [throughCampaign('harvest_pill_herbs'),'enter_yanbao'],
+    [throughCampaign('refine_foundation_pill'),'enter_yanbao']
   ];
   for(const [source,next]of cases){
     const old=oldSave(source);old.flags.partnerDebt=120;

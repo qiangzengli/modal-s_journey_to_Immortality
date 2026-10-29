@@ -1,3 +1,4 @@
+import { createCultivatorActor } from './character-model.js';
 import { createMojiaoActor } from './mojiao-model.js';
 import { createBuildingWorld } from './building-world.js';
 import { buildingWalkable } from './building-layout.js';
@@ -27,7 +28,10 @@ const NPC_SPOTS = {
   han: { woods: [16, 5] },
   ning: { market: [-7, 5] }
 };
-for (const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS]) NPC_SPOTS[actor.id] = { [actor.place || 'woods']: actor.spot };
+for (const actor of [...FRONTIER_PEOPLE, ...SECT_PEOPLE, ...VOLUME_PEOPLE, ...WANDERERS]) {
+  NPC_SPOTS[actor.id] ??= {};
+  NPC_SPOTS[actor.id][actor.place || 'woods'] = actor.spot;
+}
 
 
 const SITE_SPOTS = { herbs: [20, 2], formation: [15, -6.5], camp: [25, -7] };
@@ -102,103 +106,7 @@ function label(text, { width = 320, font = 34, color = '#f5eacb', backdrop = '#2
 
 function makePerson(id, name) {
   if(id==='story_mojiao')return createMojiaoActor(THREE,{id,name,label});
-  const colors = COLORS[id];
-  const root = new THREE.Group();
-  const body = new THREE.Group();
-  root.add(body);
-  const robe = material(colors.robe);
-  const trim = material(colors.trim, 0.7, 0.1);
-  const skin = material(colors.skin);
-  const hair = material(colors.hair);
-  const leather = material(0x382e25);
-
-  put(body, new THREE.CylinderGeometry(0.3, 0.53, 1.25, 9), robe, 0, 0.9, 0);
-  put(body, new THREE.BoxGeometry(0.1, 0.86, 0.05), trim, 0, 1.05, 0.3);
-  put(body, new THREE.CylinderGeometry(0.35, 0.36, 0.1, 9), leather, 0, 0.75, 0);
-  put(body, new THREE.SphereGeometry(0.32, 12, 10), skin, 0, 1.84, 0);
-  const hairCap = put(body, new THREE.SphereGeometry(0.332, 12, 8, 0, Math.PI * 2, 0, Math.PI * 0.55), hair, 0, 1.98, 0);
-  hairCap.rotation.y = 0.2;
-  put(body, new THREE.SphereGeometry(0.028, 6, 6), leather, -0.105, 1.85, 0.29);
-  put(body, new THREE.SphereGeometry(0.028, 6, 6), leather, 0.105, 1.85, 0.29);
-  const leftArm = put(body, new THREE.CylinderGeometry(0.14, 0.2, 0.88, 7), robe, -0.48, 1.23, 0, -0.12);
-  const rightArm = put(body, new THREE.CylinderGeometry(0.14, 0.2, 0.88, 7), robe, 0.48, 1.23, 0, 0.12);
-  for (const side of [-1, 1]) {
-    put(body, new THREE.SphereGeometry(0.115, 8, 6), skin, side * 0.48, 0.77, 0.02);
-    put(body, new THREE.CylinderGeometry(0.205, 0.205, 0.09, 8), trim, side * 0.48, 0.84, 0);
-    const lapel = put(body, new THREE.BoxGeometry(0.085, 0.59, 0.05), trim, side * 0.10, 1.32, 0.31);
-    lapel.rotation.z = side * 0.32;
-    put(body, new THREE.BoxGeometry(0.12, 0.026, 0.035), hair, side * 0.105, 1.93, 0.29);
-  }
-  put(body, new THREE.ConeGeometry(0.044, 0.11, 5), skin, 0, 1.82, 0.32).rotation.x = Math.PI / 2;
-  put(body, new THREE.BoxGeometry(0.1, 0.025, 0.02), leather, 0, 1.71, 0.285);
-  put(body, new THREE.TorusGeometry(0.37, 0.035, 5, 10), trim, 0, 0.76, 0).rotation.x = Math.PI / 2;
-  put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), id==='trial_swordsman'?skin:leather, -0.2, 0.13, 0.03);
-  put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), id==='trial_swordsman'?skin:leather, 0.2, 0.13, 0.03);
-  put(body, new THREE.CylinderGeometry(0.13, 0.15, 0.25, 9), hair, 0, 2.24, -0.12);
-  put(body, new THREE.SphereGeometry(0.14, 8, 6), trim, 0, 2.36, -0.1);
-
-  if (id === 'shen' || id === 'bai') {
-    put(body, new THREE.BoxGeometry(0.46, 0.43, 0.23), material(0x78543a), 0, 0.88, -0.43);
-    put(body, new THREE.BoxGeometry(0.48, 0.06, 0.28), trim, 0, 1.12, -0.43);
-  }
-  let heldWeapon;
-  if (['wei', 'xu', 'lu', 'han', ...WANDERERS.filter(enemy=>enemy.id!=='modafu').map(enemy=>enemy.id)].includes(id)) {
-    const blade = put(body, new THREE.BoxGeometry(0.075, 1.28, 0.09), material(0xa9b1a9, 0.32, 0.7), 0.63, 0.95, -0.25);
-    heldWeapon = blade;
-    if(id==='trial_swordsman')blade.scale.set(3.5,1.5,1.5);
-    blade.rotation.z = -0.15;
-    put(body, new THREE.BoxGeometry(0.32, 0.07, 0.15), trim, 0.63, 0.42, -0.25);
-  }
-  if (id === 'qing') {
-    put(body, new THREE.CylinderGeometry(0.66, 0.65, 0.09, 16), material(0x534858), 0, 2.13, 0);
-  }
-  if (id === 'ning') {
-    put(body, new THREE.CylinderGeometry(0.15, 0.15, 0.55, 10), material(0xc4af79), 0.7, 1.05, 0.05, Math.PI / 2);
-  }
-  if (id === 'player') {
-    const cape = put(body, new THREE.ConeGeometry(0.62, 1.25, 9, 1, true), material(0x354b5c, 0.75, 0.05), 0, 1.02, -0.08);
-    cape.rotation.y = Math.PI;
-    const scabbard = put(body, new THREE.BoxGeometry(0.12, 1.5, 0.13), leather, -0.23, 1.30, -0.4);
-    scabbard.rotation.z = -0.3;
-    put(body, new THREE.BoxGeometry(0.4, 0.07, 0.16), trim, -0.03, 1.86, -0.4);
-  }
-  if (id === 'bai' || id === 'ning') put(body, new THREE.CylinderGeometry(0.17, 0.1, 0.85, 7), hair, 0, 1.6, -0.25);
-
-  const shadow = new THREE.Mesh(new THREE.CircleGeometry(0.74, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.27, depthWrite: false }));
-  shadow.rotation.x = -Math.PI / 2;
-  shadow.position.y = 0.03;
-  root.add(shadow);
-  if (name) {
-    const nameplate = label(name, { width: 230, font: 37 });
-    nameplate.position.y = 3.16;
-    root.add(nameplate);
-  }
-  root.userData = { id, body, leftArm, rightArm, baseY: 0, weapon: heldWeapon };
-  root.userData.nameplate = root.children.find(child => child.isSprite);
-  if (name) {
-    root.userData.nameplate.material.depthWrite = false;
-    root.userData.nameplate.renderOrder = 10;
-    const leader = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 2.65, 0), new THREE.Vector3(0, 3.16, 0)]), new THREE.LineBasicMaterial({ color: 0xb9ba90, transparent: true, opacity: .55, depthTest: false }));
-    leader.visible = false;
-    leader.renderOrder = 9;
-    root.add(leader);
-    root.userData.labelLeader = leader;
-  }
-  if(id==='player')root.userData.weapon=put(body,new THREE.BoxGeometry(.08,1.05,.09),material(0xb1b9b4,.3,.7),.62,.72,.08);
-  if (WANDERERS.some(enemy=>enemy.id===id)) {
-    const bag = new THREE.Group();
-    const pouch = put(bag,new THREE.SphereGeometry(0.42,9,7),material(0xa18755),0,0.4,0);
-    pouch.scale.set(0.8,1,0.75);
-    put(bag,new THREE.TorusGeometry(0.17,0.045,5,8),material(0xe3c681),0,0.7,0).rotation.x=Math.PI/2;
-    const glow=put(bag,new THREE.RingGeometry(0.55,0.65,24),new THREE.MeshBasicMaterial({color:0xe1be71,side:THREE.DoubleSide,transparent:true,opacity:0.8}),0,0.04,0);
-    glow.rotation.x=-Math.PI/2;
-    const caption=label(WANDERERS.find(enemy=>enemy.id===id)?.rewardName || `${name} · 储物袋`,{width:290,font:28,color:'#f2d48c'});caption.position.y=1.65;bag.add(caption);
-    bag.visible=false;root.add(bag);
-    root.userData.bag=bag;
-    root.userData.nameplate=root.children.find(child=>child.isSprite);
-  }
-  root.traverse(child => { child.userData.personId = id; });
-  return root;
+  return createCultivatorActor(THREE,{id,name,label,palette:COLORS[id],enemy:WANDERERS.find(enemy=>enemy.id===id)});
 }
 
 function makeStall(scene, x, z, cloth, rotation = 0) {
@@ -356,7 +264,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
   const buildings = createBuildingWorld({ THREE, put, material, label, regionAt });
   const { makeBuilding } = buildings;
   const terrain = createTerrain(scene, clickSurfaces, siteTargets, obstacleTargets, makeBuilding);
-  const frontier = createFrontier(scene, { clickSurfaces, siteTargets, obstacleTargets }, { put, material, label, makeBuilding, makeTree });
+  const frontier = createFrontier(scene, { clickSurfaces, siteTargets, obstacleTargets }, { THREE, put, material, label, makeBuilding, makeTree });
   const sectWorld = createSectWorld(scene, {clickSurfaces, siteTargets, obstacleTargets}, {THREE, put, material, label, makeBuilding, makeTree});
   const volumeWorld = createVolumeWorld(scene, {clickSurfaces,siteTargets,obstacleTargets}, {THREE,put,material,label,makeBuilding,makeTree});
   const gardenWorld = createGardenWorld(scene, siteTargets, ...SITE_SPOTS.herbs);
@@ -588,9 +496,10 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       actor.visible = Boolean(spot) && person.place === place;
       updateIdentityLabel(actor, person.name, person.affiliation);
       if (!spot) { actor.userData.destination = null; continue; }
+      const changedRegion=actor.userData.place!==person.place;
       actor.userData.place = person.place;
       actor.userData.destination = new THREE.Vector3(spot.x, 0, spot.z);
-      if (!actor.userData.initialized) {
+      if (!actor.userData.initialized || changedRegion) {
         actor.position.copy(actor.userData.destination);
         actor.userData.initialized = true;
       }

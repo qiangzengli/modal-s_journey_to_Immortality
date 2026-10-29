@@ -42,7 +42,7 @@ test('禁地自主援助经接口原子保存，拒绝过期决策，重启后�
     await start();
     const step=await post('/api/world/step',{expectedRevision:0});
     assert.equal(step.status,200);assert.equal(step.advanced,true);
-    assert.equal(step.view.campaign.title,'卷二 · 黄枫仙途');
+    assert.equal(step.view.campaign.title,'第一章 · 血色与燕堡');
     assert.equal(Boolean(step.view.campaign.flags.scout_help),true);
     const saved=JSON.parse(await readFile(savePath,'utf8'));
     assert.equal(saved.people.song.stones,game.people.song.stones-20);

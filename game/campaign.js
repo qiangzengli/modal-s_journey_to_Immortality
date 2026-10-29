@@ -1,7 +1,7 @@
 import { SECT_PEOPLE } from './sect-data.js';
 import { GameError } from './errors.js';
 import { FRONTIER_PEOPLE, FRONTIER_ACTIONS } from './campaign-data.js';
-import { REGIONS, regionName, travelAccess } from './regions.js';
+import { REGIONS, regionName, travelAccess, canVisitYanbao } from './regions.js';
 import { cultivationRealm } from './cultivation.js';
 import { ensureAlchemy, applyAlchemyAction, alchemyView } from './alchemy.js';
 import {bridgeStory,storyDone} from './story-beats.js';
@@ -39,7 +39,8 @@ export function applyCampaignAction(game,type) {
   ensureCampaign(game);
   const def=FRONTIER_ACTIONS.find(a=>a.type===type),c=game.campaign,f=c.storyFlags;
   requireValue(def,'这项旧游历行动已结束，请打开主线手记继续黄枫谷之旅。');
-  requireValue(type==='frontier_rest'?['river','quarry','ruins'].includes(game.player.place):game.player.place===def.place,`请先前往${regionName(def.place)}。`);
+  requireValue(type==='frontier_rest'?['river','quarry','ruins','yanbao'].includes(game.player.place):game.player.place===def.place,`请先前往${regionName(def.place)}。`);
+  if(def.thread==='yanbao')requireValue(canVisitYanbao(game),'请先携药离开血色禁地，再赴燕家堡。');
   requireValue(!storyDone(c,type)||def.repeatable,'这段经历已经完成，奖励不会重复领取。');
   const missing=def.requires.find(key=>!storyDone(c,key));
   requireValue(!missing,`先完成「${FRONTIER_ACTIONS.find(a=>a.type===missing)?.title}」。`);
@@ -77,7 +78,10 @@ export function applyCampaignAction(game,type) {
     case 'aid_hanyunzhi': game.people.tao.trust+=15;text='你将一株灵草交给菡云芝，帮她缓解禁地里的困境。她记住这份援手，双方各自的采药之路仍由自己决定。';break;
     case 'meet_nangong': text='你进入中心区域，与南宫婉相遇。石殿中的危险令你们暂时联手；她的真正来历还不是此时能够轻易问出的事。';break;
     case 'fight_mojiao': if(!c.questHerbs.includes('天灵果'))c.questHerbs.push('天灵果');game.people.ji.trust+=10;text='你与南宫婉合力应对墨蛟，从石殿险局中脱身，取得天灵果。这段共同经历留在彼此记忆中，眼下先要带药离开禁地。';break;
-    case 'leave_forbidden': text='你带着三味主药离开血色禁地。回宗整理丹方，留下活株自行培育，再亲手炼制筑基丹。';break;
+    case 'leave_forbidden': text='你带着三味主药离开血色禁地，收到燕家堡的邀约。下一步前往燕家堡，查清鬼灵门的动向；活株仍留在药囊，之后可回宗培药炼丹。';break;
+    case 'enter_yanbao': text='你携禁地归来的见闻进入燕家堡。灯火与宴席之间，鬼灵门少主王蝉的门人封住了退路；先察明血灵阵，再决定交锋。';break;
+    case 'investigate_yanbao': text='你认出燕堡庭院中的血灵阵，记下阵势薄弱处与侧院退路。鬼灵门少主王蝉现身，只有亲自击退他，才能完成第一章试炼。';break;
+    case 'fight_wangchan': text='你在燕家堡击破王蝉的血灵护罩，迫使鬼灵门少主退走，携战后所得脱离血灵阵。第一章试炼完成！禁地采药与燕堡终战已记入经历，后续可回百药园继续培药炼丹与筑基修行。';break;
     case 'deliver_spirit_herbs':
       requireValue(game.sects.membership?.sectId==='qinglan','需以黄枫谷弟子身份向宗门交药。');
       requireValue(['紫猴花','玉髓芝','天灵果'].every(h=>c.questHerbs.includes(h)),'三味任务主药尚未收齐。');
@@ -123,10 +127,10 @@ export function applyCampaignNpc(game,id,action) {
 export function campaignView(game) {
   const c=game.campaign,f=c.storyFlags||{};
   const canSkipTrial=Boolean(game.flags.playerBreakthrough||((c.alternatePill||game.pill.owner==='player')&&(!f.enter_forbidden||f.leave_forbidden)));
-  const objectives=FRONTIER_ACTIONS.filter(a=>!a.utility).map(a=>({ ...a,target:a.site,done:storyDone(c,a.type),legacy:Boolean(c.legacyCompleted?.includes(a.type)),missed:Boolean(a.thread==='silver_page'&&!f.fight_swordsman&&(f.leave_forbidden||game.flags.playerBreakthrough)),skipped:Boolean(canSkipTrial&&a.thread!=='silver_page'&&a.type!=='huangfeng_register'&&a.type!=='take_master'&&!storyDone(c,a.type)),unlocked:a.requires.every(key=>storyDone(c,key))}));
-  const next=objectives.find(a=>!a.done&&!a.optional&&!a.skipped);
-  return {title:'卷二 · 黄枫仙途',summary:next?.detail||'筑基拜师已成，青元剑诀的修行由此开始。',next,complete:Boolean(f.take_master),objectives,
-    chapters:[{id:'qinglan',title:'一 · 升仙入谷',summary:'凭升仙令入黄枫谷。',done:Boolean(f.huangfeng_register),target:'sect_qinglan'}, {id:'river',title:'二 · 百药潜修',summary:'接管百药园，潜修长春功。',done:Boolean(f.garden_cultivate),target:'ferry'}, {id:'quarry',title:'三 · 血色试炼',summary:'七派禁地采药，与南宫婉相遇。',done:Boolean(f.leave_forbidden),skipped:Boolean(game.flags.playerBreakthrough&&!f.leave_forbidden),target:'workers'}, {id:'river',title:'四 · 培药炼丹',summary:'留种培育三味主药，成熟采收，亲手炼制筑基丹。',done:Boolean(f.refine_foundation_pill),skipped:Boolean(game.flags.playerBreakthrough&&!f.refine_foundation_pill),target:'spring'}, {id:'qinglan',title:'五 · 筑基拜师',summary:'服丹筑基，拜师李化元，研习青元剑诀。',done:Boolean(f.take_master),target:'sect_qinglan'}],
+  const objectives=FRONTIER_ACTIONS.filter(a=>!a.utility).map(a=>({ ...a,target:a.site,done:storyDone(c,a.type),legacy:Boolean(c.legacyCompleted?.includes(a.type)),missed:Boolean(a.thread==='silver_page'&&!f.fight_swordsman&&(f.leave_forbidden||game.flags.playerBreakthrough)),skipped:Boolean(canSkipTrial&&!['silver_page','yanbao'].includes(a.thread)&&a.type!=='huangfeng_register'&&a.type!=='take_master'&&!storyDone(c,a.type)),unlocked:a.requires.every(key=>storyDone(c,key))&&(a.thread!=='yanbao'||canVisitYanbao(game))}));
+  const next=(canVisitYanbao(game)&&objectives.find(a=>a.thread==='yanbao'&&!a.done))||objectives.find(a=>a.thread!=='yanbao'&&!a.done&&!a.optional&&!a.skipped);
+  return {title:'第一章 · 血色与燕堡',summary:next?.detail||'第一章试炼已完成，道途仍可继续。',next,complete:Boolean(f.fight_wangchan),cultivationComplete:Boolean(f.take_master),objectives,
+    chapters:[{id:'qinglan',title:'一 · 升仙入谷',summary:'凭升仙令入黄枫谷。',done:Boolean(f.huangfeng_register),target:'sect_qinglan'}, {id:'river',title:'二 · 百药潜修',summary:'接管百药园，潜修长春功。',done:Boolean(f.garden_cultivate),target:'ferry'}, {id:'quarry',title:'三 · 血色试炼',summary:'七派禁地采药，与南宫婉相遇。',done:Boolean(f.leave_forbidden),skipped:Boolean(game.flags.playerBreakthrough&&!f.leave_forbidden),target:'workers'}, {id:'yanbao',title:'四 · 燕堡终战',summary:'击退鬼灵门少主王蝉，完成第一章试炼。',done:Boolean(f.fight_wangchan),target:'yanbao_court'}, {id:'river',title:'后续 · 培药炼丹',summary:'留种培育三味主药，成熟采收，亲手炼制筑基丹。',done:Boolean(f.refine_foundation_pill),skipped:Boolean(game.flags.playerBreakthrough&&!f.refine_foundation_pill),target:'spring'}, {id:'qinglan',title:'后续 · 筑基拜师',summary:'服丹筑基，拜师李化元，研习青元剑诀。',done:Boolean(f.take_master),target:'sect_qinglan'}],
     aftermath:[],ending:null,flags:{...f},decisions:Object.values(c.decisions||{}),ore:c.ore,minesRemaining:0,reedsRemaining:Math.max(0,3-c.gathered),questHerbs:[...c.questHerbs],alternatePill:Boolean(c.alternatePill),alchemy:alchemyView(game),visited:[...c.visited],realm:cultivationRealm(game),
     regions:Object.entries(REGIONS).map(([id,r])=>({id,...r,...travelAccess(game,id),visited:c.visited.includes(id),current:game.player.place===id}))};
 }

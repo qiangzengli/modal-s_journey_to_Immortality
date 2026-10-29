@@ -48,7 +48,7 @@ let storyScene;
 function actionTarget(action, view=current) {
   if(action.type==='ask')return action.target;
   if(view?.story&&defs[action.type]?.garden)return 'valley_bottle';
-  if(action.type==='frontier_rest')return ({quarry:'workers',ruins:'memorial'})[view.player.place] || 'infirmary';
+  if(action.type==='frontier_rest')return ({quarry:'workers',ruins:'memorial',yanbao:'yanbao_refuge'})[view.player.place] || 'infirmary';
   if(action.type==='negotiate')return 'shen';
   if(action.type==='buy_pill')return view.pill.ownerId==='lu'?'lu':'shen';
   const def=defs[action.type];
@@ -344,7 +344,7 @@ function render(view, modelName) {
   $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与吴风的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
   $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(affiliationText(p.affiliation))}<br>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${regionName(p.place)} ↗</span></button>`).join('');
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
-  $('#actions').innerHTML=ACTION_DEFS.filter(def=>!RETIRED_PILL_ACTIONS.includes(def.type)&&def.type!=='partner'&&(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins'].includes(view.player.place)))&&!def.garden&&(!def.volume||view.story)).map(def=>{
+  $('#actions').innerHTML=ACTION_DEFS.filter(def=>!RETIRED_PILL_ACTIONS.includes(def.type)&&def.type!=='partner'&&(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins','yanbao'].includes(view.player.place)))&&!def.garden&&(!def.volume||view.story)).map(def=>{
     const state=view.actionOptions[def.type];
     return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button" ${state.available?'':'disabled'}><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');
@@ -408,18 +408,25 @@ async function call(path,payload={}) {
       await world.combatReact(before,data.view,payload);
     }else render(data.view,data.modelName);
     if(path==='/api/intent')return data;
-    notice(data.result);feedback(before,data.view);
-    if(path==='/api/combat'&&payload.type==='claim')$('#world-hint').textContent='战利品已收入行囊。可以研习功法、装备武器，再继续游历。';
+    const chapterCompleted=!before.campaign.complete&&data.view.campaign.complete;
+    if(!chapterCompleted)notice(data.result);
+    feedback(before,data.view);
+    if(path==='/api/combat'&&payload.type==='claim')$('#world-hint').textContent=chapterCompleted?'第一章试炼完成。可继续游历，或回百药园培药炼丹。':'战利品已收入行囊。可以研习功法、装备武器，再继续游历。';
     if(path==='/api/action'&&!data.actionType.startsWith('travel_')) {
       const target=actionTarget({...payload,type:data.actionType},before);
       lastInteraction={target,text:data.result}; updateInteractionResult();
-      world.speak(target,data.result);
       if(!defs[data.actionType]?.garden)$('#world-person').scrollTop=0;
     }
     world.react(data.actionType,before,data.view);
     if(path==='/api/command')$('#command').value='';
     if(path==='/api/advance')showTurnSummary(before,data.view);
-    if(!before.world.breakthrough&&data.view.world.breakthrough){
+    if(chapterCompleted){
+      $('#ending .ending-seal').textContent='成';$('#ending .eyebrow').textContent='第一章 · 试炼完成';$('#ending h2').textContent='燕堡脱身，道途未尽。';
+      $('#ending-copy').textContent=data.result;
+      $('#ending-stats').innerHTML=`<span>终战 <b>鬼灵门 · 王蝉</b></span><span>历时 <b>${data.view.turn} 旬</b></span><span>凭证 <b>燕堡历练凭证</b></span>`;
+      $('#ending').showModal();
+    }else if(!before.world.breakthrough&&data.view.world.breakthrough){
+      $('#ending .ending-seal').textContent='筑';$('#ending .eyebrow').textContent='道途初开';$('#ending h2').textContent='一念破境，因果未了。';
       $('#ending-copy').textContent=data.result;
       $('#ending-stats').innerHTML=`<span>历时 <b>${data.view.turn} 旬</b></span><span>声望 <b>${data.view.player.reputation}</b></span><span>未偿承诺 <b>${data.view.pill.partnerDebt} 灵石</b></span>`;
       $('#ending').showModal();

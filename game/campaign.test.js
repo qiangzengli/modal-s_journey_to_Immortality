@@ -17,7 +17,7 @@ test('七玄门自然接入黄枫谷，禁地采药、培药炼丹、筑基、�
  assert.ok(g.player.hp>0&&g.player.hp<84);assert.ok(g.exploration.enemies.story_mojiao.looted);assert.equal(g.campaign.alternatePill,true);assert.deepEqual(g.campaign.questHerbs,[]);
  assert.throws(()=>act(travel(g,'qinglan'),'deliver_spirit_herbs'),/已经完成/);
  g=travel(g,'woods');while(g.player.hp<60)g=act(g,'rest');g=act(g,'breakthrough');assert.equal(getView(g).world.realm,'筑基初期');
- g=act(travel(g,'qinglan'),'take_master');assert.equal(affiliationFor(g).rank,'李化元弟子');assert.equal(getView(g).campaign.complete,true);
+ g=act(travel(g,'qinglan'),'take_master');assert.equal(affiliationFor(g).rank,'李化元弟子');assert.equal(getView(g).campaign.cultivationComplete,true);
  assert.equal(g.exploration.inventory.wind_manual,1);assert.throws(()=>act(g,'take_master'),/已经完成/);
  g=inventoryAction(g,{type:'learn',itemId:'wind_manual'}).game;assert.ok(g.exploration.learned.includes('wind_blade'));
  for(const type of CANON_ROUTE.filter(type=>type!=='advance')){const e=g.events.find(e=>e.id===g.campaign.storyFlags[type]);assert.ok(e);assert.ok(e.causes.every(id=>id<e.id&&g.events.some(old=>old.id===id)));}
@@ -50,8 +50,8 @@ test('旧档已持丹先行筑基可以直接拜师，不强制重演炼气试�
  let g=throughCampaign('huangfeng_register');g.player.stones=400;
  g.pill.owner='player'; // 模拟升级前已买到丹药的旧档。
  g=travel(g,'woods');while(g.player.hp<60)g=act(g,'rest');g=act(g,'breakthrough');
- assert.equal(getView(g).campaign.next.type,'take_master');assert.ok(getView(g).campaign.objectives.find(o=>o.type==='enter_forbidden').skipped);
- g=act(travel(g,'qinglan'),'take_master');assert.equal(getView(g).campaign.complete,true);assert.equal(getView(g).world.realm,'筑基初期');
+ assert.equal(getView(g).campaign.next.type,'enter_yanbao');assert.ok(getView(g).campaign.objectives.find(o=>o.type==='enter_forbidden').skipped);
+ g=act(travel(g,'qinglan'),'take_master');assert.equal(getView(g).campaign.cultivationComplete,true);assert.equal(getView(g).world.realm,'筑基初期');
 });
 test('旧档迁移保留资产、原剧情结算、债务、装备、历史和委托，身份更新且幂等',()=>{
  const old=createGame();delete old.canonVersion;delete old.campaign.canonVersion;delete old.campaign.storyFlags;
@@ -65,7 +65,7 @@ test('旧档迁移保留资产、原剧情结算、债务、装备、历史和�
  assert.equal(old.people.shen.name,'许掌柜');assert.equal(old.people.gu.name,'钟灵道');assert.equal(old.people.shen.stones,17);assert.equal(old.people.shen.trust,-12);
  assert.equal(old.campaign.vault,40);assert.equal(old.campaign.ore,9);assert.equal(old.campaign.alternatePill,true);
  const migrated=structuredClone(old);ensureNpcState(old);getView(old);assert.deepEqual(old,migrated);
- assert.equal(getView(old).campaign.title,'卷二 · 黄枫仙途');assert.throws(()=>act(old,'lease_core'),/未识别/);
+ assert.equal(getView(old).campaign.title,'第一章 · 血色与燕堡');assert.throws(()=>act(old,'lease_core'),/未识别/);
 });
 test('原著门派、境界和模型时段一致，主线界面不再显示原创游历',()=>{
  const g=throughCampaign('enter_forbidden'),v=getView(g),markup=campaignMarkup(v);

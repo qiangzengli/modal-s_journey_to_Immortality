@@ -5,7 +5,7 @@ import {setImmediate} from 'node:timers/promises';
 import {installDOM} from './ui-test-dom.js';
 import {combatAction} from './combat.js';
 import {createGame,createOpeningGame,getView,applyAction,advanceTurn} from './engine.js';
-import {throughCampaign} from './canon-test-helpers.js';
+import {throughCampaign,act,travel,openingMove} from './canon-test-helpers.js';
 import {SITES} from './content.js';
 
 test('应用装配：读档、任务追踪、到点行动、人物页签与状态反馈连接完整',async t=>{
@@ -88,5 +88,18 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
  t.mock.timers.tick(600);assert.equal($('#operation-status').hidden,true);
  $('[data-combat-move="guard"]').click();await setImmediate();assert.equal(combatCalls,1);
  finishAnimation();await setImmediate();assert.equal($('#combat-inputs').disabled,false);assert.equal(document.body.classList.contains('busy'),false);
-
+ // A genuine finale win is settled through the app and opens the chapter ending once.
+ game=travel(throughCampaign('leave_forbidden'),'yanbao');
+ while(game.player.hp<100)game=act(game,'frontier_rest');
+ game=act(act(act(game,'enter_yanbao'),'investigate_yanbao'),'fight_wangchan');
+ for(let i=0;i<50&&game.exploration.battle.status==='active';i++)game=combatAction(game,openingMove(getView(game)),()=>.5).game;
+ assert.equal(game.exploration.battle.status,'won');
+ $('#connection-retry').click();await setImmediate();
+ assert.equal($('#ending').open,false);
+ $('[data-battle-result="claim"]').click();await setImmediate();
+ assert.equal(game.campaign.storyFlags.fight_wangchan>0,true);
+ assert.equal($('#ending').open,true);assert.match($('#ending .eyebrow').textContent,/第一章.*试炼完成/);
+ assert.match($('#ending-stats').textContent,/王蝉/);assert.match($('#world-hint').textContent,/回百药园/);
+ $('#ending-close').click();$('#connection-retry').click();await setImmediate();
+ assert.equal($('#ending').open,false,'读已通关存档不重复弹出结算');
 });

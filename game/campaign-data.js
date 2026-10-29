@@ -8,6 +8,9 @@ export const FRONTIER_PEOPLE=[
   {id:'yuan',name:'雷万鹤',role:'黄枫谷结丹修士',place:'qinglan',spot:[229,9],stones:60,goal:'为宗门培育后辈，寻求合用的灵药',publicGoal:'留意门中人才',links:['gu'],color:'#c5c1ab',realm:'结丹中期',bio:'黄枫谷结丹修士，擅长雷系法术。',temperament:'看重资质与实际所得'}
 ];
 export const FRONTIER_SITES={
+  yanbao_gate:{name:'燕家堡门楼',role:'燕家堡 · 赴宴',place:'yanbao',spot:[684,5],seal:'燕',detail:'禁地归来后受邀赴燕家堡，入堡前先辨清局势。',actions:['enter_yanbao']},
+  yanbao_court:{name:'燕堡血灵阵',role:'鬼灵门 · 第一章终战',place:'yanbao',spot:[704,0],seal:'阵',detail:'宴席背后暗藏血灵阵。查明王蝉的布置，击退鬼灵门少主，闯出燕家堡。',actions:['investigate_yanbao','fight_wangchan']},
+  yanbao_refuge:{name:'燕堡侧院',role:'燕家堡 · 战前调息',place:'yanbao',spot:[681,11],seal:'息',detail:'远离血灵阵的侧院，可花费少量灵石调息，再准备迎战。',actions:['frontier_rest']},
   sword_trace:{name:'禁地斗法痕迹',role:'禁地 · 银剑争药',place:'ruins',spot:[148,1],seal:'剑',detail:'碎裂的法器与银剑留下的痕迹通向一名赤脚修士。先观察再决定是否交手，此事不阻拦采药主线。',actions:['sword_trace','fight_swordsman']},
   ferry:{name:'百药园入口',role:'黄枫谷 · 药园差事',place:'river',spot:[42,-6],seal:'园',detail:'接下马师兄看管药园的差事，取得安静修炼的机会。',actions:['garden_duty','examine_silver_page']},
   spring:{name:'百药园药圃',role:'黄枫谷 · 培药修行',place:'river',spot:[64,11],seal:'药',detail:'在自己的药畦留种培育筑基主药，以小绿瓶灵液催熟，成熟后亲手采收。',actions:['garden_cultivate','gather_reeds','plant_pill_herbs','harvest_pill_herbs']},
@@ -39,6 +42,9 @@ export const FRONTIER_ACTIONS=[
   action('meet_nangong','相遇南宫婉','深入中心区域，与掩月宗修士共同探查石殿','收齐外层两味主药','ruins','archive',['read_stone_gate']),
   action('fight_mojiao','合力应对墨蛟','与南宫婉合力斗法，击败墨蛟后收取天灵果','回合斗法 · 气血至少 20','ruins','core',['meet_nangong'],{encounter:'story_mojiao'}),
   action('leave_forbidden','携药离开禁地','将三味主药活株带出禁地，留待自行培育','一次经历','ruins','memorial',['fight_mojiao']),
+  action('enter_yanbao','赴燕家堡之约','禁地归来后前往燕家堡，探明鬼灵门介入的缘由','已离开血色禁地','yanbao','yanbao_gate',[],{thread:'yanbao'}),
+  action('investigate_yanbao','察破燕堡血灵阵','辨明王蝉设下的血灵阵与撤离路线，准备正面斗法','一次经历','yanbao','yanbao_court',['enter_yanbao'],{thread:'yanbao'}),
+  action('fight_wangchan','迎战鬼灵门王蝉','击退鬼灵门少主王蝉并结算战后所得，完成第一章试炼','BOSS 回合斗法 · 气血至少 20','yanbao','yanbao_court',['investigate_yanbao'],{thread:'yanbao',encounter:'wen'}),
   action('sort_trial_gains','整理禁地所得','核对三味活株与可交代的采药记录，留好自己的种苗','一次经历','qinglan','sect_qinglan',['leave_forbidden']),
   action('deliver_spirit_herbs','研习筑基丹方','核对采药记录，研习丹方，保留三味活株自行培育','三味任务主药','qinglan','sect_qinglan',['sort_trial_gains']),
   action('plant_pill_herbs','留种培育筑基主药','将三味活株栽入自己的药畦，随旬数培养；灵液可催熟','三味活株 · 小绿瓶','river','spring',['deliver_spirit_herbs']),
