@@ -324,7 +324,7 @@ function render(view, modelName) {
   $('#outcome').textContent=view.outcome||'机缘仍在流转。人物的需求、钱财与消息会改变丹药的去向。';
   $('#outcome').classList.toggle('won',ownPill||view.world.breakthrough);
   $('#opportunity-hint').textContent=view.world.breakthrough?'此丹已化为你的修为':ownPill?'已入行囊 · 可前往听雨亭':'留种培育 → 成熟采收 → 炼制 ↗';
-  $('#mode').textContent=modelName?`自然语言模型：${modelName}。可在心念传音中问计、追问或下达行动。`:'DeepSeek 暂未连接；可继续使用行动按钮，交谈恢复后再试。';
+  $('#mode').textContent=modelName?`自然语言模型：${modelName}。可在心念传音中问计、追问或下达行动。`:'ChatGPT 暂未连接；可继续使用行动按钮，交谈恢复后再试。';
   const entries=[['境界',view.world.realm],['所在',regionName(view.player.place)],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
   $('#stats').innerHTML=entries.map(([key,value])=>`<div><span>${key}</span><strong>${esc(value)}</strong></div>`).join('');
   $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与吴风的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
@@ -363,7 +363,7 @@ function showTurnSummary(before,after) {
   clearTimeout(summaryTimer); summaryTimer=setTimeout(()=>{ $('#turn-summary').hidden=true; },10000);
 }
 function updateCommandStatus() {
-  $('#command-status').textContent=commandPending?'正在问计 · 可继续探索':busy?'正在结算…':currentModelName?'AI 问计 · 行动不限':'DeepSeek 暂未连接';
+  $('#command-status').textContent=commandPending?'正在问计 · 可继续探索':busy?'正在结算…':currentModelName?'AI 问计 · 行动不限':'ChatGPT 暂未连接';
   $('#command-status').title=currentModelName||'模型连接恢复后可继续问计';
   $('#command-submit').disabled=busy||commandPending||Boolean(current?.battle);
   $('#command-form').setAttribute('aria-busy',String(busy||commandPending));

@@ -1,3 +1,4 @@
+import { sendModelReply } from './model-test-helpers.js';
 import {throughCampaign} from './canon-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,10 +19,9 @@ test('禁地自主援助经接口原子保存，拒绝过期决策，重启后�
   let child,invalid=false;
   const model=createServer(async(req,res)=>{
     let body='';for await(const chunk of req)body+=chunk;
-    const context=JSON.parse(JSON.parse(body).messages[1].content);
+    const context=JSON.parse(JSON.parse(body).input[1].content[0].text);
     const decisions=context.actors.map(actor=>({actorId:actor.id,actionId:actor.id==='song'&&(invalid||actor.candidates.some(c=>c.id==='share_trial_notes'))?'share_trial_notes':'observe',goal:'为同门整理禁地见闻',speech:'我会按手头的钱财来安排。'}));
-    res.setHeader('content-type','application/json');
-    res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({decisions})}}]}));
+    sendModelReply(res, JSON.stringify({decisions}));
   });
   model.listen(0,'127.0.0.1');await once(model,'listening');
   const reservation=createServer();reservation.listen(0,'127.0.0.1');await once(reservation,'listening');

@@ -15,7 +15,7 @@ test('手札展示模型方案，选择后执行真实参数；局势变化立�
   let view = { revision: 0, pill: { ownerId: 'shen' }, world: {} }, resolveSlow, requested;
   const actions = [];
   const makePlan = (id, title, action) => ({ id, title, rationale: '根据主药进度炼丹。', risk: '留意支出。', forecast: { stones: 20, hp: 100, reputation: 50, turns: 0, debt: 0 }, steps: [{ title: '按方炼丹', detail: '预计取得丹药。', action }] });
-  const result = { source: 'model', modelName: 'deepseek-v4-flash', revision: 0, text: '选择方案', followUps: [], plans: [makePlan('a', '灵液催熟培药', { type: 'plant_pill_herbs' }), makePlan('b', '成熟主药炼丹', { type: 'refine_foundation_pill' })] };
+  const result = { source: 'model', modelName: 'gpt-5.6-sol', revision: 0, text: '选择方案', followUps: [], plans: [makePlan('a', '灵液催熟培药', { type: 'plant_pill_herbs' }), makePlan('b', '成熟主药炼丹', { type: 'refine_foundation_pill' })] };
   globalThis.fetch = async (path, options) => {
     requested = JSON.parse(options.body);
     if (requested.expectedRevision === 1) return new Promise(resolve => { resolveSlow = () => resolve({ ok: true, json: async () => ({ ...result, revision: 1 }) }); });

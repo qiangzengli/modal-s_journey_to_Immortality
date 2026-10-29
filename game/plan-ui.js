@@ -25,7 +25,7 @@ export function createPlanUI({ getState, executeAction, advance, onStale, onChan
     $('#quest-track').textContent = executing ? '正在执行这一步…' : plan ? `执行：${plan.steps[0].title} →` : '等待可行方案';
     $('#guide-send').disabled = pending || executing;
     $('#guide-rethink').disabled = pending || executing;
-    $('#agent-guide-source').textContent = pending ? 'DeepSeek 正在规划…' : reply ? sourceText(reply) : '等待规划';
+    $('#agent-guide-source').textContent = pending ? 'ChatGPT 正在规划…' : reply ? sourceText(reply) : '等待规划';
     $('#agent-guide-source').title = reply?.modelName || '';
     $('#guide-followups').innerHTML = fresh() ? reply.followUps.map((text, index) => `<button type="button" data-plan-question="${index}">${esc(text)}</button>`).join('') : '';
     $('#quest-steps').innerHTML = plan ? plan.steps.map((step, index) => `<button type="button" data-plan-step="${index}" class="quest-step" ${index || busy || executing ? 'disabled' : ''}><b>${index + 1}</b><span><strong>${esc(step.title)}</strong><small>${esc(step.travel || '')} ${esc(step.detail)}</small><small>${index ? '先完成前序步骤' : '点击执行当前一步'} · 预计结果，尚未发生</small></span></button>`).join('') : `<p class="panel-tip">${esc(pending ? '正在重新计算当前可行的方案。' : reply?.text || '在修行手札中生成取丹方案。')}</p>`;

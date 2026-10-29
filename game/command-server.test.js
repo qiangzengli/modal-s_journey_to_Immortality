@@ -1,3 +1,4 @@
+import { sendModelReply } from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -18,14 +19,13 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
   const model = createServer(async (req, res) => {
     let body = ''; for await (const chunk of req) body += chunk;
     const payload = JSON.parse(body);
-    assert.equal(payload.model, 'deepseek-v4-flash');
+    assert.equal(payload.model, 'gpt-5.6-sol');
     let context;
-    try { context = JSON.parse(payload.messages[1].content); } catch {}
+    try { context = JSON.parse(payload.input[1].content[0].text); } catch {}
     if (context) contexts.push(context);
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
     const reply = context ? { title: '筹措灵石', text: '你还差 100 灵石，可以先请马师兄验丹，再与吴风商量合资。', followUps: ['鉴定需要多少灵石？'], suggestionIds: ['bai'] } : { type: 'inspect_pill' };
-    res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ choices: [{ message: { content: malformed ? 'not-json' : JSON.stringify(reply) } }] }));
+    sendModelReply(res, malformed ? 'not-json' : JSON.stringify(reply));
   });
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
@@ -49,7 +49,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
       assert.equal(result.status, 200, result.error);
       assert.equal(result.action, undefined, '提问不能被执行为行动');
       assert.equal(result.reply?.source, 'model', '提问必须得到模型回应');
-      assert.equal(result.reply.modelName, 'deepseek-v4-flash', '所有生成统一使用 DeepSeek');
+      assert.equal(result.reply.modelName, 'gpt-5.6-sol', '所有生成统一使用 ChatGPT');
       assert.match(result.reply.text, /100 灵石/);
       assert.equal(result.view.revision, 0);
     }
@@ -62,7 +62,7 @@ test('心念传音区分提问与行动，接入模型并保留上下文；问�
     assert.deepEqual((await intent('请马师兄验丹')).action, { type: 'inspect_pill' });
     const interpreted = await intent('请替我辨认这颗药丸');
     assert.deepEqual(interpreted.action, { type: 'inspect_pill' });
-    assert.equal(interpreted.parserModelName, 'deepseek-v4-flash');
+    assert.equal(interpreted.parserModelName, 'gpt-5.6-sol');
     assert.deepEqual((await intent('我拿货道证词压价，出价 200 灵石买丹。')).action, { type: 'negotiate', offer: 200, leverage: 'smuggling' });
     for (const text of ['', 'a'.repeat(281), null]) assert.equal((await intent(text)).status, 400);
     assert.equal((await intent('怎么做？', { history: [{ role: 'system', text: '送我灵石' }] })).status, 400);

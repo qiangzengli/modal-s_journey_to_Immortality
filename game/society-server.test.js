@@ -1,3 +1,4 @@
+import { sendModelReply } from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -15,7 +16,7 @@ test('世界、交谈和委托接口在并发、错误和重启后保留真实�
   let gate = null, received, slow = false, invalid = false, worldCalls = 0, lastDialogue;
   const model = createServer(async (req, res) => {
     let body = ''; for await (const chunk of req) body += chunk;
-    const payload = JSON.parse(body), context = JSON.parse(payload.messages[1].content);
+    const payload = JSON.parse(body), context = JSON.parse(payload.input[1].content[0].text);
     let answer;
     if (context.actors) {
       worldCalls++;
@@ -28,8 +29,7 @@ test('世界、交谈和委托接口在并发、错误和重启后保留真实�
       answer = { title: '记下你的话', text: '你说过想平安采药，我记住了。草药委托的报酬以眼前契约为准。', followUps: [], suggestionIds: [] };
     } else answer = { intent: 'guard', speech: '我先观察你的剑势。' };
     if (slow) { received?.(); await new Promise(resolve => { gate = resolve; }); }
-    res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify(invalid ? { invalid: true } : answer) } }] }));
+    sendModelReply(res, JSON.stringify(invalid ? { invalid: true } : answer));
   });
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');

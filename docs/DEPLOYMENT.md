@@ -40,9 +40,9 @@ systemctl list-timers niminglu-backup.timer --no-pager
 systemctl start niminglu-backup.service
 ```
 
-模型固定为 `deepseek-v4-flash`。用编辑器修改 `/etc/niminglu/game.env` 中的 `LLM_API_KEY`，保留 `LLM_TIMEOUT_MS=30000`，然后重启游戏服务。不要把密钥写进文档或粘贴到终端日志中。
+模型使用 ChatGPT `gpt-5.6-sol`，通过 Responses 接口调用。服务器的 `/etc/niminglu/game.env` 必须同步本机实际生效的 `.env.local` 配置：`OPENAI_BASE_URL` 为服务基址（当前为 `https://codex.icecream.xin/backend-api/codex`，不含末尾 `/responses`），`LLM_API_KEY` 为密钥，`LLM_TIMEOUT_MS` 默认为 `30000`。修改后重启游戏服务。不要把密钥写进文档、发布包或终端日志中。根目录 `.env.local` 优先于旧的 `mvp/.env.local`。
 
-首次部署检查时，DeepSeek 返回 **HTTP 402 / insufficient_balance_error**。这表示现有密钥对应账户余额不足，不是服务器连不上。地图和规则玩法可运行，AI 对话、规划及自主决策需充值或换用有效密钥。相同密钥充值后可直接重试；更换密钥需重启服务。
+首次部署时旧 DeepSeek 接口曾返回 **HTTP 402 / insufficient_balance_error**，属于旧账户余额不足的历史故障。当前代码使用 ChatGPT 网关；服务器需发布更新后的代码并替换 `/etc/niminglu/game.env` 中的密钥，再重启服务，才能切换接入。
 
 ## 更新发布
 

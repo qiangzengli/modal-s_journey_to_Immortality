@@ -1,3 +1,4 @@
+import { sendModelReply } from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -14,11 +15,10 @@ test('门派接口校验修为与版本，模型邀请后玩家确认，存档�
   let requests=0, billingFailure=true;
   const model=createServer(async(req,res)=>{
     let body='';for await(const chunk of req)body+=chunk;
-    const messages=JSON.parse(body).messages;
-    assert.match(messages[0].content,/接引人/);requests++;
-    res.setHeader('content-type','application/json');
+    const instructions=JSON.parse(body).instructions;
+    assert.match(instructions,/接引人/);requests++;
     if(billingFailure){res.statusCode=402;res.end('{}');return;}
-    res.end(JSON.stringify({choices:[{message:{content:'{"decision":"invite","message":"你所言与门规相合，我愿接引，等你自己决定。"}'}}]}));
+    sendModelReply(res, '{"decision":"invite","message":"你所言与门规相合，我愿接引，等你自己决定。"}');
   });
   model.listen(0,'127.0.0.1');await once(model,'listening');
   const reserve=createServer();reserve.listen(0,'127.0.0.1');await once(reserve,'listening');

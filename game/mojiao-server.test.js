@@ -1,3 +1,4 @@
+import { sendModelReply } from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
@@ -8,11 +9,11 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {throughCampaign,openingMove} from './canon-test-helpers.js';
 
-test('墨蛟 API 使用 DeepSeek 战术；回合落盘、并发版本校验、重启续战和收果幂等',async()=>{
+test('墨蛟 API 使用 ChatGPT 战术；回合落盘、并发版本校验、重启续战和收果幂等',async()=>{
  const directory=await mkdtemp(join(tmpdir(),'niminglu-mojiao-api-')),savePath=join(directory,'save.json');
  await writeFile(savePath,JSON.stringify(throughCampaign('meet_nangong')));
  const requests=[];
- const model=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));res.setHeader('content-type','application/json');res.end(JSON.stringify({choices:[{message:{content:JSON.stringify({intent:'attack',speech:'墨蛟探爪扑向前方。'})}}]}));});
+ const model=createServer(async(req,res)=>{let body='';for await(const chunk of req)body+=chunk;requests.push(JSON.parse(body));sendModelReply(res, JSON.stringify({intent:'attack',speech:'墨蛟探爪扑向前方。'}));});
  model.listen(0,'127.0.0.1');await once(model,'listening');
  const reservation=createServer();reservation.listen(0,'127.0.0.1');await once(reservation,'listening');const port=reservation.address().port;await new Promise(r=>reservation.close(r));
  const origin=`http://127.0.0.1:${port}`;let child;
@@ -27,7 +28,7 @@ test('墨蛟 API 使用 DeepSeek 战术；回合落盘、并发版本校验、�
   assert.equal((await fetch(origin+'/mojiao-model.js')).status,200);
   const started=await post('/api/action',{type:'fight_mojiao',expectedRevision:view.revision});assert.equal(started.status,200,started.error);view=started.view;
   assert.equal(view.battle.enemyId,'story_mojiao');assert.equal(view.battle.intentSource,'model');assert.ok(!view.campaign.questHerbs.includes('天灵果'));
-  assert.equal(requests.length,1);assert.equal(requests[0].model,'deepseek-v4-flash');assert.match(requests[0].messages[0].content,/墨蛟/);
+  assert.equal(requests.length,1);assert.equal(requests[0].model,'gpt-5.6-sol');assert.match(requests[0].instructions,/墨蛟/);
   for(let round=0;view.battle.status==='active'&&round<50;round++){
    const revision=view.revision,r=await post('/api/combat',{...openingMove(view),expectedRevision:revision});assert.equal(r.status,200,r.error);view=r.view;
    const saved=JSON.parse(await readFile(savePath,'utf8'));assert.equal(saved.exploration.battle.enemyHp,view.battle.enemyHp);assert.equal(saved.revision,view.revision);

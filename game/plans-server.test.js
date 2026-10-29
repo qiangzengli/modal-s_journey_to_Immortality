@@ -1,3 +1,4 @@
+import { sendModelReply } from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -18,13 +19,12 @@ test('规划接口只读且不锁行动；动态方案可执行、过期规划�
   const model = createServer(async (req, res) => {
     calls++;
     let body = ''; for await (const chunk of req) body += chunk;
-    const payload = JSON.parse(body), context = JSON.parse(payload.messages[1].content);
-    assert.equal(payload.model, 'deepseek-v4-flash');
+    const payload = JSON.parse(body), context = JSON.parse(payload.input[1].content[0].text);
+    assert.equal(payload.model, 'gpt-5.6-sol');
     assert.equal(context.objective, '自行培药炼制一枚筑基丹');
     if (slow) { received(); await new Promise(resolve => { release = resolve; }); }
     const actions = [...(!context.facts.campaign.alchemy.harvested ? [{ type: 'harvest_pill_herbs' }] : []), { type: 'refine_foundation_pill' }];
-    res.setHeader('content-type', 'application/json');
-    res.end(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ text: '采收后自行炼制筑基丹。', followUps: [], plans: [{ title: '培药炼丹', rationale: '主药已培养成熟，采收后按丹方炼丹。', risk: '还需留意后续修炼的开销。', actions }] }) } }] }));
+    sendModelReply(res, JSON.stringify({ text: '采收后自行炼制筑基丹。', followUps: [], plans: [{ title: '培药炼丹', rationale: '主药已培养成熟，采收后按丹方炼丹。', risk: '还需留意后续修炼的开销。', actions }] }));
   });
   model.listen(0, '127.0.0.1'); await once(model, 'listening');
   const reservation = createServer(); reservation.listen(0, '127.0.0.1'); await once(reservation, 'listening');
