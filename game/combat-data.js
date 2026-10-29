@@ -10,6 +10,8 @@ export const SKILLS = {
 };
 
 export const ITEMS = {
+  silver_page:{name:'银色书页',kind:'story',description:'巨剑门赤脚大汉储物袋中的奇异书页。先保管，出禁地后再研究；不能直接使用或兑换修为。'},
+  sword_page_notes:{name:'书页参悟手记',kind:'story',description:'结合李化元所藏金页和青元剑诀研究所得。记下书页间的关联，后续功法修行仍需亲自研习。'},
   changchun_manual:{name:'长春功',kind:'manual',skill:'changchun',description:'墨大夫传下的基础修炼功法。'},
   fireball_manual:{name:'火弹术',kind:'manual',skill:'fireball',description:'太南小会换得的法术，研习后可用于斗法。'},
   sword_talisman:{name:'剑符宝',kind:'array',power:35,description:'金光上人遗下的符宝，释放剑光并打断攻势；消耗一次。'},
@@ -56,11 +58,12 @@ export function lootEntries(loot) {
     { name: '灵石', quantity: loot.stones, kind: '灵石' },
     { name: '灵草', quantity: loot.herbs, kind: '灵草' },
     ...Object.entries(loot.items).map(([id, quantity]) => ({ id, ...ITEMS[id], kind: ITEM_KINDS[ITEMS[id].kind], quantity }))
-  ];
+  ].filter(item=>item.quantity>0);
 }
 
 // Main-story encounters use the same turn engine; prerequisites and completion remain rule-owned.
 export const STORY_ENEMIES=[
+  {id:'modafu',name:'墨大夫',role:'神手谷师徒暗局',place:'shenshou',spot:[522,-6],color:'#9aa69a',realm:'江湖高手',hp:82,attack:8,defense:2,escape:.85,requires:'investigate_mo',completion:'confront_mo',rewardName:'墨大夫遗书',lootFromWallet:false,bio:'药庐隐情已经揭开，墨大夫不再掩饰对你的图谋。以长春功护住自身，留意他的近身攻势；可退回药庐休养后再战。',quote:'既已看出端倪，就让我看看这些年的长进。',loot:{stones:0,herbs:0,items:{mo_letter:1,healing_pill:1}}},
   {id:'story_mojiao',name:'墨蛟',kind:'beast',scope:'campaign',role:'石殿守药妖兽',place:'ruins',spot:[165,-1],color:'#577e82',realm:'禁地妖兽',hp:180,attack:16,defense:5,escape:.7,requires:'meet_nangong',completion:'fight_mojiao',bio:'墨鳞蛟身盘踞石殿，守住天灵果。留意扑击与蓄力甩尾，南宫婉会在每回合协力牵制。',quote:'墨蛟昂首嘶鸣，尾尖扫过石面。',ally:{id:'ji',name:'南宫婉',power:8},reward:{name:'天灵果',kind:'任务主药',quantity:1},loot:{stones:0,herbs:0,items:{}}},
   {id:'story_jinguang',name:'金光上人',role:'野狼帮请来的修仙者',place:'qixuan',spot:[467,4],color:'#d6b667',realm:'炼气期',hp:76,ward:18,attack:8,defense:3,escape:.8,requires:'scout_jinguang',completion:'defend_qixuan',bio:'金刚符撑起护罩，他以修仙手段威压七玄门。先观察护罩，再用御物术与进退应对。',quote:'凡人也敢挡在本上人面前？',loot:{stones:0,herbs:0,items:{ascension_token:1,sword_talisman:1}}},
   {id:'story_qingwen',name:'青纹道士',role:'太南散修中的劫修',place:'tainan',spot:[644,5],color:'#8caa83',realm:'炼气期',hp:86,attack:9,defense:2,escape:.8,requires:'probe_tainan',completion:'fight_qingwen',bio:'小会上的热络邀请变成谷外的围堵。青纹先行出手，同伙尚在附近，须保留疗伤与应变的余地。',quote:'道友既已出谷，何必急着走？',loot:{stones:0,herbs:0,items:{spirit_pill:1}}},
@@ -68,8 +71,20 @@ export const STORY_ENEMIES=[
 ];
 // Quest rewards are shown here but only granted by the campaign settlement.
 export const encounterLoot=enemy=>enemy.reward?[{...enemy.reward}]:lootEntries(enemy.loot);
-export const ALL_ENEMIES=[...WANDERERS,...STORY_ENEMIES];
+export const TRIAL_ENEMIES=[
+  {id:'trial_swordsman',name:'赤脚大汉',role:'巨剑门弟子',place:'ruins',spot:[150,-3],color:'#bdc5cb',realm:'炼气十三层',hp:104,attack:12,defense:3,escape:.8,campaign:true,requires:['sword_trace'],completion:'fight_swordsman',goal:'争夺灵药，试探对手法器与剑术',temperament:'好斗，自恃银剑犀利，会依据交锋判断对手',bio:'巨剑门修士，赤足持银色巨剑。你在禁地争药途中遇见他，可先交谈、察看攻势，也可绕开继续采药。',quote:'想分灵药，先让我看看你的本事。',loot:{stones:35,herbs:0,items:{silver_page:1,healing_pill:2}}},
+];
+export const ALL_ENEMIES=[...WANDERERS,...STORY_ENEMIES,...TRIAL_ENEMIES];
 export function enemyAvailable(game,enemy) {
+  if(enemy.campaign) {
+    const flags=game.campaign?.storyFlags||{}, record=game.exploration?.enemies[enemy.id];
+    // Keep collected encounters in history; unclaimed loot is lost when the trial ends.
+    if(record?.defeated)return Boolean(record.looted)||!(flags.leave_forbidden||game.flags.playerBreakthrough);
+    if(game.volume&&!game.volume.flags.enter_xianmen)return false;
+    if(flags[enemy.completion]||flags.leave_forbidden||flags.deliver_spirit_herbs||game.flags.playerBreakthrough)return false;
+    return Boolean(flags.enter_forbidden)&&enemy.requires.every(flag=>flags[flag]);
+  }
+
   if(enemy.scope==='campaign') {
     if(game.volume&&!game.volume.flags.enter_xianmen)return false;
     const flags=game.campaign?.storyFlags||{};

@@ -8,14 +8,15 @@ export const FRONTIER_PEOPLE=[
   {id:'yuan',name:'雷万鹤',role:'黄枫谷结丹修士',place:'qinglan',spot:[229,9],stones:60,goal:'为宗门培育后辈，寻求合用的灵药',publicGoal:'留意门中人才',links:['gu'],color:'#c5c1ab',realm:'结丹中期',bio:'黄枫谷结丹修士，擅长雷系法术。',temperament:'看重资质与实际所得'}
 ];
 export const FRONTIER_SITES={
-  ferry:{name:'百药园入口',role:'黄枫谷 · 药园差事',place:'river',spot:[42,-6],seal:'园',detail:'接下马师兄看管药园的差事，取得安静修炼的机会。',actions:['garden_duty']},
+  sword_trace:{name:'禁地斗法痕迹',role:'禁地 · 银剑争药',place:'ruins',spot:[148,1],seal:'剑',detail:'碎裂的法器与银剑留下的痕迹通向一名赤脚修士。先观察再决定是否交手，此事不阻拦采药主线。',actions:['sword_trace','fight_swordsman']},
+  ferry:{name:'百药园入口',role:'黄枫谷 · 药园差事',place:'river',spot:[42,-6],seal:'园',detail:'接下马师兄看管药园的差事，取得安静修炼的机会。',actions:['garden_duty','examine_silver_page']},
   spring:{name:'百药园药圃',role:'黄枫谷 · 炼气修行',place:'river',spot:[64,11],seal:'药',detail:'以已有药草炼药修行；小绿瓶的秘密由你独自保管。',actions:['garden_cultivate','gather_reeds']},
   infirmary:{name:'药园静室',role:'黄枫谷 · 调息',place:'river',spot:[69,-11],seal:'静',detail:'整理丹方与行囊，休整后再踏入禁地。',actions:['frontier_rest']},
   ore:{name:'禁地密林',role:'血色禁地 · 外层灵药',place:'quarry',spot:[104,-11],seal:'林',detail:'紫猴花藏在密林中。搜寻要付出气血，且须先参加禁地试炼。',actions:['gather_monkey_flower']},
   workers:{name:'禁地入口',role:'血色禁地 · 七派试炼',place:'quarry',spot:[91,11],seal:'禁',detail:'七派弟子在禁制开启后入内，各自寻找筑基丹的主药。',actions:['enter_forbidden','aid_hanyunzhi','frontier_rest']},
   sluice:{name:'寒潭药坡',role:'血色禁地 · 玉髓芝',place:'quarry',spot:[119,10],seal:'芝',detail:'潭边生着玉髓芝，附近妖兽留下了痕迹。',actions:['gather_jade_mushroom']},
   archive:{name:'中心区石门',role:'血色禁地 · 中心区',place:'ruins',spot:[141,5],seal:'门',detail:'向中心区深入，与掩月宗修士相遇。',actions:['meet_nangong']},
-  core:{name:'地下石殿',role:'血色禁地 · 墨蛟',place:'ruins',spot:[162,-6],seal:'蛟',detail:'与南宫婉共同应对墨蛟，取到天灵果后尽快离开禁地。',actions:['fight_mojiao']},
+  core:{name:'地下石殿',role:'血色禁地 · 墨蛟',place:'ruins',spot:[162,-6],seal:'蛟',detail:'墨蛟盘踞石殿。亲自赢下斗法后，才能采下天灵果；南宫婉将与你并肩应战。',actions:['fight_mojiao']},
   memorial:{name:'禁地出口',role:'血色禁地 · 返回宗门',place:'ruins',spot:[171,11],seal:'归',detail:'带着灵药离开，回黄枫谷按门规交药领取筑基丹。',actions:['leave_forbidden','frontier_rest']}
 };
 const action=(type,title,detail,cost,place,site,requires=[],extra={})=>({type,title,detail,cost,place,site,requires,campaign:true,...extra});
@@ -33,6 +34,10 @@ export const FRONTIER_ACTIONS=[
   action('leave_forbidden','携药离开禁地','将三味主药带出禁地，准备回宗交付','一次经历','ruins','memorial',['fight_mojiao']),
   action('deliver_spirit_herbs','交药领取筑基丹','向宗门交付紫猴花、玉髓芝、天灵果，领取一枚筑基丹','三味任务主药','qinglan','sect_qinglan',['leave_forbidden']),
   action('take_master','拜师李化元','完成筑基后，拜李化元为师并取得青元剑诀','筑基初期 · 黄枫谷弟子','qinglan','sect_qinglan'),
+  action('sword_trace','察看银剑争斗','发现巨剑门赤脚大汉，可先交谈或避开争斗','无资源消耗 · 可选','ruins','sword_trace',['enter_forbidden'],{optional:true,thread:'silver_page'}),
+  action('fight_swordsman','迎战赤脚大汉','亲自斗法，胜利后搜取储物袋；可逃跑后再来','实际斗法 · 可选','ruins','sword_trace',['sword_trace'],{optional:true,thread:'silver_page',encounter:'trial_swordsman'}),
+  action('examine_silver_page','研究银色书页','带着所得书页返回百药园，检视其奇异花纹','银色书页 · 出禁地后','river','ferry',['fight_swordsman','leave_forbidden'],{optional:true,thread:'silver_page'}),
+  action('compare_sword_pages','参悟书页关联','拜师并研习青元剑诀后，在黄枫谷核对书页线索','筑基 · 已研习青元剑诀','qinglan','sect_qinglan',['examine_silver_page','take_master'],{optional:true,thread:'silver_page'}),
   action('gather_reeds','采收药园灵草','取得 2 株灵草，共可采收 3 次','已接百药园差事','river','spring',['garden_duty'],{repeatable:true,utility:true}),
   action('frontier_rest','借静地调息','恢复最多 35 气血','灵石 8','river','infirmary',[],{repeatable:true,utility:true})
 ];

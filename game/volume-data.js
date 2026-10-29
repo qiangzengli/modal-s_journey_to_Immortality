@@ -33,7 +33,7 @@ export const VOLUME_ACTIONS = [
   step('test_green_dew','月下试验绿液','观察凝液并试验催生药草，开启灵圃','shenshou','valley_bottle',['find_green_bottle']),
   step('aid_lifeiyu','为厉飞雨配药','用催生药草帮助朋友缓解抽髓丸的伤害','qixuan','lifeiyu',['test_green_dew'],{optional:true,cost:'灵草 1'}),
   step('investigate_mo','查探药庐隐情','核对药柜记录与张铁去向，掌握墨大夫的异常','shenshou','valley_room',['test_green_dew']),
-  step('confront_mo','应对墨大夫危局','以修行与调查所得设防，渡过夺舍危机，取得遗书','shenshou','valley_room',['investigate_mo'],{cost:'气血 12 · 剧情交锋'}),
+  step('confront_mo','应对墨大夫危局','调查后亲自迎战墨大夫，击败并收取遗书，解开师徒暗局','shenshou','valley_room',['investigate_mo'],{cost:'独立对阵 · 胜利后取得遗书',encounter:'modafu'}),
   step('scout_jinguang','探查金光上人','从交战痕迹辨认护罩与符宝，备好破敌之策','qixuan','qixuan_square',['confront_mo']),
   step('defend_qixuan','解七玄门之围','亲自迎战金光上人，击破护罩；胜利后收取升仙令','qixuan','qixuan_square',['scout_jinguang'],{cost:'回合战斗 · 可疗伤与撤退',encounter:'story_jinguang'}),
   step('deliver_mo_letter','向墨府交付遗书','凭墨大夫遗书与严氏交涉，取得暖阳宝玉','jiayuan','mofu_letter',['defend_qixuan']),

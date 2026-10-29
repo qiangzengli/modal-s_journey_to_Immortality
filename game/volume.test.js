@@ -56,7 +56,7 @@ test('人物 Agent 跟随章节，墨大夫离场后不再发委托，迟到的�
  let g=createOpeningGame();let context=societyContext(g);
  assert.ok(context.actors.some(a=>a.id==='modafu'));assert.ok(!context.actors.some(a=>a.id==='yanshi'));
  g=through('investigate_mo');g.society.offers.push({id:'test',npcId:'modafu',reward:10,status:'accepted'});const balance=g.people.modafu.stones;
- g=act(g,'confront_mo');assert.equal(g.society.offers[0].status,'withdrawn');assert.equal(g.people.modafu.stones,balance+10);
+ g=winOpeningFight(act(g,'confront_mo'));assert.equal(g.society.offers[0].status,'withdrawn');assert.equal(g.people.modafu.stones,balance+10);
  assert.ok(!societyContext(g).actors.some(a=>['modafu','zhangtie'].includes(a.id)));assert.ok(!getView(g).people.some(a=>a.id==='modafu'));
  assert.throws(()=>act(travel(g,'qixuan'),'help_zhang'),/错过/);
  const v=getView(through('apprentice_mo')),chat=agentContext(v,{mode:'dialogue',personId:'modafu',text:'我该修炼什么？'});

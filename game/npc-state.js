@@ -2,7 +2,7 @@ import { ensureCanonIdentities } from './canon.js';
 import { ensureVolume, inOpening } from './volume.js';
 import { VOLUME_PEOPLE } from './volume-data.js';
 import { ensureCampaign } from './campaign.js';
-import { WANDERERS, STORY_ENEMIES, enemyAvailable } from './combat-data.js';
+import { WANDERERS, STORY_ENEMIES, TRIAL_ENEMIES, enemyAvailable } from './combat-data.js';
 import { GameError } from './errors.js';
 import { stationOffset } from './npc-layout.js';
 import { ensureSects } from './sects.js';
@@ -28,7 +28,7 @@ export function ensureNpcState(game) {
   const migrating=game.canonVersion!==1;
   ensureCanonIdentities(game);
   game.society ??= { paused: false, epoch: 0, minds: {}, offers: [], nextOffer: 1 };
-  for (const npc of [...Object.values(game.people), ...WANDERERS, ...STORY_ENEMIES]) {
+  for (const npc of [...Object.values(game.people), ...WANDERERS, ...STORY_ENEMIES, ...TRIAL_ENEMIES]) {
     game.society.minds[npc.id] ??= {
       goal: npc.goal || `在当地生存，精进${npc.role}的技艺，保护自己的物品`,
       temperament: npc.temperament || npc.bio || TEMPERAMENTS[npc.id],
@@ -42,10 +42,12 @@ export function ensureNpcState(game) {
   return game;
 }
 export function npcActors(game) {
-  if(inOpening(game))return Object.values(game.people).filter(p=>VOLUME_PEOPLE.some(a=>a.id===p.id)&&!['已故','炼尸之祸'].includes(p.condition)&&(!['jiayuan','tainan'].includes(p.place)||Boolean(game.volume.flags[p.place==='jiayuan'?'defend_qixuan':'cure_cold_poison'])));
-  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)), ...WANDERERS.filter(npc => enemyAvailable(game,npc)&&!game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
+  if(inOpening(game))return Object.values(game.people).filter(p=>!game.exploration?.enemies[p.id]?.defeated&&VOLUME_PEOPLE.some(a=>a.id===p.id)&&!['已故','炼尸之祸'].includes(p.condition)&&(!['jiayuan','tainan'].includes(p.place)||Boolean(game.volume.flags[p.place==='jiayuan'?'defend_qixuan':'cure_cold_poison'])));
+  return [...Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)), ...[...WANDERERS,...TRIAL_ENEMIES].filter(npc => !npc.creature&&enemyAvailable(game,npc)&&!game.exploration?.enemies[npc.id]?.defeated).map(npc => ({ ...npc, place: npc.place || 'woods', goal: game.society?.minds[npc.id]?.goal }))];
 }
 export function npcPosition(game, id, place) {
+  const trial = TRIAL_ENEMIES.find(npc => npc.id === id);
+  if (trial) return trial.spot;
   const station = game.society?.minds[id]?.station;
   const point = STATIONS[place]?.[station];
   if (!point) return null;

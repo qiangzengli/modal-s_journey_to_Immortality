@@ -20,7 +20,9 @@ const enemyById = id => WANDERERS.find(enemy => enemy.id === id);
 const intentFor = battle => battle.agentIntent || 'attack';
 const intentNames = { attack: '试探进攻', heavy: '蓄力重击', guard: '护体守势', heal: '运功疗伤' };
 function writeEvent(game, text) {
-  game.events.push({ id: game.nextId++, turn: game.turn, actor: '斗法', text, causes: [], scope: 'player' });
+  const id = game.nextId++;
+  game.events.push({ id, turn: game.turn, actor: '斗法', text, causes: [], scope: 'player' });
+  return id;
 }
 function checkItem(state, id, kind) {
   const item = Object.hasOwn(ITEMS, id || '') ? ITEMS[id] : null;
@@ -29,8 +31,7 @@ function checkItem(state, id, kind) {
 }
 function finish(game, status, text) {
   game.exploration.battle.status = status;
-  writeEvent(game, text);
-  return text;
+  return writeEvent(game, text);
 }
 
 // 每次请求只结算玩家的一次选择和随后的敌方行动；随机结果只由服务端生成。
@@ -60,17 +61,18 @@ export function combatAction(source, input, random = Math.random) {
     const record = enemy && state.enemies[enemy.id];
     if ((!enemy || game.player.place !== (enemy.place || 'woods')) || !record?.defeated) throw new GameError('请先在对手所在区域击败对手，再收取战后所得。');
     if (record.looted) throw new GameError(enemy.reward?'天灵果已经收取，不能重复领取。':'这个储物袋已经取空。');
+    if (enemy.campaign && !game.campaign.storyFlags[enemy.completion] && (game.campaign.storyFlags.leave_forbidden || game.flags.playerBreakthrough)) throw new GameError('禁地试炼已经结束，不能再返回搜取战利品。');
     ensureNpcState(game);
-    const loot = { ...enemy.loot, stones: npcWallet(game, enemy.id).stones };
+    const loot = { ...enemy.loot, stones: enemy.lootFromWallet === false ? enemy.loot.stones : npcWallet(game, enemy.id).stones };
     game.player.stones += loot.stones;
-    npcWallet(game, enemy.id).stones = 0;
+    if (enemy.lootFromWallet !== false) npcWallet(game, enemy.id).stones = 0;
     game.player.herbs += enemy.loot.herbs;
     for (const [id, amount] of Object.entries(enemy.loot.items)) state.inventory[id] = (state.inventory[id] || 0) + amount;
     record.looted = true;
     if (battle?.enemyId === enemy.id) state.battle = null;
     const result = enemy.reward ? `墨蛟已被击败，你与南宫婉收取石殿中的天灵果。` : `收起${enemy.name}的储物袋：${lootEntries(loot).map(item => `${item.name} ×${item.quantity}`).join('、')}。`;
     writeEvent(game, result);
-    if(enemy.scope==='campaign')return {game,result:applyCampaignAction(game,enemy.completion)};
+    if(enemy.scope==='campaign'||enemy.campaign)return {game,result:applyCampaignAction(game,enemy.completion)};
     if(enemy.completion&&!game.volume?.flags[enemy.completion])return {game,result:result+' '+applyVolumeAction(game,enemy.completion)};
     return { game, result };
   }
@@ -151,7 +153,7 @@ export function combatAction(source, input, random = Math.random) {
     state.enemies[enemy.id] = { defeated: true, looted: false };
     withdrawNpcOffers(game, enemy.id);
     log('world', enemy.reward?'墨蛟倒下，守护天灵果的威胁已除。收取主药后才能继续离开禁地。':`${enemy.name}败退，储物袋掉落在林道上。`);
-    finish(game, 'won', enemy.reward?'你与南宫婉合力击败墨蛟，天灵果等待收取。':`你击败了${enemy.name}，对方遗落了储物袋。`);
+    state.enemies[enemy.id].victoryEventId = finish(game, 'won', enemy.reward?'你与南宫婉合力击败墨蛟，天灵果等待收取。':`你击败了${enemy.name}，对方遗落了储物袋。`);
   } else {
     if (interrupted) log('enemy', `${enemy.name}被定神符困住，未能出手。`);
     else if (intent === 'guard') log('enemy', `${enemy.name}维持护体守势${hit ? '，抵消了部分伤害' : ''}，本回合没有进攻。`);
@@ -209,7 +211,7 @@ export function getCombatView(game) {
   const intent = enemy && intentFor(battle);
   return {
     combatStats: stats,
-    roamers: WANDERERS.filter(enemy=>enemyAvailable(game,enemy)).map(enemy => ({ ...enemy, affiliation: affiliationFor(game, enemy.id), place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: enemy.reward?encounterLoot(enemy):lootEntries({ ...enemy.loot, stones: game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
+    roamers: WANDERERS.filter(enemy=>enemyAvailable(game,enemy)).map(enemy => ({ ...enemy, affiliation: affiliationFor(game, enemy.id), place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: enemy.campaign&&!state.enemies[enemy.id]?.defeated ? [] : enemy.reward?encounterLoot(enemy):lootEntries({ ...enemy.loot, stones: enemy.lootFromWallet === false ? enemy.loot.stones : game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
     inventory: Object.entries(state.inventory).filter(([,n]) => n > 0).map(([id, quantity]) => ({ id, ...ITEMS[id], quantity, equipped: state.weapon === id, learned: state.learned.includes(ITEMS[id].skill) })),
     skills: state.learned.map(id => {
       const skill = SKILLS[id];
@@ -217,6 +219,6 @@ export function getCombatView(game) {
       return { id, ...skill, scaling, [skill.effect === 'heal' ? 'heal' : 'power']: scaling.base + scaling.skillBonus, remaining: battle?.cooldowns[id] || 0 };
     }),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },
-    battle: battle ? { ...structuredClone(battle), enemyName: enemy.name, maxEnemyHp: enemy.hp, intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, loot: encounterLoot(enemy) } : null
+    battle: battle ? { ...structuredClone(battle), enemyName: enemy.name, maxEnemyHp: enemy.hp, intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, rewardName:enemy.rewardName, loot: encounterLoot(enemy) } : null
   };
 }

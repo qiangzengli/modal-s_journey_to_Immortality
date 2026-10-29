@@ -132,8 +132,8 @@ function makePerson(id, name) {
   put(body, new THREE.ConeGeometry(0.044, 0.11, 5), skin, 0, 1.82, 0.32).rotation.x = Math.PI / 2;
   put(body, new THREE.BoxGeometry(0.1, 0.025, 0.02), leather, 0, 1.71, 0.285);
   put(body, new THREE.TorusGeometry(0.37, 0.035, 5, 10), trim, 0, 0.76, 0).rotation.x = Math.PI / 2;
-  put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), leather, -0.2, 0.13, 0.03);
-  put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), leather, 0.2, 0.13, 0.03);
+  put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), id==='trial_swordsman'?skin:leather, -0.2, 0.13, 0.03);
+  put(body, new THREE.BoxGeometry(0.25, 0.21, 0.37), id==='trial_swordsman'?skin:leather, 0.2, 0.13, 0.03);
   put(body, new THREE.CylinderGeometry(0.13, 0.15, 0.25, 9), hair, 0, 2.24, -0.12);
   put(body, new THREE.SphereGeometry(0.14, 8, 6), trim, 0, 2.36, -0.1);
 
@@ -142,9 +142,10 @@ function makePerson(id, name) {
     put(body, new THREE.BoxGeometry(0.48, 0.06, 0.28), trim, 0, 1.12, -0.43);
   }
   let heldWeapon;
-  if (['wei', 'xu', 'lu', 'han', ...WANDERERS.map(enemy=>enemy.id)].includes(id)) {
+  if (['wei', 'xu', 'lu', 'han', ...WANDERERS.filter(enemy=>enemy.id!=='modafu').map(enemy=>enemy.id)].includes(id)) {
     const blade = put(body, new THREE.BoxGeometry(0.075, 1.28, 0.09), material(0xa9b1a9, 0.32, 0.7), 0.63, 0.95, -0.25);
     heldWeapon = blade;
+    if(id==='trial_swordsman')blade.scale.set(3.5,1.5,1.5);
     blade.rotation.z = -0.15;
     put(body, new THREE.BoxGeometry(0.32, 0.07, 0.15), trim, 0.63, 0.42, -0.25);
   }
@@ -191,7 +192,7 @@ function makePerson(id, name) {
     put(bag,new THREE.TorusGeometry(0.17,0.045,5,8),material(0xe3c681),0,0.7,0).rotation.x=Math.PI/2;
     const glow=put(bag,new THREE.RingGeometry(0.55,0.65,24),new THREE.MeshBasicMaterial({color:0xe1be71,side:THREE.DoubleSide,transparent:true,opacity:0.8}),0,0.04,0);
     glow.rotation.x=-Math.PI/2;
-    const caption=label(`${name} · 储物袋`,{width:290,font:28,color:'#f2d48c'});caption.position.y=1.65;bag.add(caption);
+    const caption=label(WANDERERS.find(enemy=>enemy.id===id)?.rewardName || `${name} · 储物袋`,{width:290,font:28,color:'#f2d48c'});caption.position.y=1.65;bag.add(caption);
     bag.visible=false;root.add(bag);
     root.userData.bag=bag;
     root.userData.nameplate=root.children.find(child=>child.isSprite);

@@ -11,7 +11,7 @@ export function npcCapabilities(game, actor) {
     try { applyNpcEffect(game, actor.id, id); result.push({ id, label }); } catch {}
   }
   result.push(...campaignNpcOptions(game,actor.id));
-  for (const station of Object.keys(STATIONS[actor.place] || {})) {
+  if (!actor.campaign) for (const station of Object.keys(STATIONS[actor.place] || {})) {
     if (game.society.minds[actor.id].station !== station) result.push({ id: `move:${station}`, label: `前往${({ court:'山门接引台', hall:'门中大殿前', square: '坊市街心', gate: '坊市东街', west: '西街', trail: '林道', herbs: '灵草坡附近', camp: '听雨亭附近', dock:'百药园入口', fields:'百药园药圃', lodge:'药园静室', shelter:'禁地入口', mine:'禁地密林', sluice:'寒潭药坡', door:'中心区石门', core:'地下石殿', memorial:'禁地出口' })[station]}` });
   }
   const active = game.society.offers.filter(offer => ['open', 'accepted'].includes(offer.status));

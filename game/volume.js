@@ -38,7 +38,7 @@ export function applyVolumeAction(game,type) {
   if (missing) throw new GameError(`先完成「${VOLUME_ACTIONS.find(action=>action.type===missing).title}」。`);
   if(type==='help_zhang'&&f.confront_mo)throw new GameError('张铁已遭变故，这段少年时的支线已经错过。');
   if(def.encounter&&!game.exploration.enemies[def.encounter]?.looted)throw new GameError('需亲自赢下这场交锋并收取战利品，才能继续主线。');
-  const damage={qixuan_exam:8,confront_mo:12}[type]||0;
+  const damage={qixuan_exam:8}[type]||0;
   if(game.player.hp<=damage)throw new GameError('气血不足，请先使用回春丹或在神手谷休养。');
   if(['aid_lifeiyu','trade_tainan'].includes(type)&&game.player.herbs<1)throw new GameError('需要一株灵草，可在神手谷试验绿液或收取灵圃产物。');
   if(['valley_rest','tainan_rest'].includes(type)&&game.player.hp>=100)throw new GameError('气血充盈，无需休养。');
@@ -54,9 +54,9 @@ export function applyVolumeAction(game,type) {
     case 'test_green_dew': game.garden.bottle=true;game.garden.plots=[{growth:0,plantedTurn:game.turn}];game.garden.lastTurn=game.turn;game.player.herbs+=3;text='你用月下凝出的绿液试验药苗，确认它能催生药草。三株药草收入行囊，小绿瓶与灵圃正式启用；此后每旬继续凝液生长。';break;
     case 'aid_lifeiyu': game.player.herbs--;game.people.lifeiyu.trust+=20;item('healing_pill');text='你用一株药草配药，缓解厉飞雨服用抽髓丸后的伤势。他赠你一枚回春丹，记下这份援手。';break;
     case 'investigate_mo': text='你从药柜记录和张铁失踪前的行迹中发现异常，意识到墨大夫关心的不只是医术传承。你开始为可能的暗算设防。';break;
-    case 'confront_mo': item('mo_letter');game.people.modafu.condition='已故';game.people.zhangtie.condition='炼尸之祸';
+    case 'confront_mo': game.people.modafu.condition='已故';game.people.zhangtie.condition='炼尸之祸';
       for(const offer of game.society.offers.filter(o=>['modafu','zhangtie'].includes(o.npcId)&&['open','accepted'].includes(o.status))){game.people[offer.npcId].stones+=offer.reward;offer.status='withdrawn';}
-      text='凭事先调查与长春功根基，你在墨大夫的夺舍危局中保住自身。真相与张铁的遭遇终于浮出水面；墨大夫留下遗书，寒毒仍需去嘉元城化解。';break;
+      text='你凭事先调查与长春功根基，亲手击败墨大夫，渡过师徒间的夺舍危局。真相与张铁的遭遇终于浮出水面；墨大夫留下遗书，寒毒仍需去嘉元城化解。';break;
     case 'scout_jinguang': if(!game.exploration.learned.includes('object_control'))game.exploration.learned.push('object_control');item('healing_pill');text='你观察金光上人的护罩与符宝，记下其施术间隙，将御物术用于御剑，另备一枚回春丹。接下来要亲自迎战，护罩的余力会随交锋消耗。';break;
     case 'defend_qixuan':game.people.wangjuechu.trust+=20;text='你抓住金光上人护罩的破绽，解开七玄门之围，取得升仙令与剑符宝。这场风波后，你决定先履行墨府遗书。';break;
     case 'deliver_mo_letter': item('warm_jade');game.people.yanshi.trust+=15;text='严氏核验了墨大夫遗书。你说明来意并完成遗书交代，取得暖阳宝玉，可以着手化解寒毒。';break;
@@ -71,7 +71,7 @@ export function applyVolumeAction(game,type) {
     case 'enter_xianmen': game.player.stones+=180;game.player.hp=100;text='摆脱劫修后，你休整至气血充盈，收好升仙令，准备拜入黄枫谷。七玄门到太南小会的经历已完成，获得游历资粮 180 灵石。接下来前往黄枫谷山门登记入门，接下百药园差事；故人仍可重访。';break;
     case 'valley_rest': game.player.hp=Math.min(100,game.player.hp+35);text='你在药庐整理行装、安静休养，恢复最多 35 气血。';break;
   }
-  const id=record(game,'第一卷',text,def.requires.map(key=>f[key]));
+  const id=record(game,'第一卷',text,[...def.requires.map(key=>f[key]),...(def.encounter?[game.exploration.enemies[def.encounter]?.victoryEventId]:[])]);
   if(!def.repeatable)f[type]=id;
   if(type==='enter_xianmen'){
     const rumor=record(game,'邸报','游历消息：黄枫谷坊市的许掌柜持有一枚筑基丹，开价 280 灵石。你可继续问计，自行筹划取丹路径。',[id]);

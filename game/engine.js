@@ -385,13 +385,14 @@ export function advanceTurn(source) {
 export function getView(game) {
   const names = Object.fromEntries(Object.values(game.people).map(p => [p.id, p.name]));
   const story=volumeView(game);
+  const combat=getCombatView(game);
   names.player = '你';
   names.consumed = '已炼化';
   const visible = game.events.filter(e => e.scope !== 'private');
   const visibleIds = new Set(visible.map(e => e.id));
   const pillOwner = game.pill.owner;
   return {
-    ...getCombatView(game),
+    ...combat,
     story,
     canon:canonContext(game),
     sects: sectView(game),
@@ -409,7 +410,7 @@ export function getView(game) {
       disputed: game.flags.disputed,
       partnerDebt: game.flags.partnerDebt
     },
-    people: Object.values(game.people).filter(p=>!['已故','炼尸之祸'].includes(p.condition)&&(!inOpening(game)||VOLUME_PEOPLE.some(a=>a.id===p.id))).map(p => ({
+    people: Object.values(game.people).filter(p=>!combat.roamers.some(enemy=>enemy.id===p.id)&&!['已故','炼尸之祸'].includes(p.condition)&&(!inOpening(game)||VOLUME_PEOPLE.some(a=>a.id===p.id))).map(p => ({
       id: p.id, name: p.name, role: p.role, goal: p.publicGoal,
       affiliation: affiliationFor(game, p.id),
       place: game.people[p.id].place, condition: game.people[p.id].condition,

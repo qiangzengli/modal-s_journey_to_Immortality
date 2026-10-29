@@ -11,6 +11,7 @@ export function playerEffect(choice) {
 export function enemyEffect(id, intent) {
   if (intent === 'heal') return 'spring_art';
   if (intent === 'guard') return 'shield';
+  if (id === 'trial_swordsman') return intent === 'heavy' ? 'wind_blade' : 'slash';
   if (id === 'peijin') return 'fire_art';
   if (id === 'mochi') return intent === 'heavy' ? 'thunder_art' : 'qi_bolt';
   if (id === 'suqin') return 'wind_blade';

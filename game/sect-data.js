@@ -15,6 +15,7 @@ export const SECTS = {
 
 // Only documented novel affiliations are assigned. Existing sandbox NPCs remain unaffiliated.
 export const NPC_SECTS = {
+  trial_swordsman:['jujianmen','试炼弟子'],
   gu: ['qinglan', '掌门'], liu: ['lingshu', '对外管事'],
   yan: ['jinhuo', '门主之女'], wen: ['xuanming', '少主']
 };

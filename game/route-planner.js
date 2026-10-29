@@ -53,6 +53,7 @@ export function previewPlan(source, proposed) {
       cost: { stones: game.player.stones - before.player.stones, hp: game.player.hp - before.player.hp, reputation: game.player.reputation - before.player.reputation, turns: game.turn - before.turn }
     });
     if(game.exploration?.battle?.status==='active') {
+      if(action.type!=='fight_mojiao')throw new Error('这场可选斗法不是取丹前置，不能作为取丹方案。');
       const enemy=getView(game).battle;
       checkpoint={kind:'combat',enemyId:enemy.enemyId,name:enemy.enemyName};
       break; // No victory, future cost, or reward is simulated beyond this encounter.

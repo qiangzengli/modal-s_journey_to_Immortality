@@ -49,7 +49,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     $('#battle-enemy-realm').textContent = `${enemy.realm} · ${enemy.kind==='beast'?'石殿妖兽':affiliationText(enemy.affiliation)}`;
     $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
     $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
-    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 每回合牵制攻敌 · `:''}${battle.ward?`金刚护罩 ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 决策':'基础应对'} · ${battle.intentSpeech || battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':'对方已败退。收取储物袋后可在行囊中研习、换装。') : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
+    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 每回合牵制攻敌 · `:''}${battle.ward?`金刚护罩 ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 决策':'基础应对'} · ${battle.intentSpeech || battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
     $('#combat-controls').hidden = !active;
     $('#combat-result').hidden = active;
     $('#combat-error').textContent = '';
@@ -64,7 +64,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
       $('#combat-options').innerHTML = view.inventory.filter(item => ['pill', 'array'].includes(item.kind)).map(item => control('item', `${item.name} ×${item.quantity}`, item.description, `data-item-id="${item.id}"`, item.heal && view.player.hp >= 100 ? '气血已满' : item.mana && battle.mana >= view.combatStats.maxMana ? '真气已满' : '')).join('') || '<p class="panel-tip">没有可用的灵丹或阵盘。击败散修后可从储物袋中获得。</p>';
     }
     if (!active) $('#combat-result').innerHTML = battle.status === 'won'
-      ? `<h2>${enemy.reward?'石殿主药 · 天灵果':`${enemy.name}的储物袋`}</h2><div class="loot-grid">${lootMarkup(battle.loot)}</div><div class="result-actions"><button type="button" class="primary" data-battle-result="claim">${enemy.reward?'收取天灵果':'收取储物袋'} →</button><button type="button" data-battle-result="leave">暂不拾取，回到地图</button></div>`
+      ? `<h2>${enemy.reward?'石殿主药 · 天灵果':(enemy.rewardName||`${enemy.name}的储物袋`)}</h2><div class="loot-grid">${lootMarkup(battle.loot)}</div><div class="result-actions"><button type="button" class="primary" data-battle-result="claim">${enemy.reward?'收取天灵果':`收取${enemy.rewardName||'储物袋'}`} →</button><button type="button" data-battle-result="leave">暂不拾取，回到地图</button></div>`
       : `<h2>${battle.status === 'escaped' ? '留得青山在' : '败退，也是一场历练'}</h2><p>${esc(battle.log.at(-1)?.text)}</p><p>敌人未被击败，没有战利品。再次挑战时对方气血恢复。</p><div class="result-actions"><button type="button" class="primary" data-battle-result="leave">回到地图 →</button></div>`;
     $('#combat-inputs').disabled = pending;
     const turnKey=`${battle.enemyId}:${battle.round}:${battle.status}`;
@@ -103,5 +103,5 @@ export function createCombatUI({ request, navigate, openInventory }) {
 export function roamerActions(enemy, hp) {
   const ready = !enemy.looted && (enemy.defeated || hp >= 20);
   const type = enemy.defeated ? 'claim' : 'start';
-  return `<div class="roamer-drops"><small>${enemy.reward?'守护主药':enemy.defeated ? '袋中物品' : '身携宝物'}</small><div class="loot-grid">${lootMarkup(enemy.loot)}</div></div><button type="button" class="challenge-button" data-encounter="${type}" data-enemy-id="${enemy.id}" ${ready ? '' : 'disabled'}>${enemy.looted ? (enemy.reward?'主药已收取':'储物袋已取空') : enemy.defeated ? (enemy.reward?'收取天灵果 →':'拾取储物袋 →') : hp < 20 ? '气血不足 20 · 先行疗伤' : '发起斗法 ⚔'}</button>${enemy.defeated ? '' : `<p class="combat-warning">逃跑成功率 ${Math.round(enemy.escape * 100)}%。败退损失当前灵石的 10%，以 25 气血脱身；物品与功法保留。</p>`}`;
+  return `<div class="roamer-drops"><small>${enemy.reward?'守护主药':enemy.defeated ? '袋中物品' : enemy.campaign?'交锋线索':'身携宝物'}</small>${enemy.campaign&&!enemy.defeated?'<p>战利品尚未发现，获胜后亲自查看。</p>':''}<div class="loot-grid">${lootMarkup(enemy.loot)}</div></div><button type="button" class="challenge-button" data-encounter="${type}" data-enemy-id="${enemy.id}" ${ready ? '' : 'disabled'}>${enemy.looted ? (enemy.reward?'主药已收取':'储物袋已取空') : enemy.defeated ? (enemy.reward?'收取天灵果 →':'拾取储物袋 →') : hp < 20 ? '气血不足 20 · 先行疗伤' : '发起斗法 ⚔'}</button>${enemy.defeated ? '' : `<p class="combat-warning">逃跑成功率 ${Math.round(enemy.escape * 100)}%。败退损失当前灵石的 10%，以 25 气血脱身；物品与功法保留。</p>`}`;
 }
