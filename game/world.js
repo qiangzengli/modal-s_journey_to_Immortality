@@ -5,7 +5,7 @@ import { VOLUME_PEOPLE, VOLUME_SITES } from './volume-data.js';
 import { createVolumeWorld, volumeWalkable, VOLUME_BLOCKERS } from './volume-world.js';
 import { SECT_PEOPLE, SECT_SITES } from './sect-data.js';
 import { createSectWorld, sectWalkable, SECT_BLOCKERS } from './sect-world.js';
-import * as THREE from '/vendor/three.module.js';
+import * as THREE from '../vendor/three.module.js';
 import { decorateWorld } from './scenery.js';
 import { createNavigator } from './navigation.js';
 import { SITES } from './content.js';

@@ -1,3 +1,4 @@
+import { gameRequest } from './api-client.js';
 import { createExperienceUI } from './experience-ui.js';
 import { createStateLoader } from './state-loader.js';
 import { createSectUI, affiliationText } from './sect-ui.js';
@@ -278,7 +279,7 @@ async function submitCommand(text) {
   const controller=new AbortController();commandController=controller;commandPending=true;
   commandUI.refresh();updateCommandStatus();
   try {
-    const response=await fetch('/api/intent',{method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({text,plan,history:commandUI.history(),expectedRevision:revision})});
+    const response=await gameRequest('/api/intent',{method:'POST',signal:controller.signal,headers:{'content-type':'application/json'},body:JSON.stringify({text,plan,history:commandUI.history(),expectedRevision:revision})});
     const planned=await response.json();
     if(ticket!==commandGeneration)return;
     if(!response.ok){if(planned.view&&!busy)render(planned.view,planned.modelName);throw new Error(planned.error||'问计暂未完成。');}
@@ -382,7 +383,7 @@ async function call(path,payload={}) {
   for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=true;
   $('#command-status').textContent=path==='/api/intent'?'正在推敲你的计策……':'正在结算……';
   try {
-    const response=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,expectedRevision:current.revision})});
+    const response=await gameRequest(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...payload,expectedRevision:current.revision})});
     const data=await response.json();
     if(!response.ok){if(data.view)render(data.view,data.modelName);throw new Error(data.error||'行动未能执行');}
     if(path==='/api/reset'){world.reset();experience.reset();agentUI.reset();commandUI.reset();planUI.reset();lastInteraction=null;}

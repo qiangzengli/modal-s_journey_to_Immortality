@@ -1,6 +1,6 @@
 # 逆命录服务器部署与维护
 
-访问地址：**http://139.196.175.138/**。
+访问地址：**http://139.196.175.138/niminglu/**。
 
 部署环境：Ubuntu 24.04、Node.js 22.22.2、Nginx、systemd。2026-10-29 首次部署的游戏代码为 `150f621`，发布目录为 `20261029T023856Z-150f621`。
 
@@ -8,9 +8,9 @@
 
 ## 运行结构
 
-公网 HTTP → Nginx 的 IP 虚拟主机 → `127.0.0.1:4177` → Node.js 游戏服务。
+公网 `/niminglu/` → Nginx 去掉路径前缀 → `127.0.0.1:4177` → Node.js 游戏服务。
 
-只新增 `server_name 139.196.175.138`，保留已有默认站点及 `lizengqiang.xyz` 的配置。游戏进程以专用 `niminglu` 用户运行，异常退出后自动重启，开机自动启动；应用端口只监听回环地址。
+游戏只占用 `/niminglu/`，访问 `/niminglu` 自动跳转到带尾斜杠的地址。根路径继续提供 `/var/www/html` 原有静态站点，已有默认站点及 `lizengqiang.xyz` 配置文件保持不变。游戏进程以专用 `niminglu` 用户运行，异常退出后自动重启，开机自动启动；应用端口只监听回环地址。
 
 | 用途 | 服务器路径 / 名称 |
 | --- | --- |
@@ -74,7 +74,7 @@ ln -sfn "$release_dir" /opt/niminglu/current.next
 mv -Tf /opt/niminglu/current.next /opt/niminglu/current
 systemctl restart niminglu
 curl --fail http://127.0.0.1:4177/api/state > /dev/null
-curl --fail -H 'Host: 139.196.175.138' http://127.0.0.1/api/state > /dev/null
+curl --fail -H 'Host: 139.196.175.138' http://127.0.0.1/niminglu/api/state > /dev/null
 ```
 
 首次部署已缓存 `three@0.186.1`，并由 `npm ci` 按锁文件校验完整性。服务器直连 npm 注册表曾失败，因此使用离线安装。若新版本改变依赖，应先补全缓存，不能忽略 `npm ci` 的安装错误后切换版本。可在联网机器创建独立缓存，再上传 `_cacache`：
@@ -124,9 +124,11 @@ systemctl start niminglu
 - 页面可读但操作返回 403：检查浏览器地址是否匹配 Nginx 中的 Origin 白名单；应用上游 Host 必须为 `127.0.0.1:4177`。
 - 本机能访问、外网超时：确认云安全组允许 TCP 80。本次部署沿用已经可用的 80 端口，无需暴露 4177。
 - AI 失败但地图能动：优先检查模型余额、密钥和 API 状态，不要清空存档。
-- 更新后立绘缺失：确认 `/assets/cultivator/portrait.png`、`/assets/cultivator/spirit-bottle.png` 返回 200，且发布包包含 `game/assets/`。
+- 更新后立绘缺失：确认 `/niminglu/assets/cultivator/portrait.png`、`/niminglu/assets/cultivator/spirit-bottle.png` 返回 200，且发布包包含 `game/assets/`。
 - 新安装尚未操作时可能还没有 `save.json`；首次写入行动后自动生成。此时备份任务正常跳过。
 
-公网验收应包含首页、完整 JS/CSS 依赖、立绘、同源 POST、跨源拒绝、服务重启后存档保留，以及浏览器中的实际地图。`/.env.local`、`/game/server.js` 和存档路径应返回 404。
+公网验收应包含首页、完整 JS/CSS 依赖、立绘、同源 POST、跨源拒绝、服务重启后存档保留，以及浏览器中的实际地图。`/niminglu/.env.local`、`/niminglu/game/server.js` 和存档路径应返回 404。根路径的 `/api/state`、`/game/app.js` 不再提供游戏服务。
 
 2026-10-29 首次发布检查：本地 163 项测试通过；公网首页、41 个前端模块、两张新版立绘和同源 POST 正常，跨源请求返回 403，过期版本操作返回 409，私有文件返回 404。服务器实测存档写入、重启前后 SHA-256 一致、手动备份成功，游戏服务与每日备份均已开机启用。现有站点配置文件的 SHA-256 保持不变。本机 Chrome 自动化打开公网 IP 时返回 `ERR_BLOCKED_BY_CLIENT`，因此本次未完成浏览器画面验收。
+
+子目录部署使用相对资源地址与 `game/api-client.js`，所有游戏请求留在 `/niminglu/` 下。本机依然从 `http://127.0.0.1:4177/` 启动，无需更改存档或模型配置。Nginx 的 `proxy_redirect` 会把旧入口的跳转保留在游戏子目录内。更新配置时必须保留 `proxy_pass` 末尾的 `/`。

@@ -1,4 +1,4 @@
-import * as THREE from '/vendor/three.module.js';
+import * as THREE from '../vendor/three.module.js';
 import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { createBattleEffects, playerEffect, enemyEffect } from './battle-fx.js';
 

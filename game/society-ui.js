@@ -1,3 +1,4 @@
+import { gameRequest } from './api-client.js';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export function createSocietyUI({ getState, sync, request, navigate, notice }) {
@@ -36,7 +37,7 @@ export function createSocietyUI({ getState, sync, request, navigate, notice }) {
     const state = getState();
     const engaged = Boolean(state.busy || state.panel || state.blocked || state.personId || state.siteId || state.navigating || state.chatPending || state.view.battle || document.activeElement?.matches('input,textarea'));
     try {
-      const response = await fetch('/api/world/pulse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ engaged }) });
+      const response = await gameRequest('/api/world/pulse', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ engaged }) });
       if (response.ok) receive(await response.json());
     } catch { $('#world-clock-status').textContent = '连接中断 · 演化暂停'; }
     finally { polling = false; }
@@ -46,7 +47,7 @@ export function createSocietyUI({ getState, sync, request, navigate, notice }) {
     if (!view || busy || stepping || view.battle) return;
     stepping = true; render();
     try {
-      const response = await fetch('/api/world/step', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedRevision: view.revision }) });
+      const response = await gameRequest('/api/world/step', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ expectedRevision: view.revision }) });
       const data = await response.json(); receive(data);
       if (!response.ok) throw new Error(data.error);
       if (!data.advanced) notice(data.clock.status === 'offline' ? '请先配置模型，人物自主决策需要模型连接。' : data.clock.error || '局势或交互已变化，本次推演未落地。');
@@ -66,7 +67,7 @@ export function createSocietyUI({ getState, sync, request, navigate, notice }) {
   $('#society-offers').addEventListener('click', event => { const button = event.target.closest('[data-commission-person]'); if (button) navigate(button.dataset.commissionPerson); });
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) { void pulse(); return; }
-    void fetch('/api/world/pulse', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ engaged: true }) }).catch(() => {});
+    void gameRequest('/api/world/pulse', { method: 'POST', keepalive: true, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ engaged: true }) }).catch(() => {});
   });
   setInterval(pulse, 4000);
   return { render, step };

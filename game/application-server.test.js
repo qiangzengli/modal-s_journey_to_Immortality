@@ -17,10 +17,10 @@ test('根入口提供同一游戏：首页、旧地址、所有前端模块、�
  try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('startup timeout')),5000);child.once('error',e=>{clearTimeout(timer);reject(e);});child.once('exit',code=>{clearTimeout(timer);reject(new Error('server exit '+code));});child.stdout.on('data',chunk=>{if(chunk.toString().includes('已启动')){clearTimeout(timer);resolve();}});});
   const home=await(await fetch(origin+'/')).text();assert.equal(home,await readFile(join(root,'index.html'),'utf8'));
-  assert.match(home,/src="\/game\/app.js"/);assert.doesNotMatch(home,/main\.js|MVP|试玩版/);
+  assert.match(home,/src="\.\/game\/app.js"/);assert.doesNotMatch(home,/main\.js|MVP|试玩版/);
   assert.equal(await(await fetch(origin+'/index.html')).text(),home);
   for(const path of ['/mvp','/mvp/','/mvp/index.html','/game/']){const res=await fetch(origin+path,{redirect:'manual'});assert.equal(res.status,308,path);assert.equal(res.headers.get('location'),'/');}
-  const queued=[...home.matchAll(/(?:href|src)="(\/(?:game|vendor)\/[^" ]+\.(?:js|css))"/g)].map(m=>new URL(m[1],origin).href),seen=new Set();
+  const queued=[...home.matchAll(/(?:href|src)="(\.\/(?:game|vendor)\/[^" ]+\.(?:js|css))"/g)].map(m=>new URL(m[1],origin).href),seen=new Set();
   while(queued.length){
    const url=queued.shift();if(seen.has(url))continue;seen.add(url);
    const res=await fetch(url);assert.equal(res.status,200,url);const source=await res.text();

@@ -1,3 +1,4 @@
+import { gameRequest } from './api-client.js';
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 export const sourceText = reply => reply.source === 'model' ? `AI · ${reply.modelName || '模型解读'}` : ({ offline: '未连接模型 · 已知线索', busy: '人物正在推敲 · 可稍后再问', timeout: '模型推敲超时 · 已知线索', invalid: '解读未通过核对 · 已知线索', unavailable: '模型暂未回应 · 已知线索' }[reply.reason] || '已知线索');
@@ -13,7 +14,7 @@ export function createAgentUI({ getState, executeAction, onStale, notice }) {
     pendingQuestion = null;
   }
   async function request(input, signal) {
-    const response = await fetch('/api/npc/dialogue', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
+    const response = await gameRequest('/api/npc/dialogue', { method: 'POST', signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify(input) });
     const data = await response.json();
     if (!response.ok) {
       if (response.status === 409 && data.view) onStale(data);

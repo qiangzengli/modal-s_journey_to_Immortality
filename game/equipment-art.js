@@ -44,8 +44,8 @@ export function cultivatorArt({ staff = false, bottle = false, armed = true } = 
       <path d="m131 48 3-4 3 4-1 3h-4Zm-7 31 6-2 4 1 4-1 6 2-2 2-6-1-2 2-2-2-6 1Z" fill="url(#eq-sword-metal)" stroke="#a5ad93" stroke-width=".4"/>
       <path d="M130 78c-6 1-8 7-8 14" stroke="#a69d74" stroke-width=".6"/><path d="m120.8 91 .6 9 2.3-.3-.7-9Z" fill="#667e69"/>
     </g>` : ''}
-    <image data-portrait-layer="character" href="/assets/cultivator/portrait.png" x="105" y="16" width="114" height="298"/>
-    ${bottle ? '<image data-portrait-layer="bottle" href="/assets/cultivator/spirit-bottle.png" x="105" y="16" width="114" height="298"/>' : ''}
+    <image data-portrait-layer="character" href="./assets/cultivator/portrait.png" x="105" y="16" width="114" height="298"/>
+    ${bottle ? '<image data-portrait-layer="bottle" href="./assets/cultivator/spirit-bottle.png" x="105" y="16" width="114" height="298"/>' : ''}
     <g fill="#c8dbc1" opacity=".42"><circle cx="109" cy="72" r=".7"/><circle cx="216" cy="99" r=".6"/><circle cx="214" cy="252" r=".8"/></g>
   </svg>`;
 }

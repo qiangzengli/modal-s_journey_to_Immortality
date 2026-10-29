@@ -13,12 +13,12 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
  let game=createOpeningGame(),view,callbacks;
  const actions=[],waits=[];
  t.mock.method(globalThis,'fetch',async(path,options)=>{
-   if(path==='/api/state')return {ok:true,json:async()=>({view:getView(game),modelName:'deepseek-v4-flash'})};
-   if(path==='/api/action'){
+   if(path==='./api/state')return {ok:true,json:async()=>({view:getView(game),modelName:'deepseek-v4-flash'})};
+   if(path==='./api/action'){
      const input=JSON.parse(options.body);actions.push(input);game=applyAction(game,input).game;game.revision=(game.revision||0)+1;
      return {ok:true,json:async()=>({view:getView(game),modelName:'deepseek-v4-flash',result:'经历已保存',actionType:input.type})};
    }
-   if(path==='/api/advance'){
+   if(path==='./api/advance'){
      waits.push(path);game=advanceTurn(game).game;game.revision=(game.revision||0)+1;
      return {ok:true,json:async()=>({view:getView(game),modelName:null,result:'静修一旬'})};
    }

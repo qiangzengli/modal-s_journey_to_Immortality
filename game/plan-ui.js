@@ -1,3 +1,4 @@
+import { gameRequest } from './api-client.js';
 import { sourceText } from './agent-ui.js';
 
 const $ = selector => document.querySelector(selector);
@@ -37,7 +38,7 @@ export function createPlanUI({ getState, executeAction, advance, onStale, onChan
     const ticket = ++generation, expectedRevision = view.revision;
     controller?.abort(); controller = new AbortController(); pending = true; draw();
     try {
-      const response = await fetch('/api/plans', { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: preference, preferredPlan: selectedTitle, refresh, expectedRevision }) });
+      const response = await gameRequest('/api/plans', { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: preference, preferredPlan: selectedTitle, refresh, expectedRevision }) });
       const result = await response.json();
       if (ticket !== generation) return;
       if (!response.ok) { if (result.view) onStale(result); throw new Error(result.error || '取丹规划暂未完成。'); }

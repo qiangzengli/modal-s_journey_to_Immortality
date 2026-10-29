@@ -130,6 +130,7 @@ async function commandIntent(view, input, snapshot) {
 }
 
 const files = {
+  '/api-client.js': ['api-client.js', 'text/javascript; charset=utf-8'],
   '/state-loader.js':['state-loader.js','text/javascript; charset=utf-8'],
   '/experience.css': ['experience.css', 'text/css; charset=utf-8'],
   '/experience-ui.js': ['experience-ui.js', 'text/javascript; charset=utf-8'],

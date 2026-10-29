@@ -1,5 +1,6 @@
+import {gameRequest} from './api-client.js';
 // Only GET is timed out/retried. Mutations must not be retried automatically.
-export function createStateLoader({request=fetch,onStatus,onLoad,timeoutMs=12000}) {
+export function createStateLoader({request=gameRequest,onStatus,onLoad,timeoutMs=12000}) {
   let pending;
   return function load() {
     if(pending)return pending;

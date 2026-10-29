@@ -1,4 +1,4 @@
-import * as THREE from '/vendor/three.module.js';
+import * as THREE from '../vendor/three.module.js';
 
 export function createGardenWorld(scene, siteTargets, x, z) {
   const root = new THREE.Group();
