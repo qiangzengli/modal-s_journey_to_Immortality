@@ -8,3 +8,7 @@ export function sendModelReply(res, content) {
   res.end(`data: ${JSON.stringify({ type: 'response.output_text.delta', delta: content })}\n\n`
     + `data: ${JSON.stringify({ type: 'response.completed', response: modelResponse(content) })}\n\n`);
 }
+
+export function combatPlan(intent='attack',speech='对方凝气试探。') {
+  return Object.fromEntries(['normal','wounded','opportunity','exhausted'].map(key=>[key,{intent,speech}]));
+}

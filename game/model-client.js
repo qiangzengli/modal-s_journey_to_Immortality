@@ -46,11 +46,11 @@ async function readResponse(response) {
 }
 
 export function createModelClient(provider) {
-  return async (messages, { temperature = 0, maxTokens = 600, validate = () => {} } = {}) => {
+  return async (messages, { temperature = 0, maxTokens = 600, validate = () => {}, signal } = {}) => {
     const endpoint = new URL('responses', provider.baseURL.replace(/\/?$/, '/'));
     if (!['http:', 'https:'].includes(endpoint.protocol)) throw new Error('invalid_model_url');
     const response = await fetch(endpoint, {
-      method: 'POST', signal: AbortSignal.timeout(provider.timeoutMs ?? 30000),
+      method: 'POST', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(provider.timeoutMs ?? 30000)]) : AbortSignal.timeout(provider.timeoutMs ?? 30000),
       headers: { 'content-type': 'application/json', accept: 'text/event-stream', ...(provider.apiKey ? { authorization: `Bearer ${provider.apiKey}` } : {}) },
       body: JSON.stringify({
         model: provider.model, temperature, max_output_tokens: maxTokens,

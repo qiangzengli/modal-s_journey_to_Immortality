@@ -1,4 +1,4 @@
-import { sendModelReply } from './model-test-helpers.js';
+import { sendModelReply, combatPlan } from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -27,7 +27,7 @@ test('世界、交谈和委托接口在并发、错误和重启后保留真实�
     } else if (context.mode) {
       lastDialogue = context;
       answer = { title: '记下你的话', text: '你说过想平安采药，我记住了。草药委托的报酬以眼前契约为准。', followUps: [], suggestionIds: [] };
-    } else answer = { intent: 'guard', speech: '我先观察你的剑势。' };
+    } else answer = combatPlan('guard','我先观察你的剑势。');
     if (slow) { received?.(); await new Promise(resolve => { gate = resolve; }); }
     sendModelReply(res, JSON.stringify(invalid ? { invalid: true } : answer));
   });
@@ -105,7 +105,7 @@ test('世界、交谈和委托接口在并发、错误和重启后保留真实�
     assert.equal(rested.view.turn, 3); assert.equal(rested.view.society.epoch, 1);
 
     const battle = await send('/api/combat', { type: 'start', enemyId: 'luohu' });
-    assert.equal(battle.view.battle.intent, 'guard'); assert.equal(battle.view.battle.intentSource, 'model');
+    assert.equal(battle.view.battle.intent, 'attack'); assert.equal(battle.view.battle.intentSource, 'preparing');
     assert.equal((await send('/api/world/step')).advanced, false);
   } finally {
     gate?.(); await stop(); model.closeAllConnections(); await new Promise(resolve => model.close(resolve));

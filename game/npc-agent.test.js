@@ -1,3 +1,4 @@
+import {combatPlan} from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createGame, advanceTurn, applyAction, getView } from './engine.js';
@@ -7,7 +8,7 @@ import { applyNpcEffect } from './npc-effects.js';
 import { WANDERERS } from './combat-data.js';
 import { combatAction } from './combat.js';
 import { agentContext } from './story-agent.js';
-import { planEnemyTurn } from './npc-combat-agent.js';
+import { requestCombatPlan,selectCombatTactic } from './npc-combat-agent.js';
 
 const decisions = (game, choices = {}) => societyContext(game).actors.map(actor => ({ actorId: actor.id, actionId: 'observe', goal: '根据局势决定下一步', speech: '我先看清局势。', ...choices[actor.id] }));
 test('全部人物各自决策；单纯推进时间不会触发固定借贷买丹脚本', () => {
@@ -91,13 +92,10 @@ test('委托人被击败时撤回任务，托管现金归入可领取的储物�
   game.turn+=7;expireOffers(game);assert.equal(npcWallet(game,'luohu').stones,0);
   assert.throws(()=>contractAction(game,{type:'deliver',offerId:id}));
 });
-test('斗法 Agent 可按局势选择战术，输出不能改写伤害或状态，失败标明基础应对', async () => {
+test('斗法 Agent 的条件策略只描述战术，不能写入状态或伤害', async () => {
   let game=createGame();game.player.place='woods';game=combatAction(game,{type:'start',enemyId:'luohu'}).game;
-  await planEnemyTurn(game,async()=>({content:'{"intent":"guard","speech":"我先稳住剑势。"}'}));
-  assert.equal(getView(game).battle.intent,'guard');assert.equal(getView(game).battle.intentSource,'model');
-  const hp=game.player.hp;game=combatAction(game,{type:'turn',move:'attack'},()=>.5).game;
-  assert.equal(game.player.hp,hp);
-  await planEnemyTurn(game,async()=>({content:'{"intent":"heavy","speech":"动手","damage":9999}'}));
-  assert.equal(game.exploration.battle.intentSource,'unavailable');
-  assert.equal(game.exploration.battle.agentIntent,'attack');
+  const before=structuredClone(game);
+  const plan=await requestCombatPlan(game,async()=>({content:JSON.stringify(combatPlan('guard','我先稳住剑势。'))}));
+  assert.equal(selectCombatTactic(game,plan).intent,'guard');assert.deepEqual(game,before);
+  await assert.rejects(requestCombatPlan(game,async()=>({content:'{"intent":"heavy","speech":"动手","damage":9999}'})),/invalid_tactic/);
 });

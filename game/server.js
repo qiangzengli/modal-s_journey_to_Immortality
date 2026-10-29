@@ -12,7 +12,7 @@ import { gameModelConfig } from './game-model.js';
 import { createRoutePlanner } from './route-planner.js';
 import { ensureNpcState, remember, contractAction } from './npc-state.js';
 import { createSocietyAgent, applySocietyDecisions } from './npc-agent.js';
-import { planEnemyTurn } from './npc-combat-agent.js';
+import { createCombatPlanner } from './combat-planner.js';
 import { createWorldClock } from './world-clock.js';
 import { REGIONS } from './regions.js';
 import { VOLUME_ACTIONS, VOLUME_PEOPLE } from './volume-data.js';
@@ -27,6 +27,7 @@ const modelConfig = gameModelConfig();
 const modelEnabled = Boolean(modelConfig);
 const modelName = modelConfig?.model || null;
 const completeAction = modelEnabled ? createModelClient(modelConfig) : null;
+const combatPlanner = createCombatPlanner({complete:completeAction});
 const storyAgent = createStoryAgent({ modelName, generate: modelEnabled ? createAgentModel(modelConfig) : null });
 const routePlanner = createRoutePlanner({ modelName, generate: modelEnabled ? messages => completeAction(messages, { temperature: .65, maxTokens: 2600 }) : null });
 let game;
@@ -296,7 +297,6 @@ async function handle(req, res) {
     }
     else if (path === '/api/combat') {
       outcome = combatAction(game, input);
-      if (['start', 'turn'].includes(input.type)) await planEnemyTurn(outcome.game, completeAction);
     }
     else if (path === '/api/inventory') outcome = inventoryAction(game, input);
     else if (path === '/api/command') {
@@ -306,10 +306,12 @@ async function handle(req, res) {
       outcome = applyAction(game, parsed.action);
     }
     else outcome = applyAction(game, input);
-    if(path!=='/api/combat'&&outcome.game.exploration?.battle?.status==='active'&&!game.exploration?.battle)await planEnemyTurn(outcome.game,completeAction);
+    const newBattle=Boolean(outcome.game.exploration?.battle&&!game.exploration?.battle);
+    if(newBattle||(path==='/api/combat'&&input.type==='turn'))combatPlanner.prepare(outcome.game,game);
     outcome.game.revision = (game.revision || 0) + 1;
     await saveGame(outcome.game);
     game = outcome.game;
+    combatPlanner.sync(game,{newBattle});
     if (path === '/api/reset') worldClock.reset(); else worldClock.changed();
     json(res, 200, { view: getView(game), result: outcome.result, modelName, parserSource, actionType });
   } catch (error) {
@@ -322,6 +324,7 @@ async function handle(req, res) {
 }
 
 game = await loadGame();
+combatPlanner.sync(game);
 createServer((req, res) => { handle(req, res).catch(error => {
   console.error(error);
   if (!res.headersSent) json(res, 500, { error: '服务器处理失败。' });

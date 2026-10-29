@@ -4,7 +4,6 @@ import {getView,advanceTurn} from './engine.js';
 import {combatAction,inventoryAction} from './combat.js';
 import {applyCampaignAction} from './campaign.js';
 import {npcActors,npcPosition} from './npc-state.js';
-import {planEnemyTurn} from './npc-combat-agent.js';
 import {agentContext} from './story-agent.js';
 import {affiliationFor} from './sects.js';
 import {campaignMarkup} from './campaign-ui.js';

@@ -392,7 +392,7 @@ async function call(path,payload={}) {
   if(busy||!current)return false;
   cancelPendingCommand();
   const before=current;
-  busy=true;experience.busy(true);world.setBusy(true);updateNearbyPrompt();document.body.classList.add('busy');$('#command-form').setAttribute('aria-busy','true');
+  busy=true;experience.busy(true,'正在结算这一步',{showStatus:path!=='/api/combat'&&!defs[payload.type]?.encounter});world.setBusy(true);updateNearbyPrompt();document.body.classList.add('busy');$('#command-form').setAttribute('aria-busy','true');
   commandUI.refresh();
   planUI.refresh();
   for(const id of ['#advance','#restart','#command-submit'])$(id).disabled=true;
@@ -404,10 +404,9 @@ async function call(path,payload={}) {
     if(path==='/api/reset'){world.reset();experience.reset();agentUI.reset();commandUI.reset();planUI.reset();lastInteraction=null;}
     if(path==='/api/advance')lastInteraction=null;
     if(path==='/api/combat'&&payload.type==='turn') {
-      world.sync(data.view);
+      render(data.view,data.modelName);
       await world.combatReact(before,data.view,payload);
-    }
-    render(data.view,data.modelName);
+    }else render(data.view,data.modelName);
     if(path==='/api/intent')return data;
     notice(data.result);feedback(before,data.view);
     if(path==='/api/combat'&&payload.type==='claim')$('#world-hint').textContent='战利品已收入行囊。可以研习功法、装备武器，再继续游历。';

@@ -8,6 +8,7 @@ const lootMarkup = loot => loot.map(item => `<div class="loot-item"><small>${esc
 export function createCombatUI({ request, navigate, openInventory }) {
   let current;
   let pending = false;
+  let slow = false;
   let tab = 'skills';
   let previousEnemy;
   let previousTurn;
@@ -19,7 +20,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
   function updateRoundLabel() {
     const battle = current?.battle;
     if (!battle) return;
-    $('#battle-round').textContent = pending ? '招式交锋中…' : battle.status === 'active' ? `第 ${battle.round} 回合 · 轮到你` : { won: battle.reward?'胜负已分 · 天灵果待收取':'胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
+    $('#battle-round').textContent = pending ? (slow?'战报同步中，请勿重复出招':'招式交锋中…') : battle.status === 'active' ? `第 ${battle.round} 回合 · 轮到你` : { won: battle.reward?'胜负已分 · 天灵果待收取':'胜负已分 · 储物袋掉落', lost: '负伤败退', escaped: '成功脱身' }[battle.status];
   }
   function control(move, title, detail, extra = '', reason = '') {
     return `<button type="button" data-combat-move="${move}" ${extra} ${reason ? 'disabled' : ''}><strong>${esc(title)}</strong><small>${esc(reason || detail)}</small></button>`;
@@ -38,7 +39,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     if (previousEnemy !== battle.enemyId) { tab = 'skills'; previousEnemy = battle.enemyId; }
     const active = battle.status === 'active';
     const enemy = view.roamers.find(person => person.id === battle.enemyId);
-    const intentCopy = { heavy: '重击将至 · 防御可减伤 65%，定神符可打断', guard: '护体中 · 伤害减免 55%，本回合不会攻击', heal: '即将恢复 15 气血 · 可趁机进攻', attack: '即将反击 · 每次选择后敌方行动一次' };
+    const intentCopy = { heavy: '重击将至 · 防御可减伤 65%，定神符可打断', guard: '护体中 · 伤害减免 55%，该次不会攻击', heal: '即将恢复 15 气血 · 可趁机进攻', attack: '即将反击 · 每次选择后敌方行动一次' };
     updateRoundLabel();
     $('#battle-player-hp').textContent = `${view.player.hp} / 100`;
     $('#battle-player-bar').style.width = `${view.player.hp}%`;
@@ -49,7 +50,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     $('#battle-enemy-realm').textContent = `${enemy.realm} · ${enemy.kind==='beast'?'石殿妖兽':affiliationText(enemy.affiliation)}`;
     $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
     $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
-    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 每回合牵制攻敌 · `:''}${battle.ward?`金刚护罩 ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 决策':'基础应对'} · ${battle.intentSpeech || battle.intentName} · ${intentCopy[battle.intent]}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
+    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 每回合牵制攻敌 · `:''}${battle.ward?`金刚护罩 ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 战术':'基础应对'} · ${battle.intentSpeech || battle.intentName} · 下次应对：${intentCopy[battle.intent]}${battle.intentSource==='offline'?' · AI 离线':battle.intentSource==='unavailable'?' · AI 暂未回应，仍可出招':' · AI 后台推演 · 无需等待'}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
     $('#combat-controls').hidden = !active;
     $('#combat-result').hidden = active;
     $('#combat-error').textContent = '';
@@ -73,12 +74,13 @@ export function createCombatUI({ request, navigate, openInventory }) {
   }
   async function submit(path, input) {
     if (pending) return;
-    pending = true;
+    pending = true;slow=false;
+    const slowTimer=setTimeout(()=>{slow=true;updateRoundLabel();},3000);
     equipmentUI.render(current, { pending });
     updateRoundLabel();
     $('#combat-inputs').disabled = true;
     try { return await request(path, input); }
-    finally { pending = false; equipmentUI.render(current, { pending }); $('#combat-inputs').disabled = false; updateRoundLabel(); }
+    finally { clearTimeout(slowTimer);slow=false;pending = false; equipmentUI.render(current, { pending }); $('#combat-inputs').disabled = false; updateRoundLabel(); }
   }
   stage.addEventListener('click', async event => {
     const change = event.target.closest('[data-combat-tab]');

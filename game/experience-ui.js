@@ -111,10 +111,10 @@ export function createExperienceUI({ getState, closePanel, closePerson, openPane
       try { $('#first-steps').hidden = localStorage.getItem('niminglu-intro-seen') === '1'; } catch {}
     }
   }
-  function busy(value, label = '正在结算这一步') {
+  function busy(value, label = '正在结算这一步', {showStatus=true}={}) {
     running = value; clearTimeout(busyTimer); clearTimeout(slowTimer);
     $('#operation-status').hidden = true;
-    if (value) {
+    if (value && showStatus) {
       busyTimer = setTimeout(() => { $('#operation-copy').textContent = label; $('#operation-status').hidden = false; }, 450);
       slowTimer = setTimeout(() => { $('#operation-copy').textContent = `${label} · 仍在处理中，请勿重复提交`; }, 8000);
     }

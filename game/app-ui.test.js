@@ -3,14 +3,15 @@ import assert from 'node:assert/strict';
 import {readFile,writeFile,unlink} from 'node:fs/promises';
 import {setImmediate} from 'node:timers/promises';
 import {installDOM} from './ui-test-dom.js';
-import {createOpeningGame,getView,applyAction,advanceTurn} from './engine.js';
+import {combatAction} from './combat.js';
+import {createGame,createOpeningGame,getView,applyAction,advanceTurn} from './engine.js';
 import {throughCampaign} from './canon-test-helpers.js';
 import {SITES} from './content.js';
 
 test('应用装配：读档、任务追踪、到点行动、人物页签与状态反馈连接完整',async t=>{
  const {$,window,dialogMethods}=installDOM(t);
  t.mock.timers.enable({apis:['setTimeout','setInterval']});
- let game=createOpeningGame(),view,callbacks;
+ let game=createOpeningGame(),view,callbacks,finishAnimation,combatCalls=0;
  const actions=[],waits=[];
  t.mock.method(globalThis,'fetch',async(path,options)=>{
    if(path==='./api/state')return {ok:true,json:async()=>({view:getView(game),modelName:'gpt-5.6-sol'})};
@@ -18,13 +19,17 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
      const input=JSON.parse(options.body);actions.push(input);game=applyAction(game,input).game;game.revision=(game.revision||0)+1;
      return {ok:true,json:async()=>({view:getView(game),modelName:'gpt-5.6-sol',result:'经历已保存',actionType:input.type})};
    }
+   if(path==='./api/combat'){
+     combatCalls++;game=combatAction(game,JSON.parse(options.body),()=>.5).game;game.revision++;
+     return {ok:true,json:async()=>({view:getView(game),modelName:null,result:'本回合已保存',actionType:'turn'})};
+   }
    if(path==='./api/advance'){
      waits.push(path);game=advanceTurn(game).game;game.revision=(game.revision||0)+1;
      return {ok:true,json:async()=>({view:getView(game),modelName:null,result:'静修一旬'})};
    }
    throw new Error('Unexpected request '+path);
  });
- const fakeWorld={sync:v=>view=v,clearSelection:()=>callbacks.onClearPerson(),cancel:()=>{},setBusy:()=>{},stopMovement:()=>{},react:()=>{},speak:()=>{},reset:()=>{},rotate:()=>{},zoomBy:()=>{},recenter:()=>{},
+ const fakeWorld={combatReact:()=>new Promise(resolve=>{finishAnimation=resolve;}),sync:v=>view=v,clearSelection:()=>callbacks.onClearPerson(),cancel:()=>{},setBusy:()=>{},stopMovement:()=>{},react:()=>{},speak:()=>{},reset:()=>{},rotate:()=>{},zoomBy:()=>{},recenter:()=>{},
    async goTo(target){
      if(typeof target==='object'){return callbacks.onTravel(target.place);}
      const person=view.people.find(p=>p.id===target),site=SITES[target],place=person?.place||site?.place;
@@ -73,4 +78,15 @@ test('应用装配：读档、任务追踪、到点行动、人物页签与状�
  $('[data-open-panel="campaign"]').click();await setImmediate();
  $('[data-campaign-action="refine_foundation_pill"]').click();await setImmediate();
  assert.equal(game.campaign.alternatePill,true);assert.equal(game.campaign.alchemy.crafted,1);
+ game=createGame();game.player.place='woods';game.player.hp=90;game=combatAction(game,{type:'start',enemyId:'luohu'}).game;
+ $('#connection-retry').click();await setImmediate();
+ const beforeHp=game.player.hp;
+ $('[data-combat-move="guard"]').click();await setImmediate();
+ assert.equal(combatCalls,1);assert.ok(game.player.hp<beforeHp);
+ assert.equal($('#battle-player-hp').textContent,`${game.player.hp} / 100`,'stats update before animation resolves');
+ assert.equal($('#combat-inputs').disabled,true);
+ t.mock.timers.tick(600);assert.equal($('#operation-status').hidden,true);
+ $('[data-combat-move="guard"]').click();await setImmediate();assert.equal(combatCalls,1);
+ finishAnimation();await setImmediate();assert.equal($('#combat-inputs').disabled,false);assert.equal(document.body.classList.contains('busy'),false);
+
 });

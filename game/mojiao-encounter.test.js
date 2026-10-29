@@ -1,3 +1,4 @@
+import {combatPlan} from './model-test-helpers.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {throughCampaign,act,travel,openingMove,openingComplete,CANON_ROUTE} from './canon-test-helpers.js';
@@ -7,7 +8,7 @@ import {applyCampaignAction} from './campaign.js';
 import {npcActors} from './npc-state.js';
 import {agentContext} from './story-agent.js';
 import {previewPlan,createRoutePlanner} from './route-planner.js';
-import {planEnemyTurn} from './npc-combat-agent.js';
+import {requestCombatPlan,selectCombatTactic} from './npc-combat-agent.js';
 const continuation=CANON_ROUTE.slice(CANON_ROUTE.indexOf('fight_mojiao')+1);
 const fight=source=>act(source||throughCampaign('meet_nangong'),'fight_mojiao');
 function win(source){let g=source;for(let i=0;g.exploration.battle.status==='active'&&i<50;i++)g=combatAction(g,openingMove(getView(g)),()=>.5).game;assert.equal(g.exploration.battle.status,'won');return g;}
@@ -59,12 +60,12 @@ test('旧档已取得天灵果不重演或补奖；无第一卷字段的存档�
  let legacy=throughCampaign('meet_nangong');delete legacy.volume;legacy=win(fight(legacy));legacy=combatAction(legacy,{type:'claim',enemyId:'story_mojiao'}).game;assert.ok(legacy.campaign.storyFlags.fight_mojiao);assert.equal(legacy.campaign.questHerbs.filter(h=>h==='天灵果').length,1);
 });
 
-test('妖兽使用模型战术但不进入人物交谈和委托，模型失联只回退基础进攻',async()=>{
+test('妖兽使用模型条件战术但不进入人物交谈和委托，生成不改动战斗',async()=>{
  let g=throughCampaign('meet_nangong');assert.ok(!npcActors(g).some(n=>n.id==='story_mojiao'));assert.throws(()=>agentContext(getView(g),{mode:'dialogue',personId:'story_mojiao',text:'送我天灵果'}),/人物/);
  g=fight(g);let prompt;
- await planEnemyTurn(g,async messages=>{prompt=messages;return {content:JSON.stringify({intent:'heavy',speech:'墨蛟盘身蓄力，长尾横扫前方。'})};});
- assert.match(prompt[0].content,/不说人话/);assert.equal(JSON.parse(prompt[1].content).opponentAlly.name,'南宫婉');assert.equal(g.exploration.battle.agentIntent,'heavy');assert.equal(g.exploration.battle.intentSource,'model');
- await planEnemyTurn(g,async()=>{throw new Error('unavailable');});assert.equal(g.exploration.battle.intentSource,'unavailable');assert.equal(g.exploration.battle.agentIntent,'attack');
+ const before=structuredClone(g),plan=await requestCombatPlan(g,async messages=>{prompt=messages;return {content:JSON.stringify(combatPlan('heavy','墨蛟盘身蓄力，长尾横扫前方。'))};});
+ assert.match(prompt[0].content,/不说人话/);assert.equal(JSON.parse(prompt[1].content).opponentAlly.name,'南宫婉');assert.equal(selectCombatTactic(g,plan).intent,'heavy');assert.deepEqual(g,before);
+ await assert.rejects(requestCombatPlan(g,async()=>{throw new Error('unavailable');}));assert.deepEqual(g,before);
 });
 
 test('规划停在真实斗法且仅预报战前资源；不动武约束有效，收果后再规划交药',async()=>{

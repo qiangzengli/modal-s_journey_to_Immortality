@@ -116,3 +116,15 @@ test('手札内容不合法时使用规则线索，不能改用其他模型或�
     assert.equal(reply.modelName, 'gpt-5.6-sol'); assert.equal(calls, 1); assert.deepEqual(game, original);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
+
+test('战斗结束的外部取消可中止正在等待的模型流',async()=>{
+ let received;const started=new Promise(resolve=>{received=resolve;});
+ const server=createServer((req,res)=>{res.setHeader('content-type','text/event-stream');res.write(': waiting\n\n');received();});
+ server.listen(0,'127.0.0.1');await once(server,'listening');
+ try{
+  const complete=createModelClient({baseURL:`http://127.0.0.1:${server.address().port}`,model:'gpt-5.6-sol',timeoutMs:30000});
+  const controller=new AbortController(),pending=complete([],{signal:controller.signal});
+  const rejected=assert.rejects(pending,error=>error.name==='AbortError');
+  await started;controller.abort();await rejected;
+ }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+});
