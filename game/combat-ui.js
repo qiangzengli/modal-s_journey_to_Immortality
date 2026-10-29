@@ -45,7 +45,9 @@ export function createCombatUI({ request, navigate, openInventory }) {
     const member=actor(),isPlayer=member.id==='player';
     const active = battle.status === 'active';
     const enemy = view.roamers.find(person => person.id === battle.enemyId);
-    const intentCopy = { heavy: '重击将至 · 防御可减伤 65%，定神符可打断', guard: '护体中 · 伤害减免 55%，该次不会攻击', heal: '即将恢复 15 气血 · 可趁机进攻', attack: '全队行动后反击' };
+    const recovery=battle.enemyRecovery;
+    const recoveryCopy=recovery?` · 疗伤余力 ${recovery.remaining}/${recovery.maxUses} 次${recovery.remaining&&recovery.cooldown?` · 疗伤冷却 ${recovery.cooldown} 回合`:''}`:'';
+    const intentCopy = { heavy: '重击将至 · 防御可减伤 65%，定神符可打断', guard: '护体中 · 伤害减免 55%，该次不会攻击', heal: `即将恢复至多 ${recovery?.amount||15} 气血 · 定神符可打断`, attack: '全队行动后反击' };
     updateRoundLabel();
     $('#battle-order').textContent=battle.team.length>1?'队内每人行动一次，再由敌方反击 · 可选择先后顺序':'双方依次行动 · 时间不会自动推进';
     $('#combat-team').hidden=battle.team.length<2;
@@ -60,7 +62,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     $('#battle-enemy-realm').textContent = `${battle.boss?'BOSS · ':''}${enemy.realm} · ${enemy.kind==='beast'?'石殿妖兽':affiliationText(enemy.affiliation)}`;
     $('#battle-enemy-hp').textContent = `${battle.enemyHp} / ${enemy.hp}`;
     $('#battle-enemy-bar').style.width = `${battle.enemyHp / enemy.hp * 100}%`;
-    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 可切换角色选择普攻或法术 · `:''}${battle.ward?`${battle.wardName} ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 战术':'基础应对'} · ${battle.intentSpeech || battle.intentName}${['attack','heavy'].includes(battle.intent)?' · 目标：'+esc(battle.team.find(p=>p.id===battle.targetId)?.name):''} · 下次应对：${intentCopy[battle.intent]}${battle.intentSource==='offline'?' · AI 离线':battle.intentSource==='unavailable'?' · AI 暂未回应，仍可出招':' · AI 后台推演 · 无需等待'}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
+    $('#battle-intent').textContent = active ? `${battle.ally?`${battle.ally.name}协战 · 可切换角色选择普攻或法术 · `:''}${battle.ward?`${battle.wardName} ${battle.ward} · `:''}${battle.intentSource==='model'?'Agent 战术':'基础应对'} · ${battle.intentSpeech || battle.intentName}${['attack','heavy'].includes(battle.intent)?' · 目标：'+esc(battle.team.find(p=>p.id===battle.targetId)?.name):''} · 下次应对：${intentCopy[battle.intent]}${recoveryCopy}${battle.intentSource==='offline'?' · AI 离线':battle.intentSource==='unavailable'?' · AI 暂未回应，仍可出招':' · AI 后台推演 · 无需等待'}` : battle.status === 'won' ? (battle.reward?'墨蛟已倒下。收取天灵果后，主药会进入任务药囊，随后可离开禁地交药。':`对手已败，收取${battle.rewardName||'储物袋'}后继续行程。`) : '当前伤势会保留。可先服用回春丹，或到听雨亭调息。';
     $('#combat-controls').hidden = !active;
     $('#combat-result').hidden = active;
     $('#combat-error').textContent = '';

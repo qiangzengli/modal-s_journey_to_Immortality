@@ -5,6 +5,7 @@ import { GameError } from './errors.js';
 import { ITEMS, SKILLS, ALL_ENEMIES as WANDERERS, enemyAvailable, lootEntries, encounterLoot } from './combat-data.js';
 import { getCombatStats, getSkillScaling } from './combat-stats.js';
 import { affiliationFor } from './sects.js';
+import { getEnemyRecovery, legalEnemyTactic, ENEMY_RECOVERY } from './enemy-recovery.js';
 
 export function createExploration() {
   return {
@@ -24,7 +25,6 @@ const actorHp=(game,battle,enemy,id)=>id==='player'?game.player.hp:allyState(bat
 const livingIds=(game,battle,enemy)=>teamIds(enemy).filter(id=>actorHp(game,battle,enemy,id)>0);
 const nextActor=(game,battle,enemy)=>livingIds(game,battle,enemy).find(id=>!battle.actedIds?.includes(id))||'player';
 const targetFor=(game,battle,enemy)=>{const ids=livingIds(game,battle,enemy);return ids[(battle.round-1)%ids.length]||'player';};
-const intentFor = battle => battle.agentIntent || 'attack';
 const intentNames = { attack: '试探进攻', heavy: '蓄力重击', guard: '护体守势', heal: '运功疗伤' };
 function writeEvent(game, text) {
   const id = game.nextId++;
@@ -54,7 +54,7 @@ export function combatAction(source, input, random = Math.random) {
     if(!enemyAvailable(game,enemy))throw new GameError('这场交锋尚未开放，请先完成战前调查，已完成的经历不能重演。');
     if (state.enemies[enemy.id]?.defeated) throw new GameError('对手已经败退，不可重复挑战。');
     if (game.player.hp < 20) throw new GameError('气血不足 20，请先服用回春丹或到附近静地疗伤。');
-    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, ward:enemy.ward||0, mana: stats.maxMana, cooldowns: {}, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。${alliesFor(enemy).length?'队内每人各行动一次，再由对手反击。':'你先出手，每次行动后敌人会回应。'}` }] };
+    state.battle = { enemyId: enemy.id, status: 'active', round: 1, enemyHp: enemy.hp, ward:enemy.ward||0, mana: stats.maxMana, cooldowns: {}, enemyRecovery: { used: 0, nextRound: 1 }, log: [{ round: 0, side: 'world', text: `与${enemy.name}交锋。${alliesFor(enemy).length?'队内每人各行动一次，再由对手反击。':'你先出手，每次行动后敌人会回应。'}` }] };
     return { game, result: `与${enemy.name}的斗法开始。` };
   }
   if (input.type === 'leave') {
@@ -93,7 +93,13 @@ export function combatAction(source, input, random = Math.random) {
   for(const member of alliesFor(enemy)){battle.allyStates??={};battle.allyStates[member.id]=allyState(battle,member);}
   const actorState=ally?battle.allyStates[actorId]:battle;
   battle.actionNumber=(battle.actionNumber||0)+1;
-  const intent = intentFor(battle);
+  const recovery = getEnemyRecovery(battle);
+  battle.enemyRecovery = { used: recovery.used, nextRound: recovery.nextRound };
+  const tactic = legalEnemyTactic(battle, enemy);
+  const intent = tactic.intent;
+  // Freeze any corrected legacy intent for the whole team round as well.
+  battle.agentIntent = intent;
+  if (tactic.speech) battle.intentSpeech = tactic.speech;
   const lines = [];
   let effect=({attack:'slash',guard:'shield',escape:'escape'})[input.move]||input.skillId||input.itemId;
   const log = (side, text,meta={}) => { lines.push(text); battle.log.push({ round: battle.round,actionNumber:battle.actionNumber, side, text,...(['player','ally'].includes(side)?{actorId,move:input.move,effect}: {}),...meta }); };
@@ -192,9 +198,11 @@ export function combatAction(source, input, random = Math.random) {
     if (interrupted) log('enemy', `${enemy.name}被定神符困住，未能出手。`);
     else if (intent === 'guard') log('enemy', `${enemy.name}维持护体守势${hit ? '，抵消了部分伤害' : ''}，本回合没有进攻。`);
     else if (intent === 'heal') {
-      const amount = Math.min(15, enemy.hp - battle.enemyHp);
+      const amount = Math.min(ENEMY_RECOVERY.amount, enemy.hp - battle.enemyHp);
       battle.enemyHp += amount;
-      log('enemy', `${enemy.name}${enemy.kind==='beast'?'盘身回气':'运功疗伤'}，恢复 ${amount} 气血。`);
+      battle.enemyRecovery.used++;
+      battle.enemyRecovery.nextRound = battle.round + ENEMY_RECOVERY.cooldown + 1;
+      log('enemy', `${enemy.name}${enemy.kind==='beast'?'盘身回气':'运功疗伤'}，恢复 ${amount} 气血（剩余 ${ENEMY_RECOVERY.maxUses-battle.enemyRecovery.used} 次，冷却 ${ENEMY_RECOVERY.cooldown} 回合）。`, { move: 'heal', recovered: amount });
     } else {
       const targetId=targetFor(game,battle,enemy),targetAlly=alliesFor(enemy).find(p=>p.id===targetId),target=targetAlly?battle.allyStates[targetId]:game.player;
       const hurt = Math.max(1, Math.round((enemy.attack * (intent === 'heavy' ? 1.8 : 1)-(targetAlly?.defense||0)) * (0.9 + random() * 0.2) * (guardedIds.includes(targetId) ? 0.35 : 1)));
@@ -244,7 +252,8 @@ export function getCombatView(game) {
   const stats = getCombatStats(game);
   const battle = state.battle;
   const enemy = battle && enemyById(battle.enemyId);
-  const intent = enemy && intentFor(battle);
+  const tactic = enemy && legalEnemyTactic(battle, enemy);
+  const intent = tactic?.intent;
   return {
     combatStats: stats,
     roamers: WANDERERS.filter(enemy=>enemyAvailable(game,enemy)).map(enemy => ({ ...enemy, affiliation: affiliationFor(game, enemy.id), place: enemy.place || 'woods', ...state.enemies[enemy.id], agent: npcPublic(game, enemy.id), position: npcPosition(game, enemy.id, enemy.place || 'woods'), loot: enemy.campaign&&!state.enemies[enemy.id]?.defeated ? [] : enemy.reward?encounterLoot(enemy):lootEntries({ ...enemy.loot, stones: enemy.lootFromWallet === false ? enemy.loot.stones : game.society?.minds[enemy.id]?.stones ?? enemy.loot.stones }) })),
@@ -255,7 +264,7 @@ export function getCombatView(game) {
       return { id, ...skill, scaling, [skill.effect === 'heal' ? 'heal' : 'power']: scaling.base + scaling.skillBonus, remaining: battle?.cooldowns[id] || 0 };
     }),
     weapon: { id: state.weapon, ...ITEMS[state.weapon] },
-    battle: battle ? { ...structuredClone(battle),actingId:nextActor(game,battle,enemy),targetId:targetFor(game,battle,enemy),actedIds:[...(battle.actedIds||[])],team:[
+    battle: battle ? { ...structuredClone(battle),enemyRecovery:getEnemyRecovery(battle),intentSpeech:tactic.speech,actingId:nextActor(game,battle,enemy),targetId:targetFor(game,battle,enemy),actedIds:[...(battle.actedIds||[])],team:[
       {id:'player',name:'韩立',hp:game.player.hp,maxHp:100,defense:0,mana:battle.mana,maxMana:stats.maxMana,weaponName:ITEMS[state.weapon].name,power:stats.basicAttack.total,skills:state.learned.map(id=>({id,...SKILLS[id],power:getSkillScaling(stats,SKILLS[id]).total,remaining:battle.cooldowns[id]||0}))},
       ...alliesFor(enemy).map(ally=>({...ally,hp:allyState(battle,ally).hp,mana:allyState(battle,ally).mana,skills:ally.skills.map(skill=>({...skill,remaining:allyState(battle,ally).cooldowns[skill.id]||0}))}))
     ].map(actor=>({...actor,canAct:battle.status==='active'&&actor.hp>0&&!battle.actedIds?.includes(actor.id)})),enemyName: enemy.name, maxEnemyHp: enemy.hp, boss:Boolean(enemy.boss), chapterFinale:Boolean(enemy.chapterFinale), wardName:enemy.wardName||'金刚护罩', intent, intentName: intentNames[intent], escapeChance: enemy.escape, ally:enemy.ally, reward:enemy.reward, rewardName:enemy.rewardName, loot: encounterLoot(enemy) } : null
