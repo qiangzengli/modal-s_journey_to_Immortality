@@ -10,17 +10,17 @@ import {previewPlan,createRoutePlanner} from './route-planner.js';
 import {campaignMarkup} from './campaign-ui.js';
 import {agentContext} from './story-agent.js';
 
-test('七玄门自然接入黄枫谷，禁地采药、交药、筑基、拜师与功法可完整结算',()=>{
+test('七玄门自然接入黄枫谷，禁地采药、培药炼丹、筑基、拜师与功法可完整结算',()=>{
  let g=openingComplete();assert.equal(getView(g).campaign.next.type,'huangfeng_register');
- g=throughCampaign('deliver_spirit_herbs',g);
+ g=throughCampaign('refine_foundation_pill',g);
  assert.equal(getView(g).world.realm,'炼气十一层');assert.equal(affiliationFor(g).name,'黄枫谷');
  assert.ok(g.player.hp>0&&g.player.hp<84);assert.ok(g.exploration.enemies.story_mojiao.looted);assert.equal(g.campaign.alternatePill,true);assert.deepEqual(g.campaign.questHerbs,[]);
- assert.throws(()=>act(g,'deliver_spirit_herbs'),/已经完成/);
- if(g.player.hp<60)g=act(travel(g,'ruins'),'frontier_rest');g=act(travel(g,'woods'),'breakthrough');assert.equal(getView(g).world.realm,'筑基初期');
+ assert.throws(()=>act(travel(g,'qinglan'),'deliver_spirit_herbs'),/已经完成/);
+ g=act(travel(g,'woods'),'breakthrough');assert.equal(getView(g).world.realm,'筑基初期');
  g=act(travel(g,'qinglan'),'take_master');assert.equal(affiliationFor(g).rank,'李化元弟子');assert.equal(getView(g).campaign.complete,true);
  assert.equal(g.exploration.inventory.wind_manual,1);assert.throws(()=>act(g,'take_master'),/已经完成/);
  g=inventoryAction(g,{type:'learn',itemId:'wind_manual'}).game;assert.ok(g.exploration.learned.includes('wind_blade'));
- for(const type of CANON_ROUTE){const e=g.events.find(e=>e.id===g.campaign.storyFlags[type]);assert.ok(e);assert.ok(e.causes.every(id=>id<e.id&&g.events.some(old=>old.id===id)));}
+ for(const type of CANON_ROUTE.filter(type=>type!=='advance')){const e=g.events.find(e=>e.id===g.campaign.storyFlags[type]);assert.ok(e);assert.ok(e.causes.every(id=>id<e.id&&g.events.some(old=>old.id===id)));}
 });
 test('剧情锁区、缺少凭据、顺序跳过、低气血失败都不修改原始状态',()=>{
  let g=openingComplete(),snapshot=structuredClone(g);
@@ -40,15 +40,16 @@ test('任务主药独立于普通灵草交易，有限采收、重复主药与�
  g=throughCampaign('leave_forbidden');g.campaign.questHerbs.pop();const before=structuredClone(g);
  assert.throws(()=>act(travel(g,'qinglan'),'deliver_spirit_herbs'),/主药/);assert.deepEqual(g,before);
 });
-test('坊市丹失手仍可交药获丹筑基；债务、原丹归属不变',()=>{
+test('坊市丹归他人仍可自行培药炼丹筑基；债务、原丹归属不变',()=>{
  let g=openingComplete();g.pill.owner='xu';g.flags.partnerDebt=120;
- g=throughCampaign('deliver_spirit_herbs',g);if(g.player.hp<60)g=act(travel(g,'ruins'),'frontier_rest');g=act(travel(g,'woods'),'breakthrough');
+ g=throughCampaign('refine_foundation_pill',g);g=act(travel(g,'woods'),'breakthrough');
  assert.equal(g.pill.owner,'xu');assert.equal(g.flags.partnerDebt,120);assert.equal(g.campaign.alternatePill,false);
  assert.throws(()=>act(g,'breakthrough'),/已完成筑基/);
 });
-test('坊市先行筑基可以直接拜师，不强制重演炼气试炼或降级修为',()=>{
+test('旧档已持丹先行筑基可以直接拜师，不强制重演炼气试炼或降级修为',()=>{
  let g=throughCampaign('huangfeng_register');g.player.stones=400;
- g=act(travel(g,'market'),'buy_pill');if(g.player.hp<60)g=act(travel(g,'ruins'),'frontier_rest');g=act(travel(g,'woods'),'breakthrough');
+ g.pill.owner='player'; // 模拟升级前已买到丹药的旧档。
+ g=act(travel(g,'woods'),'breakthrough');
  assert.equal(getView(g).campaign.next.type,'take_master');assert.ok(getView(g).campaign.objectives.find(o=>o.type==='enter_forbidden').skipped);
  g=act(travel(g,'qinglan'),'take_master');assert.equal(getView(g).campaign.complete,true);assert.equal(getView(g).world.realm,'筑基初期');
 });
@@ -75,12 +76,12 @@ test('原著门派、境界和模型时段一致，主线界面不再显示原�
  const chat=agentContext(v,{mode:'guide'});assert.equal(chat.facts.canon.source,'凡人修仙传');assert.match(chat.facts.canon.era,/血色禁地/);
  assert.ok(!chat.facts.canon.completed.includes('fight_mojiao'));
 });
-test('模型可同时设计交易与禁地路线，且预览不写档、不替NPC决定未来',async()=>{
+test('模型只设计自行培药炼丹路线，且预览不写档、不替NPC决定未来',async()=>{
  const game=openingComplete(),before=structuredClone(game);
- const plan=actions=>({title:'禁地采药换丹',rationale:'凭升仙令入谷，采药交付宗门。',risk:'禁地交锋会损失气血。',actions:actions.map(type=>({type}))});
+ const plan=actions=>({title:'禁地取种培药炼丹',rationale:'凭升仙令入谷，采药留种后自行培育炼丹。',risk:'禁地交锋会损失气血。',actions:actions.map(type=>({type}))});
  const preview=previewPlan(game,plan(CANON_ROUTE));assert.equal(preview.steps.length,9);assert.equal(preview.checkpoint.enemyId,'story_mojiao');assert.equal(preview.forecast.hp,84);assert.deepEqual(game,before);
- let sent;const planner=createRoutePlanner({generate:async messages=>{sent=JSON.parse(messages[1].content);return {text:'可以交易，也可以通过宗门试炼取得筑基丹。',followUps:[],plans:[plan(CANON_ROUTE),{title:'卖草议价',rationale:'卖一株灵草后足够报价。',risk:'需要出售药草。',actions:[{type:'sell_herbs'},{type:'negotiate',offer:240,leverage:'none'}]}]};}});
- const reply=await planner.respond(game);assert.equal(reply.source,'model');assert.equal(reply.plans.length,2);assert.equal(sent.canon.source,'凡人修仙传');assert.deepEqual(game,before);
+ let sent;const planner=createRoutePlanner({generate:async messages=>{sent=JSON.parse(messages[1].content);return {text:'主药须培育成熟后自行炼丹。',followUps:[],plans:[plan(CANON_ROUTE),{title:'卖草议价',rationale:'卖一株灵草后足够报价。',risk:'需要出售药草。',actions:[{type:'sell_herbs'},{type:'negotiate',offer:240,leverage:'none'}]}]};}});
+ const reply=await planner.respond(game);assert.equal(reply.source,'model');assert.equal(reply.plans.length,1);assert.equal(sent.canon.source,'凡人修仙传');assert.deepEqual(game,before);
  const lost=structuredClone(game);lost.pill.owner='xu';assert.equal(previewPlan(lost,plan(CANON_ROUTE)).steps.at(-1).action.type,'fight_mojiao');
 });
 test('禁地斗法仍需本地挑战，胜利取袋仅结算一次',()=>{

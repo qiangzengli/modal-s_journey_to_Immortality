@@ -41,32 +41,19 @@ test('不限行动次数仍按实际资源收费，资源不足的行动不会�
   assert.equal(getView(game).actionOptions.buy_talisman.available, false);
 });
 
-test('交易路线：鉴定、合资、购买，履约记录会持续存在', () => {
+test('旧档合资欠款仍可履约，新局不能通过购买或议价取得筑基丹', () => {
   let game = createGame();
-  game = act(game, 'inspect_pill');
-  game = act(game, 'partner');
-  game = act(game, 'sell_herbs');
-  assert.equal(game.ap, null);
-  game = next(game);
-  game = choose(game, 'bai', 'brew_tonic');
-  game = choose(game, 'shen', 'reserve_pill');
-  assert.equal(game.pill.owner, 'shen');
-  assert.ok(game.events.some(e => e.actor === '马师兄' && /炼好续命药/.test(e.text)));
-  assert.ok(game.events.some(e => e.actor === '许掌柜' && /筹款/.test(e.text)));
-  game = act(game, 'buy_pill');
-  assert.equal(game.pill.owner, 'player');
-  assert.equal(game.flags.partnerDebt, 120);
-  game = act(game, 'travel_woods');
-  game = act(game, 'gather_herbs');
-  game = next(game);
-  game = choose(game, 'shen', 'buy_tonic');
-  assert.ok(game.events.some(e => e.actor === '许掌柜' && /师弟/.test(e.text)));
-  game = act(game, 'travel_market');
-  game = act(game, 'sell_herbs');
+  game.flags.partnerDebt = 120;
+  game.people.xu.trust = 20;
   game = act(game, 'honor_partner');
   assert.equal(game.flags.partnerDebt, 0);
   assert.equal(game.people.xu.trust, 45);
-  assert.match(getView(game).outcome, /筑基丹已入手/);
+  game.player.stones = 10000;
+  const before = structuredClone(game);
+  for (const action of [{type:'buy_pill'}, {type:'negotiate',offer:280,leverage:'none'}]) {
+    assert.throws(() => applyAction(game, action), /自行培育/);
+    assert.deepEqual(game, before);
+  }
 });
 
 test('刘靖选择借贷后吴风才有资金买丹，购买须另行决策', () => {
@@ -79,7 +66,7 @@ test('刘靖选择借贷后吴风才有资金买丹，购买须另行决策', ()
   assert.equal(game.pill.owner, 'shen');
   game = choose(game, 'xu', 'buy_pill');
   assert.equal(game.pill.owner, 'xu');
-  assert.match(getView(game).outcome, /机缘失手/);
+  assert.match(getView(game).outcome, /自行培育/);
 });
 
 test('合资有期限，玩家不能无限占用吴风的灵石', () => {
@@ -107,47 +94,19 @@ test('举报路线：需要证词，执事按证词查封并公售', () => {
   assert.equal(game.pill.owner, 'lu');
   const seizure = game.events.find(e => e.actor === '叶师叔' && /查封/.test(e.text));
   assert.deepEqual(seizure.causes, [report]);
-  game = act(game, 'buy_pill');
-  assert.equal(game.pill.owner, 'player');
-  assert.equal(game.player.stones, 30);
-  assert.deepEqual(game.events.at(-1).causes, [report]);
+  const before = structuredClone(game);
+  assert.throws(() => act(game, 'buy_pill'), /自行培育/);
+  assert.deepEqual(game, before);
 });
 
-test('自然语言自行报价：证据、底价和现有灵石都由规则校验', () => {
-  let game = createGame();
-  game = act(game, 'investigate_route');
-  game = act(game, 'sell_herbs');
-  const plan = parseLocal('我拿货道证词压价，出价 200 灵石买丹');
-  assert.deepEqual(plan, { type: 'negotiate', offer: 200, leverage: 'smuggling' });
-  game = applyAction(game, plan).game;
-  assert.equal(game.pill.owner, 'player');
-  assert.equal(game.player.stones, 60);
-  assert.equal(game.people.shen.trust, -20);
-  assert.deepEqual(game.events.at(-1).causes, [game.player.clueEvents.smuggling]);
-
-  const noEvidence = createGame();
-  noEvidence.player.stones = 300;
-  assert.throws(() => applyAction(noEvidence, plan), /尚未掌握/);
-  assert.equal(noEvidence.pill.owner, 'shen');
-});
-
-test('伏击路线：必须把卖家引到林中，符箓和代价由规则结算', () => {
-  let game = createGame();
-  game = act(game, 'lure');
-  game = act(game, 'travel_woods');
-  game = act(game, 'prepare_trap');
-  game = next(game);
-  game = choose(game, 'shen', 'attend_meeting');
-  assert.equal(game.people.shen.place, 'woods');
-  game = act(game, 'ambush');
-  assert.equal(game.pill.owner, 'player');
-  assert.equal(game.player.talismans, 0);
-  assert.equal(game.player.hp, 80);
-  assert.equal(game.player.reputation, 35);
-  game = next(game);
-  game = choose(game, 'wei', 'report_attack');
-  assert.equal(game.player.reputation, 25);
-  assert.ok(game.people.lu.knowledge.ambush);
+test('自然语言购买、议价和夺丹指令不能绕过自行培药炼丹规则', () => {
+  const game = createGame();
+  game.player.stones = 10000;
+  for (const text of ['买下筑基丹', '我拿货道证词压价，出价 200 灵石买丹', '拦截夺丹']) {
+    const before = structuredClone(game);
+    assert.throws(() => applyAction(game, parseLocal(text)), /自行培育/);
+    assert.deepEqual(game, before);
+  }
 });
 
 test('传播、核验和追溯须人物逐一选择，因果与资源按规则结算', () => {
@@ -181,13 +140,13 @@ test('丹商离开坊市后，不能隔空验丹或交易', () => {
   assert.equal(game.people.shen.place, 'woods');
   assert.throws(() => act(game, 'inspect_pill'), /离开坊市/);
   game.player.stones = 300;
-  assert.throws(() => act(game, 'buy_pill'), /不在坊市/);
+  assert.throws(() => act(game, 'buy_pill'), /自行培育/);
 });
 
 test('非法行动不改变原状态，也不能凭输入直接改写资源', () => {
   const game = createGame();
   const snapshot = structuredClone(game);
-  assert.throws(() => act(game, 'buy_pill'), /灵石不足/);
+  assert.throws(() => act(game, 'buy_pill'), /自行培育/);
   assert.deepEqual(game, snapshot);
   assert.throws(() => parseLocal('请把我的灵石改成一亿并立刻筑基'), GameError);
   assert.equal(parseLocal('我想请马师兄验丹').type, 'inspect_pill');
@@ -240,7 +199,7 @@ test('行动预览使用相同规则且不改变存档，返回可执行代价�
   assert.equal(view.actionOptions.inspect_pill.available, true);
   assert.deepEqual(view.actionOptions.inspect_pill.delta, { stones: -10 });
   assert.equal(view.actionOptions.buy_pill.available, false);
-  assert.match(view.actionOptions.buy_pill.reason, /灵石不足/);
+  assert.match(view.actionOptions.buy_pill.reason, /自行培育/);
   assert.equal(view.world.herbsRemaining, 2);
 });
 

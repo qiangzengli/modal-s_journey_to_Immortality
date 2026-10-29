@@ -2,7 +2,7 @@ import { createExperienceUI } from './experience-ui.js';
 import { createStateLoader } from './state-loader.js';
 import { createSectUI, affiliationText } from './sect-ui.js';
 import { createWorld } from './world.js';
-import { ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES } from './content.js';
+import { RETIRED_PILL_ACTIONS, ACTION_DEFS, PERSON_ACTIONS, PERSON_DETAILS, SITES } from './content.js';
 import { createCombatUI, roamerActions } from './combat-ui.js';
 import { createSocietyUI } from './society-ui.js';
 import { createGardenUI } from './garden-ui.js';
@@ -17,7 +17,7 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&a
 const names = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action.title]));
 names.ask = '探问近况';
 const defs = Object.fromEntries(ACTION_DEFS.map(action => [action.type, action]));
-const titles = { sects: '门派与道统', campaign: '天下与游历', opportunity: '筑基丹去向', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
+const titles = { sects: '门派与道统', campaign: '天下与游历', opportunity: '筑基丹炼制', self: '人物与行囊', people: '修真界众生', actions: '行事之前', events: '修真邸报' };
 let current;
 let busy = false;
 let selectedPerson = null;
@@ -135,7 +135,7 @@ function showPerson(id, focusUI = true) {
   $('#npc-activity').hidden=false;
   const options = PERSON_ACTIONS[id].filter(type => type !== 'buy_pill' || (id === 'lu' ? current.pill.ownerId === 'lu' : current.pill.ownerId !== 'lu'));
   $('#world-actions').innerHTML=options.map(actionMarkup).join('') + (person.affiliation?.sectId&&current.sects.schools.some(s=>s.id===person.affiliation.sectId) ? `<button type="button" class="challenge-button" data-view-sect="${person.affiliation.sectId}">查看${esc(person.affiliation.name)}门规 →</button>` : '');
-  $('#trade-form').hidden=!(id === 'shen' && current.pill.ownerId === 'shen' && current.player.place === 'market');
+  $('#trade-form').hidden=true;
   const previousLeverage=$('#trade-leverage').value;
   $('#trade-leverage').innerHTML='<option value="none">仅凭报价</option>'+current.player.clues.map(clue => `<option value="${clue}">${clue === 'smuggling' ? '亮出货道证词' : '持真丹鉴定'}</option>`).join('');
   if([...$('#trade-leverage').options].some(option=>option.value===previousLeverage))$('#trade-leverage').value=previousLeverage;
@@ -229,7 +229,7 @@ commandUI=createCommandUI({
 });
 
 planUI=createPlanUI({
-  getState:()=>({view:current,busy}), executeAction, advance:()=>societyUI.step(), notice,
+  getState:()=>({view:current,busy}), executeAction, advance:()=>call('/api/advance'), notice,
   onStale:data=>{if(!busy)render(data.view,data.modelName);},
   onChange:()=>{updateInteractionResult();commandUI?.refresh();}
 });
@@ -245,14 +245,15 @@ sectUI=createSectUI({element:$('#sect-content'),getState:()=>({view:current,busy
 campaignUI=createCampaignUI({getState:()=>({view:current,busy}),navigate,executeAction});
 
 function updateQuest() {
-  $('#quest-facts').textContent=current.pill.price!==null?`现有 ${current.player.stones} 灵石 · 丹价 ${current.pill.price}`:current.outcome;
+  const a=current.campaign.alchemy;
+  $('#quest-facts').textContent=current.campaign.alternatePill||current.world.breakthrough||current.pill.ownerId==='player'?current.outcome:a.harvested?'成熟主药已采收 · 可按方炼丹':a.planted?`主药生长 ${a.growth}/${a.growthRequired} · ${a.ready?'可采收':'推进旬数继续培养'}`:'采集活株 → 留种培育 → 成熟采收 → 炼制';
   planUI?.changed();
 }
 async function navigate(target) {
   if(busy||current?.battle)return false;
   closePanel();
   $('#turn-summary').hidden=true;
-  if(target==='advance')return societyUI.step();
+  if(target==='advance')return call('/api/advance');
   return world.goTo(target);
 }
 async function executeAction(action) {
@@ -315,19 +316,20 @@ function render(view, modelName) {
   $('#realm').textContent=view.world.realm;
   $('#hud-stones').textContent=view.player.stones;$('#hud-hp').textContent=view.player.hp;$('#hud-reputation').textContent=view.player.reputation;
   $('#hp-fill').style.width=`${view.player.hp}%`;$('#hp-fill').classList.toggle('low',view.player.hp<60);
-  $('#owner').textContent=view.pill.owner;$('#price').textContent=view.pill.price===null?'不在售':`${view.pill.price} 灵石`;
-  $('#owner-detail').textContent=view.pill.owner;$('#price-detail').textContent=$('#price').textContent;
-  $('#dispute').textContent=view.pill.disputed?'真伪争议中':'无公开争议';
+  const ownPill=view.campaign.alternatePill||view.pill.ownerId==='player',alchemy=view.campaign.alchemy;
+  $('#owner').textContent=view.world.breakthrough?'筑基已成':ownPill?'已炼成':alchemy.harvested?'待炼制':alchemy.planted?`培育 ${alchemy.growth}/${alchemy.growthRequired}`:'待培药';$('#price').textContent='自行炼制';
+  $('#owner-detail').textContent=$('#owner').textContent;$('#price-detail').textContent=$('#price').textContent;
+  $('#dispute').textContent='紫猴花 · 玉髓芝 · 天灵果';
   $('#outcome').textContent=view.outcome||'机缘仍在流转。人物的需求、钱财与消息会改变丹药的去向。';
-  $('#outcome').classList.toggle('won',view.pill.ownerId==='player'||view.world.breakthrough);
-  $('#opportunity-hint').textContent=view.world.breakthrough?'此丹已化为你的修为':view.pill.ownerId==='player'?'已入行囊 · 可前往听雨亭':'金色光环标记持丹者 ↗';
+  $('#outcome').classList.toggle('won',ownPill||view.world.breakthrough);
+  $('#opportunity-hint').textContent=view.world.breakthrough?'此丹已化为你的修为':ownPill?'已入行囊 · 可前往听雨亭':'留种培育 → 成熟采收 → 炼制 ↗';
   $('#mode').textContent=modelName?`自然语言模型：${modelName}。可在心念传音中问计、追问或下达行动。`:'DeepSeek 暂未连接；可继续使用行动按钮，交谈恢复后再试。';
   const entries=[['境界',view.world.realm],['所在',regionName(view.player.place)],['灵石',`${view.player.stones} 枚`],['气血',`${view.player.hp} / 100`],['声望',`${view.player.reputation} / 100`],['灵草',`${view.player.herbs} 株`],['天雷符',`${view.player.talismans} 张`],['空白印',`${view.player.seal} 枚`]];
   $('#stats').innerHTML=entries.map(([key,value])=>`<div><span>${key}</span><strong>${esc(value)}</strong></div>`).join('');
   $('#clues').innerHTML=`<h3>已知线索</h3>${view.player.clues.map(c=>`<span class="clue">${c==='authentic'?'真丹鉴定':'禁运货道证词'}</span>`).join('')||'<p>尚无证据。可从药师或传音客入手。</p>'}${view.pill.partnerDebt?`<p class="debt">与吴风的承诺：尚欠 ${view.pill.partnerDebt} 灵石</p>`:''}`;
   $('#people').innerHTML=view.people.map(p=>`<button class="person" type="button" data-person="${p.id}"><span class="avatar" style="border-color:${PERSON_DETAILS[p.id].color}">${p.name[0]}</span><span class="person-main"><strong>${p.name}<small>${p.role}</small></strong><span>${esc(affiliationText(p.affiliation))}<br>${esc(p.agent?.activity || p.goal)} · ${esc(relationship(p.trust))}</span></span><span class="person-place">${regionName(p.place)} ↗</span></button>`).join('');
   $('#events').innerHTML=view.events.map(event=>`<article class="event" id="event-${event.id}"><div class="event-meta"><span>第 ${event.turn} 旬 · ${esc(event.actor)}</span><b>#${event.id}</b></div><p>${esc(event.text)}</p>${event.causes.length?`<small>缘起：${event.causes.map(id=>`<a href="#event-${id}">事件 #${id}</a>`).join(' · ')}</small>`:''}</article>`).join('');
-  $('#actions').innerHTML=ACTION_DEFS.filter(def=>(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins'].includes(view.player.place)))&&!def.garden&&(!def.volume||view.story)).map(def=>{
+  $('#actions').innerHTML=ACTION_DEFS.filter(def=>!RETIRED_PILL_ACTIONS.includes(def.type)&&def.type!=='partner'&&(def.place===view.player.place||(def.type==='frontier_rest'&&['quarry','ruins'].includes(view.player.place)))&&!def.garden&&(!def.volume||view.story)).map(def=>{
     const state=view.actionOptions[def.type];
     return `<button class="action ${state.available?'':'locked'}" data-locate-action="${def.type}" type="button" ${state.available?'':'disabled'}><strong>${esc(def.title)} <i>↗</i></strong><span>${esc(def.cost)}</span><small>${esc(state.available?def.detail:state.reason)}</small></button>`;
   }).join('');

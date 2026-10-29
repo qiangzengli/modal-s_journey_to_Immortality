@@ -9,14 +9,14 @@ export const FRONTIER_PEOPLE=[
 ];
 export const FRONTIER_SITES={
   ferry:{name:'百药园入口',role:'黄枫谷 · 药园差事',place:'river',spot:[42,-6],seal:'园',detail:'接下马师兄看管药园的差事，取得安静修炼的机会。',actions:['garden_duty']},
-  spring:{name:'百药园药圃',role:'黄枫谷 · 炼气修行',place:'river',spot:[64,11],seal:'药',detail:'以已有药草炼药修行；小绿瓶的秘密由你独自保管。',actions:['garden_cultivate','gather_reeds']},
-  infirmary:{name:'药园静室',role:'黄枫谷 · 调息',place:'river',spot:[69,-11],seal:'静',detail:'整理丹方与行囊，休整后再踏入禁地。',actions:['frontier_rest']},
+  spring:{name:'百药园药圃',role:'黄枫谷 · 培药修行',place:'river',spot:[64,11],seal:'药',detail:'在自己的药畦留种培育筑基主药，以小绿瓶灵液催熟，成熟后亲手采收。',actions:['garden_cultivate','gather_reeds','plant_pill_herbs','harvest_pill_herbs']},
+  infirmary:{name:'药园静室',role:'黄枫谷 · 炼丹与调息',place:'river',spot:[69,-11],seal:'静',detail:'按筑基丹方，将亲手培育采收的三味成熟主药炼制成丹。',actions:['refine_foundation_pill','frontier_rest']},
   ore:{name:'禁地密林',role:'血色禁地 · 外层灵药',place:'quarry',spot:[104,-11],seal:'林',detail:'紫猴花藏在密林中。搜寻要付出气血，且须先参加禁地试炼。',actions:['gather_monkey_flower']},
   workers:{name:'禁地入口',role:'血色禁地 · 七派试炼',place:'quarry',spot:[91,11],seal:'禁',detail:'七派弟子在禁制开启后入内，各自寻找筑基丹的主药。',actions:['enter_forbidden','aid_hanyunzhi','frontier_rest']},
   sluice:{name:'寒潭药坡',role:'血色禁地 · 玉髓芝',place:'quarry',spot:[119,10],seal:'芝',detail:'潭边生着玉髓芝，附近妖兽留下了痕迹。',actions:['gather_jade_mushroom']},
   archive:{name:'中心区石门',role:'血色禁地 · 中心区',place:'ruins',spot:[141,5],seal:'门',detail:'向中心区深入，与掩月宗修士相遇。',actions:['meet_nangong']},
   core:{name:'地下石殿',role:'血色禁地 · 墨蛟',place:'ruins',spot:[162,-6],seal:'蛟',detail:'与南宫婉共同应对墨蛟，取到天灵果后尽快离开禁地。',actions:['fight_mojiao']},
-  memorial:{name:'禁地出口',role:'血色禁地 · 返回宗门',place:'ruins',spot:[171,11],seal:'归',detail:'带着灵药离开，回黄枫谷按门规交药领取筑基丹。',actions:['leave_forbidden','frontier_rest']}
+  memorial:{name:'禁地出口',role:'血色禁地 · 返回宗门',place:'ruins',spot:[171,11],seal:'归',detail:'带着灵药活株离开，回宗研习丹方，再自行培药炼丹。',actions:['leave_forbidden','frontier_rest']}
 };
 const action=(type,title,detail,cost,place,site,requires=[],extra={})=>({type,title,detail,cost,place,site,requires,campaign:true,...extra});
 export const FRONTIER_ACTIONS=[
@@ -30,8 +30,11 @@ export const FRONTIER_ACTIONS=[
   action('aid_hanyunzhi','援手菡云芝','交出一株灵草，留下禁地中的一份交情','灵草 1 · 可选','quarry','workers',['enter_forbidden'],{optional:true}),
   action('meet_nangong','相遇南宫婉','深入中心区域，与掩月宗修士共同探查石殿','收齐外层两味主药','ruins','archive',['gather_monkey_flower','gather_jade_mushroom']),
   action('fight_mojiao','合力应对墨蛟','与南宫婉合力斗法，击败墨蛟后收取天灵果','回合斗法 · 气血至少 20','ruins','core',['meet_nangong'],{encounter:'story_mojiao'}),
-  action('leave_forbidden','携药离开禁地','将三味主药带出禁地，准备回宗交付','一次经历','ruins','memorial',['fight_mojiao']),
-  action('deliver_spirit_herbs','交药领取筑基丹','向宗门交付紫猴花、玉髓芝、天灵果，领取一枚筑基丹','三味任务主药','qinglan','sect_qinglan',['leave_forbidden']),
+  action('leave_forbidden','携药离开禁地','将三味主药活株带出禁地，留待自行培育','一次经历','ruins','memorial',['fight_mojiao']),
+  action('deliver_spirit_herbs','研习筑基丹方','核对采药记录，研习丹方，保留三味活株自行培育','三味任务主药','qinglan','sect_qinglan',['leave_forbidden']),
+  action('plant_pill_herbs','留种培育筑基主药','将三味活株栽入自己的药畦，随旬数培养；灵液可催熟','三味活株 · 小绿瓶','river','spring',['deliver_spirit_herbs']),
+  action('harvest_pill_herbs','采收成熟筑基主药','亲手采收培育至成熟的紫猴花、玉髓芝、天灵果','主药生长 4/4','river','spring',['plant_pill_herbs']),
+  action('refine_foundation_pill','炼制筑基丹','按丹方消耗三味亲手培育的成熟主药，炼成一枚筑基丹','三味成熟主药','river','infirmary',['harvest_pill_herbs']),
   action('take_master','拜师李化元','完成筑基后，拜李化元为师并取得青元剑诀','筑基初期 · 黄枫谷弟子','qinglan','sect_qinglan'),
   action('gather_reeds','采收药园灵草','取得 2 株灵草，共可采收 3 次','已接百药园差事','river','spring',['garden_duty'],{repeatable:true,utility:true}),
   action('frontier_rest','借静地调息','恢复最多 35 气血','灵石 8','river','infirmary',[],{repeatable:true,utility:true})

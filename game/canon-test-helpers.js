@@ -1,5 +1,6 @@
+import {ACTION_DEFS} from './content.js';
 import {combatAction} from './combat.js';
-import {createOpeningGame,applyAction,getView} from './engine.js';
+import {createOpeningGame,applyAction,getView,advanceTurn} from './engine.js';
 export const act=(g,type)=>applyAction(g,{type}).game;
 export const travel=(g,place)=>g.player.place===place?g:applyAction(g,{type:'travel_region',place}).game;
 export function openingComplete(){
@@ -8,11 +9,14 @@ export function openingComplete(){
     g=travel(g,place);for(const type of types){g=act(g,type);if(g.exploration.battle)g=winOpeningFight(g);}
   }return g;
 }
-export const CANON_ROUTE=['huangfeng_register','garden_duty','garden_cultivate','forbidden_enlist','enter_forbidden','gather_monkey_flower','gather_jade_mushroom','meet_nangong','fight_mojiao','leave_forbidden','deliver_spirit_herbs'];
-const places=['qinglan','river','river','qinglan','quarry','quarry','quarry','ruins','ruins','ruins','qinglan'];
-export function throughCampaign(end='deliver_spirit_herbs',source=openingComplete()){
+export const CANON_ROUTE=['huangfeng_register','garden_duty','garden_cultivate','forbidden_enlist','enter_forbidden','gather_monkey_flower','gather_jade_mushroom','meet_nangong','fight_mojiao','leave_forbidden','deliver_spirit_herbs','plant_pill_herbs','advance','advance','harvest_pill_herbs','refine_foundation_pill'];
+export function throughCampaign(end='refine_foundation_pill',source=openingComplete()){
   let g=source;
-  for(let i=0;i<CANON_ROUTE.length;i++){g=act(travel(g,places[i]),CANON_ROUTE[i]);if(g.exploration.battle)g=winOpeningFight(g);if(CANON_ROUTE[i]===end)break;}
+  for(const type of CANON_ROUTE){
+    g=type==='advance'?advanceTurn(g).game:act(travel(g,ACTION_DEFS.find(a=>a.type===type).place),type);
+    if(g.exploration.battle)g=winOpeningFight(g);
+    if(type===end)break;
+  }
   return g;
 }
 
