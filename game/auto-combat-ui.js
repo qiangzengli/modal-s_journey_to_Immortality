@@ -2,10 +2,14 @@ import {gameRequest} from './api-client.js';
 import {AUTO_POLICIES,DEFAULT_AUTO_PLAN,chooseAutoMove} from './auto-combat.js';
 
 export function createAutoCombatUI({stage,getState,isPending,perform,requestPlan=gameRequest}) {
+  const document=stage.ownerDocument;
   const bar=document.createElement('div');bar.className='auto-combat-controls';
   bar.innerHTML=`<div><button type="button" id="auto-combat-toggle" aria-pressed="false">自动战斗</button><select id="auto-combat-policy" aria-label="自动战斗消耗策略">${Object.entries(AUTO_POLICIES).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></div><small id="auto-combat-status" role="status">优先普攻与功法，危险时才用普通回复药。</small>`;
   stage.querySelector('.battle-console').prepend(bar);
   const toggle=bar.querySelector('button'),select=bar.querySelector('select'),status=bar.querySelector('small');
+  const collapse=document.createElement('button');collapse.type='button';collapse.textContent='收起战报';collapse.setAttribute('aria-expanded','true');collapse.setAttribute('aria-label','收起或展开战斗面板');
+  bar.querySelector('div').append(collapse);
+  collapse.addEventListener('click',()=>{const hidden=stage.querySelector('.battle-console').classList.toggle('is-collapsed');collapse.textContent=hidden?'展开战报':'收起战报';collapse.setAttribute('aria-expanded',String(!hidden));});
   let running=false,timer=null,generation=0,controller=null,plan=null,source='local',enemyId=null,steps=0,lastRound=-1,readyRound=-1,stalls=0,previousHp=null;
   function describe(text) { status.textContent=text; }
   function stop(text='自动战斗已停止，可以手动出招。') {

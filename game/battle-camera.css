@@ -11,6 +11,7 @@
 .combat-stage .duelist{pointer-events:auto}
 .auto-combat-controls{display:flex;align-items:center;gap:12px;justify-content:space-between;margin-bottom:10px;padding-bottom:9px;border-bottom:1px solid #7c936b55;pointer-events:auto}
 .auto-combat-controls>div{display:flex;gap:6px;flex-shrink:0}.auto-combat-controls button,.auto-combat-controls select{border:1px solid #8eaa82;background:#294b39;color:#e6dfbf;border-radius:6px;padding:8px;font:12px sans-serif;cursor:pointer}.auto-combat-controls button[aria-pressed=true]{background:#927b43;color:#fff1c9}.auto-combat-controls small{font:11px/1.6 sans-serif;color:#bdcfb6;text-align:right}
+.battle-console.is-collapsed>:not(.auto-combat-controls){display:none}.battle-console.is-collapsed .auto-combat-controls{margin-bottom:0;padding-bottom:0;border-bottom:0}
 @media(max-width:700px){.auto-combat-controls{display:block}.auto-combat-controls>div{justify-content:space-between}.auto-combat-controls small{display:block;margin-top:5px;text-align:left;font-size:10px}}
 @media(max-width:1100px) and (min-width:701px){.battle-camera-controls{top:270px}}
 @media(max-width:700px){.battle-camera-controls{top:1px;width:max-content;max-width:calc(100% - 12px)}.battle-camera-buttons{gap:1px;padding:3px}.battle-camera-controls button{min-width:30px;min-height:32px;padding:4px 7px;font-size:11px}.battle-camera-controls small{display:none}.battle-camera-focus{padding-left:3px;margin-left:1px}}

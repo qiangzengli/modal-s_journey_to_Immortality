@@ -9,12 +9,13 @@ import {join} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
 import {throughOpening} from './canon-test-helpers.js';
 import {sendModelReply,combatPlan} from './model-test-helpers.js';
+import {DEFAULT_AUTO_PLAN} from './auto-combat.js';
 
 test('真实HTTP：模型未返回时开战和连续回合立即落盘，预告不突变且重启续战',async()=>{
  const dir=await mkdtemp(join(tmpdir(),'niminglu-combat-flow-')),savePath=join(dir,'save.json');
  await writeFile(savePath,JSON.stringify(throughOpening('scout_jinguang')));
- const pending=[];
- const model=createServer(async(req,res)=>{let data='';for await(const part of req)data+=part;pending.push(res);});
+ const pending=[],autoPending=[];
+ const model=createServer(async(req,res)=>{let data='';for await(const part of req)data+=part;(data.includes('节约型自动斗法参谋')?autoPending:pending).push(res);});
  model.listen(0,'127.0.0.1');await once(model,'listening');
  const reserved=createServer();reserved.listen(0,'127.0.0.1');await once(reserved,'listening');const port=reserved.address().port;await new Promise(r=>reserved.close(r));
  const origin=`http://127.0.0.1:${port}`;let child,view;
@@ -29,9 +30,14 @@ test('真实HTTP：模型未返回时开战和连续回合立即落盘，预告�
   await start();
   assert.equal((await post('/api/action',{type:'defend_qixuan'})).status,200);
   assert.equal(view.battle.intentSource,'preparing');
+  const autoRequest=fetch(origin+'/api/combat/auto-plan',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({expectedRevision:view.revision,enemyId:view.battle.enemyId,policy:'economy'})});
   for(let i=0;i<3;i++)assert.equal((await post('/api/combat',{type:'turn',move:'guard'})).status,200);
   assert.equal(view.battle.round,4);assert.equal(pending.length,1,'one model call despite repeated turns');
   const bytes=await readFile(savePath,'utf8'),advertised=structuredClone(view),revision=view.revision;
+  assert.equal(autoPending.length,1);sendModelReply(autoPending[0],JSON.stringify(DEFAULT_AUTO_PLAN));
+  const autoResponse=await autoRequest;assert.equal(autoResponse.status,200);assert.equal((await autoResponse.json()).source,'model');
+  assert.equal(await readFile(savePath,'utf8'),bytes,'自动战术建议不能写存档或阻塞普通回合');
+  assert.equal((await post('/api/combat/auto-plan',{enemyId:view.battle.enemyId,policy:'spend_everything'})).status,400);
   sendModelReply(pending[0],JSON.stringify(combatPlan('heavy','对方凝气准备重击。')));
   await delay(30);
   assert.equal(await readFile(savePath,'utf8'),bytes,'background completion cannot write the save');
