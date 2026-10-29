@@ -13,6 +13,8 @@ import { createRoutePlanner } from './route-planner.js';
 import { ensureNpcState, remember, contractAction } from './npc-state.js';
 import { createSocietyAgent, applySocietyDecisions } from './npc-agent.js';
 import { createCombatPlanner } from './combat-planner.js';
+import { createAutoCombatPlanner } from './auto-combat-planner.js';
+import { AUTO_POLICIES } from './auto-combat.js';
 import { createWorldClock } from './world-clock.js';
 import { REGIONS } from './regions.js';
 import { VOLUME_ACTIONS, VOLUME_PEOPLE } from './volume-data.js';
@@ -28,6 +30,7 @@ const modelEnabled = Boolean(modelConfig);
 const modelName = modelConfig?.model || null;
 const completeAction = modelEnabled ? createModelClient(modelConfig) : null;
 const combatPlanner = createCombatPlanner({complete:completeAction});
+const autoCombatPlanner = createAutoCombatPlanner(completeAction);
 const storyAgent = createStoryAgent({ modelName, generate: modelEnabled ? createAgentModel(modelConfig) : null });
 const routePlanner = createRoutePlanner({ modelName, generate: modelEnabled ? messages => completeAction(messages, { temperature: .65, maxTokens: 2600 }) : null });
 let game;
@@ -178,6 +181,10 @@ const files = {
   '/assets/cultivator/spirit-bottle.png': ['assets/cultivator/spirit-bottle.png', 'image/png'],
   '/equipment.css': ['equipment.css', 'text/css; charset=utf-8'],
   '/battle-world.js': ['battle-world.js', 'text/javascript; charset=utf-8'],
+  '/battle-camera.js': ['battle-camera.js', 'text/javascript; charset=utf-8'],
+  '/battle-camera.css': ['battle-camera.css', 'text/css; charset=utf-8'],
+  '/auto-combat.js': ['auto-combat.js', 'text/javascript; charset=utf-8'],
+  '/auto-combat-ui.js': ['auto-combat-ui.js', 'text/javascript; charset=utf-8'],
   '/battle-fx.js': ['battle-fx.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.module.js': ['../node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.core.js': ['../node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
@@ -247,6 +254,19 @@ async function handle(req, res) {
     } catch (error) { json(res, error instanceof GameError ? 400 : 500, { error: error instanceof GameError ? error.message : '人物暂未完成回应，请稍后重试。' }); }
     return;
   }
+  // Automatic tactics are advice only; this route never locks or commits the game.
+  if(req.method==='POST'&&path==='/api/combat/auto-plan'){
+    if(!req.headers['content-type']?.startsWith('application/json')){json(res,415,{error:'请求必须使用 application/json。'});return;}
+    try{
+      const input=await body(req),snapshot=game,view=getView(snapshot);
+      if(!Number.isSafeInteger(input.expectedRevision)||!Object.hasOwn(AUTO_POLICIES,input.policy||''))throw new GameError('请选择有效的自动战斗策略并携带局势版本。');
+      if(input.expectedRevision!==view.revision||input.enemyId!==view.battle?.enemyId){json(res,409,{error:'战况已变化，请按最新局势重新规划。'});return;}
+      if(view.battle?.status!=='active')throw new GameError('当前没有进行中的斗法。');
+      const reply=await autoCombatPlanner.request(view,input.policy);
+      json(res,200,{...reply,enemyId:input.enemyId,revision:view.revision,modelName:reply.source==='model'?modelName:null});
+    }catch(error){json(res,error instanceof GameError?400:500,{error:error instanceof GameError?error.message:'自动战术暂不可用，仍可继续出招。'});}
+    return;
+  }
   // 叙事请求不占用行动锁，也不写存档；模型等待期间可以继续游戏。
   if (req.method === 'POST' && ['/api/agent', '/api/intent', '/api/plans'].includes(path)) {
     if (!req.headers['content-type']?.startsWith('application/json')) { json(res, 415, { error: '请求必须使用 application/json。' }); return; }
@@ -313,6 +333,7 @@ async function handle(req, res) {
     await saveGame(outcome.game);
     game = outcome.game;
     combatPlanner.sync(game,{newBattle});
+    autoCombatPlanner.sync(getView(game),{newBattle});
     if (path === '/api/reset') worldClock.reset(); else worldClock.changed();
     json(res, 200, { view: getView(game), result: outcome.result, modelName, parserSource, actionType });
   } catch (error) {

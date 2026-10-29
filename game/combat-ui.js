@@ -1,5 +1,6 @@
 import { affiliationText } from './sect-ui.js';
 import { createEquipmentUI, combatScalingText } from './equipment-ui.js';
+import { createAutoCombatUI } from './auto-combat-ui.js';
 
 const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 const $ = selector => document.querySelector(selector);
@@ -13,6 +14,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
   let previousEnemy;
   let previousTurn;
   const stage = $('#combat-stage');
+  const autoCombat=createAutoCombatUI({stage,getState:()=>current,isPending:()=>pending,perform:input=>submit('/api/combat',input)});
   const equipmentUI = createEquipmentUI({
     element: $('#equipment'),
     onAction: input => submit('/api/inventory', input)
@@ -35,7 +37,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     const battle = view.battle;
     document.body.classList.toggle('in-combat', Boolean(battle));
     stage.hidden = !battle;
-    if (!battle) { previousEnemy = null; previousTurn = null; return; }
+    if (!battle) { previousEnemy = null; previousTurn = null; autoCombat.sync(); return; }
     if (previousEnemy !== battle.enemyId) { tab = 'skills'; previousEnemy = battle.enemyId; }
     const active = battle.status === 'active';
     const enemy = view.roamers.find(person => person.id === battle.enemyId);
@@ -71,6 +73,7 @@ export function createCombatUI({ request, navigate, openInventory }) {
     const turnKey=`${battle.enemyId}:${battle.round}:${battle.status}`;
     if(previousTurn!==turnKey)stage.querySelector('.battle-console').scrollTop=0;
     previousTurn=turnKey;
+    autoCombat.sync();
   }
   async function submit(path, input) {
     if (pending) return;
@@ -80,13 +83,13 @@ export function createCombatUI({ request, navigate, openInventory }) {
     updateRoundLabel();
     $('#combat-inputs').disabled = true;
     try { return await request(path, input); }
-    finally { clearTimeout(slowTimer);slow=false;pending = false; equipmentUI.render(current, { pending }); $('#combat-inputs').disabled = false; updateRoundLabel(); }
+    finally { clearTimeout(slowTimer);slow=false;pending = false; equipmentUI.render(current, { pending }); $('#combat-inputs').disabled = false; updateRoundLabel(); autoCombat.sync(); }
   }
   stage.addEventListener('click', async event => {
     const change = event.target.closest('[data-combat-tab]');
     if (change && !pending) { tab = change.dataset.combatTab; render(current); return; }
     const button = event.target.closest('[data-combat-move]');
-    if (button) { await submit('/api/combat', { type: 'turn', move: button.dataset.combatMove, skillId: button.dataset.skillId, itemId: button.dataset.itemId }); return; }
+    if (button&&!button.disabled&&!autoCombat.isRunning()) { await submit('/api/combat', { type: 'turn', move: button.dataset.combatMove, skillId: button.dataset.skillId, itemId: button.dataset.itemId }); return; }
     const result = event.target.closest('[data-battle-result]');
     if (result) {
       const type = result.dataset.battleResult;

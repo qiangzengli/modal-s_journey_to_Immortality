@@ -1,6 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { createBattleEffects, playerEffect, enemyEffect } from './battle-fx.js';
+import { createBattleCamera } from './battle-camera.js';
 
 // 独立斗法场景与相机。主地图的人物、位置和镜头不参与战斗动画。
 export function createBattleWorld(renderer, makePerson) {
@@ -65,6 +66,7 @@ export function createBattleWorld(renderer, makePerson) {
     return [actor,[...materials]];
   }));
   let view=null, width=1200,height=800, animation=null;
+  const orbit=createBattleCamera(camera,{stage:document.querySelector('#combat-stage'),getFocusPoint:side=>side==='player'?player.position:enemies[view?.battle?.enemyId]?.position});
   const effects=[];
   function showNumber(text,side,color) {
     const sprite=caption(text,color,240);sprite.position.set(side==='player'?player.position.x:enemies[view.battle.enemyId].position.x,3,0);
@@ -72,14 +74,12 @@ export function createBattleWorld(renderer, makePerson) {
   }
   function resize(w,h) {
     width=w;height=h;
-    const lens=width<700?12:10.5;
-    const aspect=width/height;
-    camera.left=-lens*aspect/2;camera.right=lens*aspect/2;camera.top=lens/2;camera.bottom=-lens/2;camera.updateProjectionMatrix();
-    camera.position.set(0,8.5,15);camera.lookAt(0,width<700?-.3:-.6,0);
+    orbit.resize(width,height);
   }
   function sync(next) {
     const previousId=view?.battle?.enemyId;
     view=next;
+    orbit.sync(view.battle);
     if(!view.battle){
       animation?.finish();fx.clear();
       for(const {sprite} of effects){scene.remove(sprite);sprite.material.map.dispose();sprite.material.dispose();}
@@ -151,7 +151,7 @@ export function createBattleWorld(renderer, makePerson) {
       if(actor.userData.weapon)actor.userData.weapon.rotation.z=0;
       for(const material of hitMaterials.get(actor)){material.emissive.setHex(0);material.emissiveIntensity=0;}
     }
-    camera.position.x=0;
+    let cameraShake=0;
     if(animation){
       const time=performance.now()-animation.start;
       const p=Math.min(1,time/animation.playerMs);
@@ -180,7 +180,7 @@ export function createBattleWorld(renderer, makePerson) {
       enemy.userData.body.rotation.z=-playerHit*.18*motion;
       player.userData.body.rotation.z=enemyHit*.18*motion;
       for(const [actor,hit] of [[enemy,playerHit],[player,enemyHit]])for(const material of hitMaterials.get(actor)){material.emissive.setHex(0xe49d60);material.emissiveIntensity=hit*.3;}
-      if(!reducedMotion.matches)camera.position.x=Math.sin(time*.035)*(playerHit+enemyHit)*.035;
+      if(!reducedMotion.matches)cameraShake=Math.sin(time*.035)*(playerHit+enemyHit)*.035;
       if(p>=animation.playerImpact&&!animation.playerShown){
         animation.playerShown=true;
         const hit=animation.playerLine.match(/造成 (\d+) 点/);const heal=animation.playerLine.match(/恢复 (\d+) (气血|真气)/);
@@ -203,6 +203,7 @@ export function createBattleWorld(renderer, makePerson) {
       if(age>1.5){scene.remove(effect.sprite);effect.sprite.material.map.dispose();effect.sprite.material.dispose();effects.splice(i,1);}
     }
     outer.material.opacity=.45+Math.sin(elapsed*.7)*.15;dust.rotation.y=elapsed*.018;
+    orbit.update(cameraShake);
     renderer.render(scene,camera);
   }
   return {sync,resize,render,react};
