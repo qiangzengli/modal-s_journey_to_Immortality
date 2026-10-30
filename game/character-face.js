@@ -50,9 +50,11 @@ function bindFaceTexture(THREE,id,material){
 export function createCharacterFace(THREE,head,profile,skin){
   const id=CHARACTER_FACES[profile.face]?profile.face:'examiner',data=CHARACTER_FACES[id];
   skin.color.setHex(data.skin);
-  const material=new THREE.MeshStandardMaterial({color:data.skin,roughness:.82,emissive:data.skin,emissiveIntensity:.035});
+  const material=skin.clone();material.color.setHex(data.skin);
   bindFaceTexture(THREE,id,material);
-  const face=new THREE.Mesh(smoothFace(THREE,data),material);face.name='sculpted-face';face.castShadow=true;face.receiveShadow=true;head.add(face);
+  // Sub-centimetre nose/eyelid shadows alias on a map-sized shadow atlas. The
+  // albedo retains their local occlusion; direct lights still shade the volume.
+  const face=new THREE.Mesh(smoothFace(THREE,data),material);face.name='sculpted-face';face.castShadow=true;face.receiveShadow=false;head.add(face);
   // Close the face boundary into a complete skull, preserving a continuous jaw in side view.
   const positions=[],uvs=[],indices=[],n=FACE_BOUNDARY.length,rows=12;
   for(let row=0;row<=rows;row++){
@@ -64,5 +66,20 @@ export function createCharacterFace(THREE,head,profile,skin){
     }
   }
   const skull=new THREE.Mesh(surfaceGeometry(THREE,positions,uvs,indices),skin);skull.name='complete-skull';skull.castShadow=true;skull.receiveShadow=true;head.add(skull);
+  // Small curved wet surfaces give the eyes a real light response while keeping
+  // the period portrait's gaze and eyelid shape. They do not replace it with dots.
+  const eyeMaterial=new THREE.MeshPhysicalMaterial({color:0xffffff,transparent:true,opacity:.07,roughness:.08,clearcoat:1,clearcoatRoughness:.08,depthWrite:false});
+  const eyePositions=[],eyeUV=[],eyeIndices=[];
+  for(const loop of [[33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246],[263,249,390,373,374,380,381,382,362,398,384,385,386,387,388,466]]){
+    const points=loop.map(i=>new THREE.Vector3(...data.positions.slice(i*3,i*3+3)));
+    const center=points.reduce((sum,p)=>sum.add(p),new THREE.Vector3()).multiplyScalar(1/points.length),offset=eyePositions.length/3;
+    eyePositions.push(center.x,center.y,center.z+.005);eyeUV.push(.5,.5);
+    for(let i=0;i<points.length;i++){const p=points[i];eyePositions.push(p.x,p.y,p.z+.001);eyeUV.push(i/points.length,0);eyeIndices.push(offset,offset+i+1,offset+(i+1)%points.length+1);}
+  }
+  for(let i=0;i<eyeIndices.length;i+=3){
+    const[a,b,c]=eyeIndices.slice(i,i+3).map(j=>new THREE.Vector3(...eyePositions.slice(j*3,j*3+3)));
+    if(b.sub(a).cross(c.sub(a)).z<0)[eyeIndices[i+1],eyeIndices[i+2]]=[eyeIndices[i+2],eyeIndices[i+1]];
+  }
+  const corneas=new THREE.Mesh(surfaceGeometry(THREE,eyePositions,eyeUV,eyeIndices),eyeMaterial);corneas.name='corneal-highlights';head.add(corneas);
   return face;
 }

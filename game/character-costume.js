@@ -1,4 +1,4 @@
-import {loft,ribbon} from './character-geometry.js';
+import {loft,ribbon,surfaceGeometry} from './character-geometry.js';
 
 // Clothes are cut around the body: a short travelling mantle for Han Li,
 // a fitted bodice / skirt for Nangong Wan, and a long wrapped coat for elders.
@@ -10,22 +10,30 @@ export function dressCultivator(THREE,{body,p,m,add,line,ellipsoid,motions}){
   const skirtRows=female?
     [[.12,.38,.235],[.35,.32,.21],[.72,.265,.17],[1.08,.24,.16],[1.26,.218,.147],[1.42,.175,.123]]:
     [[hem,.345*width,.23],[.65,.32*width,.217],[.94,.29*width,.2],[1.16,.255*width,.172],[1.36,.22*width,.148]];
-  const skirt=garment(body,skirtRows,m.inner,{folds:.008,pleats:17,drape:.012,steps:30,segments:44});
+  const skirt=garment(body,skirtRows,m.inner,{folds:.014,pleats:11,drape:.009,steps:36,segments:48});
   skirt.name='inner-pleated-robe';
   // A split tabard leaves the boots and trouser legs visible on a travelling disciple.
   const outerRows=female?
     [[.15,.405,.25],[.39,.335,.224],[.76,.274,.183],[1.13,.247,.173],[1.42,.18,.135]]:
     [[hem+.055,.365*width,.25],[.69,.34*width,.238],[.96,.305*width,.217],[1.18,.267*width,.187],[1.36,.23*width,.163]];
   const opening=female?.59:travel?.65:.29;
-  const outer=garment(body,outerRows,m.robe,{start:opening,end:Math.PI*2-opening,folds:.011,pleats:13,drape:.016,steps:34,segments:48});outer.name='layered-robe';
+  const outer=garment(body,outerRows,m.robe,{start:opening,end:Math.PI*2-opening,folds:.013,pleats:9,drape:.009,steps:36,segments:48});outer.name='layered-robe';
   // Edges follow exactly the coat opening rather than floating straight gold wires.
   for(const side of [-1,1]){
-    const points=outerRows.map(([y,x,z])=>[side*x*Math.sin(opening),y,z*Math.cos(opening)+.009]).reverse();
+    const positions=outer.geometry.attributes.position;
+    const points=Array.from({length:37},(_,row)=>{
+      const i=row*49+(side<0?48:0);return[positions.getX(i),positions.getY(i),positions.getZ(i)+.003];
+    }).reverse();
     band(body,points,female?.033:.034,female?m.brocade:m.edge);
     line(body,points.map(([x,y,z])=>[x+side*.017,y,z+.003]),.0025,m.trim);
   }
   // Curved hem edging; no solid ring bridging the split at the front.
-  garment(body,[[hem+.055,outerRows[0][1]+.003,outerRows[0][2]+.003],[hem+.09,outerRows[0][1]+.002,outerRows[0][2]+.002]],m.edge,{start:opening,end:Math.PI*2-opening,steps:3,segments:48,folds:.011,pleats:13,foldRange:[hem+.055,1.36]});
+  const hemP=[],hemUV=[],hemI=[],cloth=outer.geometry.attributes.position;
+  for(let row=0;row<2;row++)for(let i=0;i<=48;i++){
+    const k=row*49+i;hemP.push(cloth.getX(k)*1.006,cloth.getY(k),cloth.getZ(k)*1.006);hemUV.push(i/48,row);
+    if(!row&&i<48)hemI.push(i,i+1,i+50,i,i+50,i+49);
+  }
+  add(body,surfaceGeometry(THREE,hemP,hemUV,hemI),m.edge);
   const chestRows=female?
     [[1.37,.179,.128],[1.52,.19,.145],[1.7,.247,.176],[1.83,.267,.15],[1.92,.235,.115],[1.973,.145,.09],[2.015,.088,.078]]:
     [[1.3,.22*width,.148],[1.45,.235*width,.165],[1.68,.285*width,.183],[1.84,.329*width,.17],[1.92,.29*width,.135],[1.975,.165*width,.108],[2.015,.092,.084]];
@@ -33,23 +41,20 @@ export function dressCultivator(THREE,{body,p,m,add,line,ellipsoid,motions}){
   garment(body,chestRows,m.robe,{start:female?.8:.69,end:Math.PI*2-(female?.8:.69),folds:.004,drape:.008,steps:30,segments:44});
   if(female){
     garment(body,[[1.38,.178,.13],[1.53,.194,.15],[1.69,.248,.18],[1.84,.25,.145]],m.inner,{start:-.85,end:.85,folds:.003,steps:22,segments:26});
-    garment(body,[[1.84,.25,.145],[1.86,.251,.131],[1.94,.208,.1],[2.04,.075,.073]],m.skin,{start:-.82,end:.82,steps:18,segments:24});
+    // One continuous décolletage / neck surface prevents the visible stepped
+    // seam left by intersecting two open cylinders below the chin.
+    const neck=garment(body,[[1.82,.248,.146],[1.87,.237,.129],[1.93,.19,.102],[1.99,.105,.08],[2.045,.064,.064,0,-.012],[2.105,.072,.068,0,-.016]],m.skin,{steps:36,segments:48});neck.name='continuous-neck';
     band(body,[[-.21,1.83,.096],[-.12,1.84,.128],[0,1.815,.157],[.12,1.84,.128],[.21,1.83,.096]],.027,m.edge);
     for(const side of [-1,1]){
-      const pts=[[side*.083,2.012,.071],[side*.185,1.9,.12],[side*.215,1.76,.166],[side*.16,1.55,.158],[side*.128,1.4,.14]];
+      const pts=[[side*.075,2.005,-.045],[side*.102,1.994,.025],[side*.10,1.974,.079],[side*.185,1.9,.12],[side*.215,1.76,.166],[side*.16,1.55,.158],[side*.128,1.4,.14]];
       band(body,pts,.067,m.brocade);line(body,pts.map(([x,y,z])=>[x+side*.023,y,z+.008]),.003,m.trim);
-    }
-    // Delicate folded shoulder drape, distinct from the male crossed collar.
-    for(const side of [-1,1]){
-      
-      line(body,[[side*.095,1.93,.075],[side*.125,1.916,.099],[side*.17,1.918,.091]],.002,m.skin);
     }
   }else{
     garment(body,[[1.31,.212*width,.12,0,.027],[1.5,.236*width,.139,0,.032],[1.72,.278*width,.148,0,.04],[1.88,.262*width,.11,0,.025],[2.02,.078,.076]],m.inner,{folds:.003,drape:.004,steps:28,segments:40});
     // One overlapping lapel reads as a real cross collar; the old symmetric X
     // left two exposed diagonals all the way down the belly.
-    band(body,[[-.077,2.015,.083],[-.147,1.91,.135],[-.07,1.758,.19],[.005,1.68,.182]],.062,m.lining);
-    band(body,[[.078,2.015,.084],[.149,1.91,.138],[.02,1.735,.206],[-.13,1.53,.187],[-.17,1.36,.166]],travel?.09:.072,m.edge);
+    band(body,[[-.066,2.012,-.04],[-.081,2.003,.035],[-.077,1.978,.083],[-.147,1.91,.135],[-.07,1.758,.19],[.005,1.68,.182]],.062,m.lining);
+    band(body,[[.066,2.012,-.04],[.081,2.003,.035],[.078,1.978,.084],[.149,1.91,.138],[.02,1.735,.206],[-.13,1.53,.187],[-.17,1.36,.166]],travel?.09:.072,m.edge);
     line(body,[[.112,1.99,.09],[.175,1.905,.134],[.057,1.73,.213],[-.095,1.52,.196],[-.139,1.36,.175]],.003,m.trim);
     if(travel){
       // Short outer lapels frame the ochre under-robe, as in the early animation.
@@ -64,7 +69,7 @@ export function dressCultivator(THREE,{body,p,m,add,line,ellipsoid,motions}){
   for(const side of [-1,1]){
     const sash=new THREE.Group();sash.position.set(side*(female?.07:.12),beltY-.07,.185);body.add(sash);
     band(sash,[[0,0,0],[side*.025,-.2,.025],[side*.028,-.46,.048],[side*.07,-(female?.91:.67),.055]],female?.055:.027,female?m.sash:m.edge);
-    motions.push({node:sash,axis:'x',amount:.04,phase:side});
+    motions.push({node:sash,axis:'x',amount:.018,phase:side});
   }
   // Sparse sewn scrollwork on shoulders and front skirt. It follows the cloth
   // surface and uses the same batch material, instead of extra transparent quads.
@@ -82,19 +87,19 @@ export function dressCultivator(THREE,{body,p,m,add,line,ellipsoid,motions}){
   for(const side of [-1,1]){
     const arm=new THREE.Group();arm.position.set(side*(female?.258:.314*width),1.865,0);arm.name=side<0?'left-shoulder':'right-shoulder';body.add(arm);arms.push(arm);
     const elbowX=side*.09,wristX=side*.115;
-    ellipsoid(arm,m.robe,[-side*.006,-.048,0],[female?.11:.13,.102,female?.115:.137]);
     // All sleeves have a rounded deltoid, a soft elbow and an actual wrist.
     const sleeveRows=travel?
       [[-.445,.16,.137,elbowX,.013],[-.37,.168,.139,side*.085,0],[-.22,.135,.139,side*.045,0],[-.055,.14,.143,0,0],[.025,.108,.11,-side*.024,0]]:
-      female?[[ -.67,.137,.115,wristX,.025],[-.56,.155,.126,side*.11,.01],[-.4,.125,.113,side*.09,0],[-.20,.114,.115,side*.045,0],[-.045,.12,.12,0,0],[.025,.097,.099,-side*.019,0]]:
-      [[-.68,.157,.128,wristX,.015],[-.55,.161,.133,side*.10,0],[-.34,.131,.128,side*.075,0],[-.14,.132,.13,side*.036,0],[-.02,.14,.132,0,0],[.025,.1,.10,-side*.022,0]];
-    garment(arm,sleeveRows,m.robe,{folds:.008,drape:.011,pleats:9,steps:28,segments:32});
-    const cuffY=travel?-.445:-.68,cuffW=travel?.162:female?.139:.158;
-    garment(arm,[[cuffY-.007,cuffW+.003,.14,travel?elbowX:wristX,.015],[cuffY+.029,cuffW+.01,.142,travel?elbowX:wristX,.015]],m.edge,{steps:5,segments:32,folds:.003});
+      female?[[ -.67,.142,.116,wristX,.025],[-.54,.13,.109,side*.10,.012],[-.39,.098,.093,side*.08,.008],[-.22,.106,.106,side*.047,0],[-.06,.118,.113,0,0],[.025,.105,.102,-side*.019,0]]:
+      [[-.68,.157,.128,wristX,.015],[-.55,.144,.12,side*.10,0],[-.34,.12,.113,side*.075,0],[-.14,.128,.125,side*.036,0],[-.02,.14,.132,0,0],[.025,.12,.11,-side*.022,0]];
+    sleeveRows.push([.075,.073,.073,-side*.045,0],[.105,.001,.001,-side*.06,0]);
+    garment(arm,sleeveRows,m.robe,{folds:.007,drape:.007,pleats:7,steps:32,segments:36});
+    const cuffY=travel?-.445:-.68,cuffW=travel?.162:female?.143:.158,cuffD=travel?.139:female?.118:.13;
+    garment(arm,[[cuffY-.007,cuffW+.003,cuffD,travel?elbowX:wristX,.015],[cuffY+.022,cuffW+.005,cuffD+.002,travel?elbowX:wristX,.015]],m.edge,{steps:5,segments:32,folds:.002});
     if(travel){
       garment(arm,[[-.725,.065,.065,wristX,.02],[-.66,.075,.074,wristX,.022],[-.53,.09,.087,wristX,.022],[-.40,.096,.09,wristX,.022]],m.edge,{steps:16,segments:28,folds:.003});
       for(let j=0;j<6;j++){
-        const y=-.7+j*.043,r=.084+j*.003;
+        const y=-.7+j*.043,r=.071+j*.004;
         garment(arm,[[y,r,r,wristX,.022],[y+.012,r+.001,r+.001,wristX,.022]],m.lining,{steps:2,segments:24});
       }
       // Raised, embossed bracer plate covering the forearm wraps.
@@ -102,13 +107,25 @@ export function dressCultivator(THREE,{body,p,m,add,line,ellipsoid,motions}){
       for(const offset of [-.043,.043])line(arm,[[wristX+offset,-.69,.113],[side*.11+offset,-.56,.132],[elbowX+offset,-.44,.124]],.003,m.trim);
       line(arm,[[wristX,-.67,.118],[wristX-.025,-.59,.136],[wristX+.025,-.53,.137],[wristX,-.46,.127]],.004,m.trim);
     }else garment(arm,[[-.731,.06,.054,wristX,.023],[-.667,.069,.063,wristX,.023]],m.lining,{steps:5,segments:24});
-    const hand=new THREE.Group();hand.position.set(wristX,-.787,.025);arm.add(hand);
-    ellipsoid(hand,m.skin,[0,0,0],[.049,.065,.031]);
-    for(let finger=0;finger<4;finger++){
-      const x=(finger-1.5)*.022,end=-.105+(finger===0||finger===3?.014:0);
-      line(hand,[[x,-.028,.004],[x,-.071,.014],[x+side*.004,end,.027]],.0105,m.skin);
+    const hand=new THREE.Group();hand.name=side<0?'left-hand':'right-hand';hand.position.set(wristX,-.787,.025);arm.add(hand);
+    const grip=side>0&&p.armed;
+    ellipsoid(hand,m.skin,[0,.008,0],[.042,.061,.025]);
+    if(grip){
+      // Fingers wrap around the actual hilt at shoulder-local z=.115.
+      for(let finger=0;finger<4;finger++){
+        const y=.035-finger*.025;
+        line(hand,[[-.025,y,.008],[-.026,y,.055],[-.018,y,.103],[.018,y-.006,.106],[.03,y-.009,.077]],.0105,m.skin);
+      }
+      line(hand,[[.031,.042,.006],[.046,.014,.049],[.028,-.009,.069],[-.006,-.014,.076]],.012,m.skin);
+    }else{
+      const lengths=[.074,.086,.079,.06];
+      for(let finger=0;finger<4;finger++){
+        const x=(finger-1.5)*.020,end=-.04-lengths[finger],curl=.025+finger*.004;
+        line(hand,[[x,-.031,0],[x+side*.003,-.069,.009],[x+side*.008,end+.016,curl],[x+side*.01,end,curl+.014]],.009,m.skin);
+      }
+      line(hand,[[side*-.032,.018,.005],[side*-.053,-.014,.016],[side*-.048,-.045,.039],[side*-.035,-.058,.048]],.011,m.skin);
+      hand.rotation.y=side*.36;
     }
-    line(hand,[[side*-.035,.012,.005],[side*-.058,-.018,.024],[side*-.052,-.049,.038]],.013,m.skin);
     if(p.shoulders)for(let j=0;j<3;j++){
       const plate=ellipsoid(arm,m.silver,[side*(.012+j*.022),-.013-j*.035,0],[.14-j*.014,.045,.14]);plate.rotation.z=-side*.3;
     }

@@ -48,3 +48,19 @@ test('背面外袍遮住内衬，衣发摆动不覆盖斗法关节姿态',async(
   const pose=actor.userData.motions.map(m=>m.node.rotation[m.axis]);animateCultivator(actor,1.3,true);
   assert.notDeepEqual(actor.userData.motions.map(m=>m.node.rotation[m.axis]),pose);
 });
+
+test('闭合衣料的 UV 接缝不形成光照裂缝，双眼高光朝向面部前方',async()=>{
+  const {loft}=await import('./character-geometry.js');
+  const geometry=loft(THREE,[[0,.2,.13],[.5,.28,.2],[1,.18,.12]],{segments:32,steps:20,folds:.008});
+  const normals=geometry.attributes.normal;
+  for(let row=0;row<=20;row++){
+    const left=new THREE.Vector3().fromBufferAttribute(normals,row*33);
+    const right=new THREE.Vector3().fromBufferAttribute(normals,row*33+32);
+    assert.ok(left.distanceTo(right)<1e-6,'同一位置的法线必须连续');
+  }
+  geometry.dispose();
+  const actor=createCultivatorActor(THREE,{id:'ji'}),eyes=actor.getObjectByName('corneal-highlights');
+  const eyeNormals=eyes.geometry.attributes.normal;
+  for(let i=0;i<eyeNormals.count;i++)assert.ok(eyeNormals.getZ(i)>0,'左右眼不能有一面反向消失');
+  assert.ok(actor.getObjectByName('continuous-neck'));
+});

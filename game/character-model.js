@@ -34,6 +34,7 @@ export const CHARACTER_PROFILES = {
 export function createCultivatorActor(THREE,{id='player',name=null,label,palette={},enemy=null}={}) {
   const p={robe:0x4c5e54,inner:0xaaa993,trim:0x9a8a63,hair:0x15181b,skin:0xc5a58f,...palette,...CHARACTER_PROFILES[id]};
   p.face||=p.female?'mocaihuan':p.elder?'modafu':p.stout?'zhangtie':'examiner';
+  p.armed=Boolean(p.sword||p.giantSword||enemy||id==='wen');
   const root=new THREE.Group(),body=new THREE.Group();root.add(body);body.name='cultivator-body';
   const m=characterMaterials(THREE,p),protectedNodes=new Set(),motions=[];
   const add=(parent,geometry,material,x=0,y=0,z=0,name='')=>{
@@ -56,8 +57,8 @@ export function createCultivatorActor(THREE,{id='player',name=null,label,palette
     }
   }
   const arms=dressCultivator(THREE,{body,p,m,add,line,ellipsoid,motions});
-  garment(body,[[1.96,.083,.074],[2.055,.071,.069],[2.09,.078,.073]],m.skin,{steps:10,segments:24});
-  const head=new THREE.Group();head.name='anatomical-head';head.position.set(0,p.female?2.25:2.275,p.elder?.035:0);if(p.female)head.scale.setScalar(.92);body.add(head);
+  if(!p.female)garment(body,[[1.96,.083,.074],[2.055,.071,.069],[2.11,.078,.073]],m.skin,{steps:16,segments:32});
+  const head=new THREE.Group();head.name='anatomical-head';head.position.set(0,p.female?2.225:2.275,p.elder?.035:0);if(p.female)head.scale.setScalar(.92);head.rotation.x=.025;body.add(head);
   createCharacterFace(THREE,head,p,m.skin);
   for(const side of [-1,1]){
     ellipsoid(head,m.skin,[side*.151,-.008,.004],[.022,.044,.019]);
@@ -109,9 +110,13 @@ export function createCultivatorActor(THREE,{id='player',name=null,label,palette
     if(name&&label){const caption=label(enemy.rewardName||`${name} · 储物袋`,{width:290,font:28,color:'#f2d48c'});caption.position.y=1.65;bag.add(caption);}
   }
   for(const [i,arm] of arms.entries()){
-    const rest=new THREE.Group();rest.name='relaxed-arm';rest.rotation.x=-.045;rest.rotation.z=i===0?-.035:.035;
+    const rest=new THREE.Group();rest.name='relaxed-arm';rest.rotation.x=i===0?-.09:-.15;rest.rotation.y=i===0?.12:-.10;rest.rotation.z=i===0?.025:-.018;
     for(const child of [...arm.children])rest.add(child);arm.add(rest);
   }
+  // An inner stance node gives the figure a relaxed weight shift without
+  // overwriting the outer body/arm joints owned by combat and map movement.
+  const stance=new THREE.Group();stance.name='natural-stance';stance.rotation.z=p.female?-.016:.009;
+  for(const child of [...body.children])stance.add(child);body.add(stance);
   batchCharacterMeshes(THREE,body,protectedNodes);
   root.traverse(child=>{child.userData.personId=id;if(child.material===m.hair||child.material===m.hairGlint)child.receiveShadow=false;});
   return root;

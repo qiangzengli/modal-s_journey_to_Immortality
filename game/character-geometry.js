@@ -21,7 +21,19 @@ export function loft(THREE, sections, {segments=40, steps=32, start=0, end=Math.
       if(i<segments&&j<steps){const k=j*(segments+1)+i;indices.push(k,k+1,k+segments+2,k,k+segments+2,k+segments+1);}
     }
   }
-  return surfaceGeometry(THREE,positions,uvs,indices);
+  const geometry=surfaceGeometry(THREE,positions,uvs,indices);
+  if(Math.abs(end-start-Math.PI*2)<1e-5)weldSeamNormals(THREE,geometry,segments,steps);
+  return geometry;
+}
+// UV seams remain split, but a closed piece of cloth must have continuous light.
+export function weldSeamNormals(THREE,geometry,segments,steps){
+  const normals=geometry.attributes.normal;
+  for(let row=0;row<=steps;row++){
+    const first=row*(segments+1),last=first+segments;
+    const n=new THREE.Vector3().fromBufferAttribute(normals,first).add(new THREE.Vector3().fromBufferAttribute(normals,last)).normalize();
+    normals.setXYZ(first,n.x,n.y,n.z);normals.setXYZ(last,n.x,n.y,n.z);
+  }
+  return geometry;
 }
 export function surfaceGeometry(THREE, positions,uvs,indices){
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));g.setIndex(indices);g.computeVertexNormals();return g;
@@ -50,7 +62,7 @@ export function lockGeometry(THREE,points,width,depth,{steps=22,sides=8}={}){
       if(i<steps&&j<sides){const k=i*(sides+1)+j;indices.push(k,k+1,k+sides+1,k+1,k+sides+2,k+sides+1);}
     }
   }
-  return surfaceGeometry(THREE,positions,uvs,indices);
+  return weldSeamNormals(THREE,surfaceGeometry(THREE,positions,uvs,indices),sides,steps);
 }
 // Merge static pieces per material and joint. Animation handles and named features stay intact.
 export function batchCharacterMeshes(THREE,root,protectedNodes=new Set()){

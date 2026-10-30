@@ -4,22 +4,24 @@ const hairTextures=new WeakMap();
 const brocades=new WeakMap();
 function embroideredSilk(THREE){
   if(brocades.has(THREE))return brocades.get(THREE);
-  const w=128,h=512,data=new Uint8Array(w*h*4),base=[168,140,157],gold=[186,164,104],petal=[149,89,89];
+  const w=192,h=768,data=new Uint8Array(w*h*4),base=[155,128,146],gold=[175,151,101],petal=[136,87,103];
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const u=x/w,v=y/h,stem=.5+.14*Math.sin(v*Math.PI*8);
+    const u=x/w,v=y/h,stem=.5+.13*Math.sin(v*Math.PI*12);
     let color=base;
-    if(Math.abs(u-stem)<.014||u<.025||u>.975)color=gold;
-    for(let j=0;j<8;j++){
-      const cy=(j+.5)/8,side=j%2?1:-1,cx=.5+.14*Math.sin(cy*Math.PI*8)+side*.13;
-      const dx=(u-cx)*.7,dy=(v-cy)*3,angle=side*.6;
-      const a=dx*Math.cos(angle)-dy*Math.sin(angle),b=dx*Math.sin(angle)+dy*Math.cos(angle);
-      const d=a*a/.004+b*b/.019;
-      if(d<1)color=d>.7?gold:petal;
+    if(Math.abs(u-stem)<.006||Math.abs(u-.045)<.008||Math.abs(u-.955)<.008)color=gold;
+    for(let j=0;j<6;j++){
+      const cy=(j+.5)/6,side=j%2?1:-1,cx=.5+side*.15;
+      const dx=(u-cx),dy=(v-cy)*3.7,angle=Math.atan2(dy,dx),r=Math.hypot(dx,dy),edge=.10*(1+.3*Math.cos(angle*5));
+      if(r<edge)color=r>edge-.012?gold:petal;
+      if(r<.021)color=gold;
+      const lx=(u-(.5-side*.13)),ly=(v-cy+.045)*3.7;
+      const leaf=lx*lx/.006+(ly+side*lx*.7)**2/.0013;
+      if(leaf<1)color=leaf>.5?gold:[130,132,112];
     }
-    const grain=((x*17+y*31)%7)-3;
-    data.set([...color.map(c=>c+grain),255],(y*w+x)*4);
+    const stitch=((x+y*2)%5===0?-7:0)+((x*17+y*31)%7)-3;
+    data.set([...color.map(c=>c+stitch),255],(y*w+x)*4);
   }
-  const texture=new THREE.DataTexture(data,w,h);texture.colorSpace=THREE.SRGBColorSpace;texture.needsUpdate=true;
+  const texture=new THREE.DataTexture(data,w,h);texture.colorSpace=THREE.SRGBColorSpace;texture.generateMipmaps=true;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.magFilter=THREE.LinearFilter;texture.needsUpdate=true;
   brocades.set(THREE,texture);return texture;
 }
 function hairGrooves(THREE){
@@ -30,7 +32,7 @@ function hairGrooves(THREE){
     const value=Math.round(150+30*Math.sin(t*2.9)+18*Math.sin(t*5.1));
     data.set([value,value,value,255],(y*size+x)*4);
   }
-  const texture=new THREE.DataTexture(data,size,size);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.needsUpdate=true;
+  const texture=new THREE.DataTexture(data,size,size);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.generateMipmaps=true;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.magFilter=THREE.LinearFilter;texture.needsUpdate=true;
   hairTextures.set(THREE,texture);return texture;
 }
 function weave(THREE){
@@ -40,7 +42,7 @@ function weave(THREE){
     const warp=Math.sin(x*Math.PI/2)*11,weft=Math.cos(y*Math.PI/2)*8,grain=((x*37+y*71)%17)-8;
     const value=Math.round(190+warp+weft+grain);const i=(y*size+x)*4;data.set([value,value,value,255],i);
   }
-  const texture=new THREE.DataTexture(data,size,size);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(5,7);texture.needsUpdate=true;
+  const texture=new THREE.DataTexture(data,size,size);texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(5,7);texture.generateMipmaps=true;texture.minFilter=THREE.LinearMipmapLinearFilter;texture.magFilter=THREE.LinearFilter;texture.needsUpdate=true;
   caches.set(THREE,texture);return texture;
 }
 export function characterMaterials(THREE,p){
@@ -49,8 +51,10 @@ export function characterMaterials(THREE,p){
     const m=new THREE.MeshPhysicalMaterial({color,roughness:p.female?.65:.86,sheen:p.female?.38:.12,sheenRoughness:.75,sheenColor:0xbfb3ac,side:THREE.DoubleSide});
     m.bumpMap=weave(THREE);m.bumpScale=.0012;return m;
   };
-  const hair=material(p.hair,.67);hair.bumpMap=hairGrooves(THREE);hair.bumpScale=.0013;
+  const hair=new THREE.MeshPhysicalMaterial({color:p.hair,roughness:.6,clearcoat:.08,clearcoatRoughness:.65});hair.bumpMap=hairGrooves(THREE);hair.bumpScale=.007;
   const edge=cloth(p.edge||p.inner),brocade=p.face==='nangong'?cloth(0xffffff):edge;
   if(brocade!==edge)brocade.map=embroideredSilk(THREE);
-  return {robe:cloth(p.robe),inner:cloth(p.inner),edge,brocade,lining:cloth(p.female?0xd3c0bd:0xbcb9a8),sash:cloth(p.sash||p.trim),trim:material(p.trim,.58,.42),skin:material(p.skin,.82),hair,hairGlint:material(p.hairGlint||0x211f1c,.9),leather:material(p.leather||0x302c2b,.8),silver:material(0xb5bcc0,.32,.8),jade:material(0x527f64,.3,.1),red:cloth(0x872f35),dark:material(0x272329,.9)};
+  const skin=new THREE.MeshPhysicalMaterial({color:p.skin,roughness:.64,clearcoat:.055,clearcoatRoughness:.55});
+  const hairGlint=hair.clone();hairGlint.color.setHex(p.hairGlint||0x302d29);hairGlint.roughness=.55;
+  return {robe:cloth(p.robe),inner:cloth(p.inner),edge,brocade,lining:cloth(p.female?0xd3c0bd:0xbcb9a8),sash:cloth(p.sash||p.trim),trim:material(p.trim,.48,.55),skin,hair,hairGlint,leather:material(p.leather||0x302c2b,.69),silver:material(0xb5bcc0,.32,.8),jade:new THREE.MeshPhysicalMaterial({color:0x527f64,roughness:.26,clearcoat:.5,clearcoatRoughness:.18}),red:cloth(0x872f35),dark:material(0x272329,.9)};
 }

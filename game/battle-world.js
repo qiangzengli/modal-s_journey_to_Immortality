@@ -9,13 +9,16 @@ export function createBattleWorld(renderer, makePerson, THREE) {
   scene.background = new THREE.Color(0x14232b);
   scene.fog = new THREE.Fog(0x14232b, 24, 58);
   const camera = new THREE.OrthographicCamera(-12,12,6,-6,.1,100);
-  scene.add(new THREE.HemisphereLight(0xb9dfef,0x283b32,2.2));
+  scene.add(new THREE.HemisphereLight(0xd5dfe4,0x283b32,1.55));
   const sun = new THREE.DirectionalLight(0xf9deb1,3.6);
-  sun.position.set(-5,12,7);scene.add(sun);
+  sun.position.set(-5,12,7);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);
+  Object.assign(sun.shadow.camera,{left:-10,right:10,top:10,bottom:-10,near:.5,far:35});
+  sun.shadow.normalBias=.018;sun.shadow.bias=-.00015;scene.add(sun);
   const rim = new THREE.DirectionalLight(0x8ab9dc,2.2);
   rim.position.set(6,5,-7);scene.add(rim);
   function mesh(geometry, color, x=0,y=0,z=0, basic=false) {
     const object=new THREE.Mesh(geometry,basic?new THREE.MeshBasicMaterial({color,transparent:true,opacity:.75}):new THREE.MeshStandardMaterial({color,roughness:.8}));
+    object.receiveShadow=!basic;
     object.position.set(x,y,z);scene.add(object);return object;
   }
   function ring(radius,color,y=.075) {

@@ -1,51 +1,57 @@
-import {surfaceGeometry,lockGeometry,loft} from './character-geometry.js';
+import {surfaceGeometry,lockGeometry,loft,weldSeamNormals} from './character-geometry.js';
+import {CHARACTER_FACES} from './character-face-data.js';
 
 // Sculpted clumps sit on a complete scalp. Smaller strands trace each clump's
 // sweep; there is no conical cap or repeated vertical "spaghetti" fringe.
 export function styleCultivatorHair(THREE,{head,p,m,add,line,ellipsoid,motions}){
   const female=p.female,travel=p.costume==='disciple';
-  const vertices=[],uvs=[],indices=[],sides=48,rows=22;
+  const vertices=[],uvs=[],indices=[],sides=72,rows=30;
+  const face=CHARACTER_FACES[p.face]||CHARACTER_FACES.examiner;
+  const hairline=new THREE.CatmullRomCurve3([127,162,21,54,103,67,109,10,338,297,332,284,251,389,356].map(i=>new THREE.Vector3(...face.positions.slice(i*3,i*3+3))));
+  // A single continuous scalp is fitted to the actual forehead boundary.
+  // Front and rear share their temple positions, avoiding intersecting caps.
+  const scalp=(a,v)=>{
+    const front=Math.cos(a)>=0,u=(Math.sin(a)+1)/2;
+    const temple=hairline.getPoint(Math.sin(a)<0?0:1),q=front?hairline.getPoint(u):temple.clone();
+    if(!front){const t=-Math.cos(a);q.set(Math.sin(a)*Math.abs(temple.x),temple.y*(1-t)-.13*t,temple.z*(1-t)-.172*t);}
+    q.x*=1.10;q.y-=.018;q.z+=.015;
+    const t=v*Math.PI/2,volume=Math.sin(v*Math.PI),ridge=.001*Math.cos(a*27+v*5)*volume;
+    return[q.x*Math.sin(t),.266+(q.y-.266)*(1-Math.cos(t))+ridge,-.03+(q.z+.03)*Math.sin(t)+Math.cos(a)*.014*volume+ridge];
+  };
   for(let j=0;j<=rows;j++)for(let i=0;i<=sides;i++){
     const a=i/sides*Math.PI*2,v=j/rows;
-    const edge=0.85+1.77*(1-Math.cos(a))/2;
-    const theta=v*edge,ripple=.0017*Math.cos(a*31+theta*4);
-    vertices.push((.169+ripple)*Math.sin(theta)*Math.sin(a),.039+(.217+ripple)*Math.cos(theta),-.005+(.18+ripple)*Math.sin(theta)*Math.cos(a)*(1-.35*Math.pow(v,7)*Math.pow(Math.max(0,Math.cos(a)),2)));uvs.push(i/sides,v);
+    vertices.push(...scalp(a,v));uvs.push(i/sides,v);
     if(i<sides&&j<rows){const k=j*(sides+1)+i;indices.push(k,k+sides+1,k+1,k+1,k+sides+1,k+sides+2);}
   }
-  add(head,surfaceGeometry(THREE,vertices,uvs,indices),m.hair,0,0,0);
-  const lock=(parent,pts,w,d,name='')=>add(parent,lockGeometry(THREE,pts,w,d,{steps:18,sides:8}),m.hair,0,0,0,name);
-  // Individual grooves follow the skull instead of separate bulky tube locks.
+  add(head,weldSeamNormals(THREE,surfaceGeometry(THREE,vertices,uvs,indices),sides,rows),m.hair,0,0,0);
+  const lock=(parent,pts,w,d,name='',material=m.hair)=>add(parent,lockGeometry(THREE,pts,w,d,{steps:w<.002?14:20,sides:w<.002?4:8}),material,0,0,0,name);
   for(const side of [-1,1]){
-    if(female){
-      lock(head,[[side*.105,.181,.094],[side*.163,.115,.066],[side*.174,.036,-.004],[side*.146,-.04,-.063]],.018,.008);
-    }
-    lock(head,[[side*.142,.112,.069],[side*.157,.026,.026],[side*.15,-.105,.009]],.009,.005);
-  }
-  if(travel||female){
-    // Two narrow face-framing strands, long enough to reach the collar.
-    for(const side of [-1,1]){
+    lock(head,[[side*.138,.12,.115],[side*.169,.045,.06],[side*.161,-.06,.019],[side*.15,-.115,.016]],.016,.008);
+    if(travel||female){
       const strand=new THREE.Group();head.add(strand);
-      const pts=[[side*.13,.123,.115],[side*.155,-.02,.116],[side*.164,-.22,.12],[side*.19,-.42,.162],[side*.21,-.64,.173]];
-      lock(strand,pts,female?.023:.014,.008);
-
-      motions.push({node:strand,axis:'x',amount:.016,phase:side});
+      const pts=[[side*.132,.13,.125],[side*.158,.005,.109],[side*.162,-.15,.115],[side*.175,-.31,.135],[side*.19,-(female?.47:.39),.152]];
+      lock(strand,pts,female?.017:.012,.006);
+      lock(strand,pts.map(([x,y,z],i)=>[x+side*.007,y+(i===4?.04:0),z-.004]),.006,.003);
+      motions.push({node:strand,axis:'x',amount:.012,phase:side});
     }
   }
-  const bun=ellipsoid(head,m.hair,[0,.237,-.08],[female?.071:.059,.064,.06]);
+  // A coiled bun follows a swept path instead of a single sphere perched on top.
+  const coil=Array.from({length:18},(_,i)=>{const a=i/17*Math.PI*3.8;return[Math.sin(a)*.055,.235+Math.cos(a)*.038,-.082-i/17*.035]});
+  lock(head,coil,.023,.019);
   if(!female){
     add(head,loft(THREE,[[.22,.061,.054,0,-.08],[.238,.060,.053,0,-.08]],{steps:3,segments:24}),m.edge);
-    line(head,[[-.1,.232,-.08],[.1,.232,-.08]],.006,m.trim);
+    line(head,[[-.1,.232,-.08],[.1,.232,-.08]],.0045,m.trim);
   }
   if(p.longHair||p.ponytail||p.elder){
     const hair=new THREE.Group();hair.name=p.ponytail?'tied-ponytail':'long-hair';hair.position.set(0,.19,-.105);head.add(hair);
-    const count=p.ponytail?7:11,spread=p.ponytail?.095:.24,length=p.elder?.90:female?1.18:1.02;
+    const count=p.ponytail?7:11,spread=p.ponytail?.13:.30,length=p.elder?.90:female?1.18:1.02;
     for(let j=0;j<count;j++){
-      const x=(j/(count-1)-.5)*spread;
-      const pts=[[x*.38,0,0],[x,-.16,-.10],[x*1.12,-.4,-.146],[x*.95+.024,-.7,-.155],[x*.6+.045,-length+(j%3)*.025,-.112]];
-      lock(hair,pts,p.ponytail?.025:.027,.016);
-      for(let k=0;k<2;k++)line(hair,pts.map(([a,b,c])=>[a+(k-.5)*.006,b,c-.013]),.0008,m.hairGlint);
+      const u=j/(count-1),x=(u-.5)*spread,edge=Math.abs(u-.5)*2;
+      const pts=[[x*.30,0,0],[x*.85,-.17,-.10],[x*1.08,-.43,-.15],[x*.95+.025,-.72,-.17],[x*.72+.045,-length+edge*.14+(j%2)*.045,-.13]];
+      lock(hair,pts,p.ponytail?.031:.037,.019);
+      for(let k=0;k<3;k++)lock(hair,pts.map(([a,b,c])=>[a+(k-1)*.009,b,c-.018]),.0014,.0009,'',m.hair);
     }
-    motions.push({node:hair,axis:'x',amount:.03,phase:.5});
+    motions.push({node:hair,axis:'x',amount:.022,phase:.5});
   }
   if(p.beard){
     const beard=new THREE.Group();beard.name='elder-beard';head.add(beard);

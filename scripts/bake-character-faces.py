@@ -46,12 +46,20 @@ for path in sorted(args.input.glob('*.landmarks.json')):
  if name=='wangchan': gain=np.clip(gain,.85,1.16)
  data=np.clip(data*gain,0,255).astype('uint8')
  if name in ['hanli','nangong']:
-  # Remove the large baked-in light gradient from the animation frame. Small
-  # features (lids, lips, brows) remain; live game lights now shape the cheeks.
-  luminance=data.astype(float).mean(axis=2)
-  illumination=cv2.GaussianBlur(luminance,(0,0),crop.width*.11)
-  correction=np.clip(np.median(illumination)/np.maximum(illumination,1),.72,1.42)
-  data=np.clip(data*(.35+.65*correction[...,None]),0,255).astype('uint8')
+  # Estimate lighting from skin only. Eyes, brows, lips and dark hair must not
+  # contaminate the field, otherwise the old blur baked orange nose shadows into
+  # the albedo and the game lit the face a second time against a much paler neck.
+  valid=Image.new('L',crop.size,0);draw=ImageDraw.Draw(valid)
+  local=pixels-np.array(box[:2]);draw.polygon([tuple(local[i]) for i in boundary],fill=255)
+  exclusions=[loops[0],loops[1],loops[2],[70,63,105,66,107,55,65,52,53,46],[300,293,334,296,336,285,295,282,283,276]]
+  excluded=Image.new('L',crop.size,0)
+  for loop in exclusions:ImageDraw.Draw(excluded).polygon([tuple(local[i]) for i in loop],fill=255)
+  excluded=cv2.dilate(np.array(excluded),np.ones((max(3,crop.width//35),)*2,np.uint8))
+  weight=(np.array(valid)/255)*(excluded==0)*(data.mean(axis=2)>65)
+  sigma=crop.width*.13;denominator=cv2.GaussianBlur(weight,(0,0),sigma)
+  field=np.stack([cv2.GaussianBlur(data[:,:,i]*weight,(0,0),sigma)/np.maximum(denominator,.001) for i in range(3)],axis=2)
+  correction=np.clip(target/np.maximum(field,1),.68,1.8)
+  data=np.clip(data*(.12+.88*correction),0,255).astype('uint8')
  mask=Image.new('L',crop.size,0);ImageDraw.Draw(mask).polygon([tuple(pixels[i]-np.array(box[:2])) for i in boundary],fill=255)
  distance=cv2.distanceTransform(np.array(mask),cv2.DIST_L2,5)
  blend=np.clip(distance/(crop.width*.09),0,1)[...,None]
