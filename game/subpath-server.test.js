@@ -39,7 +39,10 @@ test('子目录反向代理：全部资源、立绘和真实读写请求留在�
     proxy.listen(0,'127.0.0.1');await once(proxy,'listening');
     const entry=`http://127.0.0.1:${proxy.address().port}/niminglu/`;
     const home=await(await nativeFetch(entry)).text();
+    assert.equal(JSON.parse(home.match(/<script type="importmap">([^<]+)<\/script>/)[1]).imports.three,'./vendor/three.module.js');
+    assert.equal((await nativeFetch(entry+'assets/characters/models/manifest.json')).status,200);
     const queued=[...home.matchAll(/(?:href|src)="([^" ]+\.(?:js|css))"/g)].map(match=>new URL(match[1],entry).href),seen=new Set();
+    queued.push(entry+'vendor/addons/loaders/GLTFLoader.js',entry+'vendor/addons/utils/SkeletonUtils.js');
     while(queued.length){
       const url=queued.shift();if(seen.has(url))continue;seen.add(url);
       assert.ok(url.startsWith(entry),`resource escaped the application: ${url}`);
@@ -51,6 +54,7 @@ test('子目录反向代理：全部资源、立绘和真实读写请求留在�
     }
     assert.ok(seen.has(entry+'game/app.js'));assert.ok(seen.has(entry+'game/api-client.js'));
     assert.ok(seen.has(entry+'vendor/three.core.js'));
+    assert.ok(seen.has(entry+'vendor/addons/utils/BufferGeometryUtils.js'));
     for(const match of cultivatorArt({bottle:true}).matchAll(/<image[^>]+href="([^"]+)"/g)){
       const url=new URL(match[1],entry);assert.ok(url.href.startsWith(entry));
       const response=await nativeFetch(url);assert.equal(response.status,200);assert.match(response.headers.get('content-type'),/image\/png/);

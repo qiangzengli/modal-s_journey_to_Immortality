@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test game/*.test.js"
+    "test": "node --test game/*.test.js",
+    "check:characters": "node scripts/check-character-assets.mjs",
+    "preview:characters": "node scripts/preview-characters.mjs"
   },
   "engines": {
     "node": ">=22.9"

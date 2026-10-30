@@ -3,6 +3,7 @@ import {characterMaterials} from './character-materials.js';
 import {createCharacterFace} from './character-face.js';
 import {dressCultivator} from './character-costume.js';
 import {styleCultivatorHair} from './character-hair.js';
+import {queueCharacterAsset} from './character-asset-client.js';
 
 export const CHARACTER_PROFILES = {
   player:{face:"hanli",costume:"disciple",robe:0xbfc5c3,inner:0x9a8968,trim:0x998666,edge:0x303e4a,leather:0x3b3028,hair:0x161514,skin:0xc8aa8c,ponytail:true,bottle:true,sword:true},
@@ -119,6 +120,7 @@ export function createCultivatorActor(THREE,{id='player',name=null,label,palette
   for(const child of [...body.children])stance.add(child);body.add(stance);
   batchCharacterMeshes(THREE,body,protectedNodes);
   root.traverse(child=>{child.userData.personId=id;if(child.material===m.hair||child.material===m.hairGlint)child.receiveShadow=false;});
+  queueCharacterAsset(root,THREE);
   return root;
 }
 

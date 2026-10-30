@@ -1,4 +1,5 @@
 import { animateCultivator } from './character-model.js';
+import { updateCharacterAsset } from './character-assets.js';
 import { ALL_ENEMIES as WANDERERS } from './combat-data.js';
 import { createBattleEffects, playerEffect, enemyEffect } from './battle-fx.js';
 import { createBattleCamera } from './battle-camera.js';
@@ -144,6 +145,7 @@ export function createBattleWorld(renderer, makePerson, THREE) {
     player.rotation.y=Math.PI/2;enemy.rotation.y=-Math.PI/2;
     enemy.scale.setScalar(width<700 && enemy.userData.kind==='beast' ? .8 : 1);
     const allies=Object.values(companions).filter(p=>p.actor.visible);
+    const actorFrames=new Map([player,enemy,...allies.map(p=>p.actor)].map(actor=>[actor,{elapsed}]));
     allies.forEach(({actor,name},i)=>{actor.position.set(-gap,.055,-2.1-i*1.9);actor.rotation.y=Math.PI/2;name.position.copy(actor.position).setY(3.1);});
     player.userData.body.rotation.z=0;
     for(const actor of [player,enemy,...allies.map(p=>p.actor)]){
@@ -155,7 +157,11 @@ export function createBattleWorld(renderer, makePerson, THREE) {
     }
     if(!animation){
       enemy.userData.body.rotation.z=view.battle.status==='won'?-.45:0;
-      for(const member of view.battle.team)if(member.hp<=0){const actor=member.id==='player'?player:companions[member.id]?.actor;if(actor)actor.userData.body.rotation.z=-.85;}
+      if(view.battle.status==='won')actorFrames.set(enemy,{elapsed,action:'defeat',progress:1});
+      for(const member of view.battle.team)if(member.hp<=0){
+        const actor=member.id==='player'?player:companions[member.id]?.actor;
+        if(actor){actor.userData.body.rotation.z=-.85;actorFrames.set(actor,{elapsed,action:'defeat',progress:1});}
+      }
     }
     playerName.position.set(-gap,3.3,0);enemyName.position.set(gap,3.3,0);
     playerName.visible=width>=700;enemyName.visible=width>=700;
@@ -174,17 +180,19 @@ export function createBattleWorld(renderer, makePerson, THREE) {
       const enemySwing=Math.sin(e*Math.PI);
       if(animation.attacking){
         const melee=animation.kind==='slash';
+        actorFrames.set(attacker,{elapsed,action:melee?'attack':'cast',progress:p});
         const direction=enemy.position.clone().sub(attacker.position).setY(0).normalize();
         attacker.position.addScaledVector(direction,swing*(melee?1.15:.25)*motion);
         const arm=animation.actorId==='ji'?attacker.userData.leftArm:attacker.userData.rightArm;
         arm.rotation.z=-swing*(melee?1.4:1.05);
         attacker.userData.body.rotation.x=-swing*.12*motion;
         if(attacker.userData.weapon)attacker.userData.weapon.rotation.z=-swing*(melee?1.6:.35);
-      }else if(animation.kind==='shield')attacker.userData.leftArm.rotation.z=Math.min(1,p*4)*.9;
+      }else if(animation.kind==='shield'){attacker.userData.leftArm.rotation.z=Math.min(1,p*4)*.9;actorFrames.set(attacker,{elapsed,action:'guard',progress:p});}
       else if(animation.kind==='escape')attacker.position.x-=swing*.65*motion;
       else attacker.userData.leftArm.rotation.z=swing*.5;
       if(animation.counter){
         const melee=['slash','heavy_slash'].includes(animation.response);
+        if(e>0)actorFrames.set(enemy,{elapsed,action:melee?'attack':'cast',progress:e});
         const direction=animation.defender.position.clone().sub(enemy.position).setY(0).normalize();
         enemy.position.addScaledVector(direction,enemySwing*(melee?.8:.12)*motion);
         enemy.userData.rightArm.rotation.z=-enemySwing*(melee?1.3:.7);
@@ -193,6 +201,8 @@ export function createBattleWorld(renderer, makePerson, THREE) {
       const impact=(progress,at)=>progress<at?0:Math.max(0,1-(progress-at)/.22);
       const playerHit=impact(p,animation.playerImpact)*(animation.attacking?1:0);
       const enemyHit=impact(e,animation.enemyImpact)*(animation.counter?1:0);
+      if(playerHit>0)actorFrames.set(enemy,{elapsed,action:'hit',progress:1-playerHit});
+      if(enemyHit>0)actorFrames.set(animation.defender,{elapsed,action:'hit',progress:1-enemyHit});
       enemy.userData.body.rotation.z=-playerHit*.18*motion;
       animation.defender.userData.body.rotation.z=enemyHit*.18*motion;
       for(const [actor,hit] of [[enemy,playerHit],[animation.defender,enemyHit]])for(const material of hitMaterials.get(actor)){material.emissive.setHex(0xe49d60);material.emissiveIntensity=hit*.3;}
@@ -206,7 +216,7 @@ export function createBattleWorld(renderer, makePerson, THREE) {
         animation.enemyShown=true;const hurt=animation.enemyLine.match(/损失 (\d+) 气血/);const heal=animation.enemyLine.match(/恢复 (\d+) 气血/);
         if(hurt)showNumber(`−${hurt[1]}`,animation.targetId,'#eeac94');else if(heal)showNumber(`+${heal[1]}`,'enemy','#a8dfb3');
       }
-      if(view.battle.status==='won'&&p>animation.playerImpact)enemy.userData.body.rotation.z=-.45;
+      if(view.battle.status==='won'&&p>animation.playerImpact){enemy.userData.body.rotation.z=-.45;actorFrames.set(enemy,{elapsed,action:'defeat',progress:Math.min(1,(p-animation.playerImpact)/(1-animation.playerImpact))});}
       if(time>=animation.duration)animation.finish();
     }
     fx.update();
@@ -216,6 +226,7 @@ export function createBattleWorld(renderer, makePerson, THREE) {
       if(age>1.5){scene.remove(effect.sprite);effect.sprite.material.map.dispose();effect.sprite.material.dispose();effects.splice(i,1);}
     }
     outer.material.opacity=.45+Math.sin(elapsed*.7)*.15;dust.rotation.y=elapsed*.018;
+    for(const [actor,frame]of actorFrames)updateCharacterAsset(actor,frame);
     orbit.update(cameraShake);
     renderer.render(scene,camera);
   }

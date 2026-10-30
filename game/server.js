@@ -1,7 +1,7 @@
 import { runtimePaths, loadGameEnvironment } from './runtime-paths.js';
 import { createServer } from 'node:http';
-import { readFile, mkdir, rename, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { readFile, mkdir, rename, writeFile, realpath } from 'node:fs/promises';
+import { dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ACTIONS, GameError, PEOPLE, advanceTurn, applyAction, createOpeningGame, getView, parseLocal } from './engine.js';
 import { combatAction, inventoryAction, ensureExploration } from './combat.js';
@@ -19,6 +19,7 @@ import { createWorldClock } from './world-clock.js';
 import { REGIONS } from './regions.js';
 import { VOLUME_ACTIONS, VOLUME_PEOPLE } from './volume-data.js';
 import { sectAction, reviewSectApplication } from './sects.js';
+import { validateCharacterManifest } from './character-asset-contract.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const projectRoot=dirname(root);
@@ -165,6 +166,10 @@ const files = {
   '/building-layout.js': ['building-layout.js', 'text/javascript; charset=utf-8'],
   '/mojiao-model.js': ['mojiao-model.js', 'text/javascript; charset=utf-8'],
   '/character-model.js': ['character-model.js', 'text/javascript; charset=utf-8'],
+  '/character-asset-contract.js': ['character-asset-contract.js', 'text/javascript; charset=utf-8'],
+  '/character-assets.js': ['character-assets.js', 'text/javascript; charset=utf-8'],
+  '/character-asset-client.js': ['character-asset-client.js', 'text/javascript; charset=utf-8'],
+  '/assets/characters/models/manifest.json': ['assets/characters/models/manifest.json', 'application/json; charset=utf-8'],
   '/character-costume.js': ['character-costume.js', 'text/javascript; charset=utf-8'],
   '/character-hair.js': ['character-hair.js', 'text/javascript; charset=utf-8'],
   '/character-geometry.js': ['character-geometry.js', 'text/javascript; charset=utf-8'],
@@ -194,10 +199,17 @@ const files = {
   '/battle-fx.js': ['battle-fx.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.module.js': ['../node_modules/three/build/three.module.js', 'text/javascript; charset=utf-8'],
   '/vendor/three.core.js': ['../node_modules/three/build/three.core.js', 'text/javascript; charset=utf-8'],
+  '/vendor/addons/loaders/GLTFLoader.js': ['../node_modules/three/examples/jsm/loaders/GLTFLoader.js', 'text/javascript; charset=utf-8'],
+  '/vendor/addons/utils/BufferGeometryUtils.js': ['../node_modules/three/examples/jsm/utils/BufferGeometryUtils.js', 'text/javascript; charset=utf-8'],
+  '/vendor/addons/utils/SkeletonUtils.js': ['../node_modules/three/examples/jsm/utils/SkeletonUtils.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8']
 };
 
 for (const id of ['hanli','nangong','wangchan','modafu','mocaihuan','lifeiyu','zhangtie','jinguang','quhun','gangmaster','examiner']) files[`/assets/characters/${id}-face.jpg`]=[`assets/characters/${id}-face.jpg`,'image/jpeg'];
+try{
+  const manifest=validateCharacterManifest(JSON.parse(await readFile(join(root,'assets/characters/models/manifest.json'),'utf8')));
+  for(const {file}of Object.values(manifest.characters))files['/assets/characters/models/'+file]=['assets/characters/models/'+file,'model/gltf-binary'];
+}catch(error){console.warn('角色资源清单不可用，将保留程序模型：',error.message);}
 
 // /game contains source modules, not a second edition or a separate save.
 for(const [path,asset]of Object.entries(files)) {
@@ -216,7 +228,16 @@ async function handle(req, res) {
   }
   if (req.method === 'GET' && files[path]) {
     const [file, type] = files[path];
-    const contents=await readFile(join(root,file));
+    let contents;
+    try{
+      let absolute=join(root,file);
+      if(type==='model/gltf-binary'){
+        const directory=await realpath(join(root,'assets/characters/models'));
+        absolute=await realpath(absolute);
+        if(!absolute.startsWith(directory+sep)){json(res,404,{error:'资源不存在。'});return;}
+      }
+      contents=await readFile(absolute);
+    }catch(error){if(error.code==='ENOENT'){json(res,404,{error:'资源不存在。'});return;}throw error;}
     res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' });
     res.end(contents);
     return;

@@ -1,5 +1,11 @@
 # 天南／血色禁地时期角色重建（造型候选）
 
+## 2026-10-30 完整模型接入接口
+
+地图与斗法已支持通过版本化清单异步替换为带骨骼的 GLB，并保留原有角色、动作、装备灵光、受击、名字和掉落接口。独立预览页新增本地导入、节点／动画映射、动作检查和单角色配置导出；发布前运行 `npm run check:characters`。
+
+**当前清单为空，仍显示现有程序模型。** 本轮完善的是资源接入能力，没有把验证用的简单骨骼模型充当正式美术，也不声称达到用户参考图的精细度。正式资产规格、接入步骤、错误处理与回退见 [高精度角色接入指南](CHARACTER_ASSET_INTEGRATION.md)。
+
 ## 2026-10-30 精修
 
 本轮用户提供的图片仅作为**精细程度**参照，不用于替换人物的衣装、配色或时期。韩立保留早期浅色短袖外衫与护腕，南宫婉保留浅紫衣装。
@@ -35,7 +41,7 @@
 - 王蝉：[2021 年燕家堡特别篇画面](https://k.sina.cn/article_7150531948_1aa34756c001012y9z.html?from=animation)，采用 `39fd-kiksqxh4362609.jpg` 的面具造型。
 - 面部拓扑来源：Google MediaPipe 的 [canonical_face_model.obj](https://github.com/google-ai-edge/mediapipe/blob/master/mediapipe/modules/face_geometry/data/canonical_face_model.obj)，Apache-2.0 许可证随 `game/assets/characters/LICENSE.mediapipe` 保存。坐标来自本地关键点提取并做比例、视角与对称调整；纹理做裁切、色彩整理与边缘融合。
 
-运行时资产在 `game/assets/characters/` 和 `game/character-face-data.js`。服务器仅为明确列出的 JPG 和客户端模块提供路由，不开放源码、密钥或存档目录。
+运行时资产在 `game/assets/characters/` 和 `game/character-face-data.js`。服务器仅为明确列出的 JPG、客户端模块、Three.js 加载器和清单登记的 GLB 提供路由，不开放服务端源码、密钥或存档目录。
 
 ## 本地复现与验收
 

@@ -1,4 +1,5 @@
 import { createCultivatorActor, animateCultivator } from './character-model.js';
+import { updateCharacterAsset } from './character-assets.js';
 import { createMojiaoActor } from './mojiao-model.js';
 import { createBuildingWorld } from './building-world.js';
 import { buildingWalkable } from './building-layout.js';
@@ -835,6 +836,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
     player.userData.body.position.y = moving ? Math.sin(elapsed * 12) * 0.07 : Math.sin(elapsed * 2.4) * 0.025;
     player.userData.leftArm.rotation.z = moving ? Math.sin(elapsed * 10) * 0.25 : -0.08;
     player.userData.rightArm.rotation.z = moving ? -Math.sin(elapsed * 10) * 0.25 : 0.08;
+    updateCharacterAsset(player,{elapsed,moving});
     if (moving && (moveX || moveZ)) player.rotation.y = Math.atan2(moveX, moveZ);
     else if (moving && destination) player.rotation.y = Math.atan2(destination.x - player.position.x, destination.z - player.position.z);
 
@@ -847,6 +849,7 @@ export function createWorld(container, { onSelectPerson, onSelectSite, onClearPe
       if (selectedId === actor.userData.id) actor.rotation.y = Math.atan2(player.position.x - actor.position.x, player.position.z - actor.position.z);
       const personView = view?.people.find(p => p.id === actor.userData.id);
       actor.userData.body.rotation.z = personView?.condition === '负伤' ? 0.12 : 0;
+      updateCharacterAsset(actor,{elapsed});
     }
     if (selectedId) ring.position.set(people[selectedId].position.x, 0.055, people[selectedId].position.z);
     ring.material.opacity = 0.5 + Math.sin(elapsed * 4) * 0.3;
